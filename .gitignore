@@ -1,0 +1,7 @@
+# Ignore files without extensions
+*
+!/**/
+!*.*
+
+# Emacs temp files
+*~
