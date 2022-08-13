@@ -1,15 +1,7 @@
 :- module printing.
 :- interface.
 
-:- import_module io.
-
-:- pred main(io::di, io::uo) is det.
-
-:- implementation.
-
-:- import_module list.
 :- import_module set.
-:- import_module pair.
 :- import_module string.
 
 :- type sentence
@@ -21,6 +13,11 @@
                set(sentence)). % C (the opponent culprits)
 
 :- pred print_step(int::in, tuple::in) is det.
+
+:- implementation.
+
+:- import_module list.
+
 :- pred print_step_list(list(sentence)::in) is det.
 :- pred print_step_list_brackets(list(sentence)::in) is det.
 :- func sentence_to_string(sentence) = string is det.
@@ -28,12 +25,6 @@
 :- pred puts(string::in) is det.
 % format(S, PolyTypes). Write string.format(S, PolyTypes) to stdout.
 :- pred format(string::in, list(poly_type)::in) is det.
-
-main(!IO) :-
-  D = fact("a") - fact("y") - fact("z"),
-  print_step(2,
-    tuple(list_to_set([snd(fst(D)), fact("b"), fact("c")]), 
-          list_to_set([not(fact("release"))]))).
 
 print_step(N, tuple(D, C)) :-
   format("*** Step %d\n", [i(N)]),
