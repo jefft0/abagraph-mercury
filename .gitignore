@@ -5,3 +5,10 @@
 
 # Emacs temp files
 *~
+
+# Mercury temp files
+*.c_date
+*.d
+*.exe
+*.mh
+*.o
