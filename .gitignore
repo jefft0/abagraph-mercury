@@ -10,7 +10,17 @@
 *.c
 *.c_date
 *.d
+*.date
+*.date2
+*.date3
 *.exe
+*.err
+*.err_date
+*.int
+*.int1
+*.int2
+*.int3
 *.mh
 *.mih
+*.module_dep
 *.o
