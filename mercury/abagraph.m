@@ -25,6 +25,11 @@ main(!IO) :-
 assumption(fact("a")).
 assumption(fact("b")).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% DERIVATION CONTROL: entry predicates
+
 derive(S) :-
   %retractall(proving(_)),
   %assert(proving(S)),
@@ -36,13 +41,14 @@ derive(S) :-
   %retractall(sols(_)),
   %assert(sols(1)),
   %derivation(InitTuple, 1, _Result, _),
-  %print_result(Result),
+  %TODO print_result(Result),
   %incr_sols.
   true.
 
 initial_derivation_tuple(
     PropUnMrk,
     step_tuple(PropUnMrk-set.init-PropGr, % PropUnMrk-PropM-PropGr
+               set.init-set.init,         % OppUnMrk-OppM (members of each are Claim-UnMrk-Mrk-Graph)
                D0,                        % D
                set.init)) :-              % C
   % PropUnMrk is already a set. Instead of findall, use the set filter.
@@ -53,6 +59,11 @@ initial_derivation_tuple(
   D0 = filter(assumption, PropUnMrk),
   %findall(V-[], member(V, O_PropUnMrk), PropGr).
   PropGr = map((func(V) = V-set.init), PropUnMrk).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% DERIVATION CONTROL: basic control structure
 
 %derivation(T, InN, Result, N) :-
 %  T = step_tuple(N)

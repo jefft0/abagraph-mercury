@@ -14,8 +14,17 @@
 
 :- type arg_graph == set(arg_graph_member).
 
+:- type opponent_state == pair(pair(pair(sentence,       % Claim
+                                         set(sentence)), % UnMrk
+                                         set(sentence)), % Mrk
+                                         arg_graph).     % Graph
+
+:- type opponent_arg_graph_set == pair(set(opponent_state),   % OppUnMrk
+                                       set(opponent_state)).  % OppMrk
+
 :- type step_tuple 
-   ---> step_tuple(pair(pair(set(sentence), set(sentence)), arg_graph), % Proponent unmarked-marked-graph
+   ---> step_tuple(pair(pair(set(sentence), set(sentence)), arg_graph), % PROPONENT potential argument graph
+                   opponent_arg_graph_set,                              % Opponent argument graph set
                    set(sentence),                                       % D (the proponent defences)
                    set(sentence)).                                      % C (the opponent culprits)
 
@@ -26,7 +35,7 @@
 :- import_module list.
 
 :- pred print_step_list(list(sentence)::in) is det.
-:- pred print_step_list_brackets(list(sentence)::in) is det.
+:- pred print_opponent_step_list(list(opponent_state)::in) is det.
 :- func sentence_to_string(sentence) = string is det.
 :- func sentence_set_to_string(set(sentence)) = string is det.
 :- func arg_graph_to_string(arg_graph) = string is det.
@@ -35,13 +44,13 @@
 % format(S, PolyTypes). Write string.format(S, PolyTypes) to stdout.
 :- pred format(string::in, list(poly_type)::in) is det.
 
-print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, D, C)) :-
+print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C)) :-
   format("*** Step %d\n", [i(N)]),
   format("P:    %s-%s-%s\n", [s(sentence_set_to_string(PropUnMrk)),
                               s(sentence_set_to_string(PropMrk)),
                               s(arg_graph_to_string(PropGr))]),
-  %format("O:    [", []),
-  %print_step_list(OppUnMrk),
+  format("O:    [", []),
+  print_opponent_step_list(to_sorted_list(OppUnMrk)),
   %format("G:    [", []),
   %print_step_list_brackets(G),
   format("D:    [", []),
@@ -58,14 +67,18 @@ print_step_list([H|T]) :-
     format("%s,\n       ", [s(sentence_to_string(H))]),
     print_step_list(T)).
 
-print_step_list_brackets([]) :-
+print_opponent_step_list([]) :-
   format("]\n", []).
-print_step_list_brackets([H|T]) :-
+print_opponent_step_list([Claim-UnMrk-Mrk-Graph|T]) :-
+  State = format("%s-%s-%s-%s", [s(sentence_to_string(Claim)),
+                                 s(sentence_set_to_string(UnMrk)),
+                                 s(sentence_set_to_string(Mrk)),
+                                 s(arg_graph_to_string(Graph))]),
   (if T = [] then
-    format("(%s)]\n", [s(sentence_to_string(H))])
+    format("%s]\n", [s(State)])
   else
-    format("(%s),\n       ", [s(sentence_to_string(H))]),
-    print_step_list_brackets(T)).
+    format("%s,\n       ", [s(State)]),
+    print_opponent_step_list(T)).
 
 sentence_to_string(fact(C)) = string.format("fact(%s)", [s(C)]).
 sentence_to_string(not(S)) = string.format("not(%s)", [s(sentence_to_string(S))]).
@@ -81,7 +94,7 @@ arg_graph_to_string(G) = Result :-
 
 :- pragma foreign_proc("C",
 puts(S::in),
-[promise_pure, may_call_mercury],
+[promise_pure],
 "
 fputs(S, stdout);
 ").
