@@ -8,6 +8,7 @@
 :- implementation.
 
 :- import_module list.
+:- import_module set.
 :- import_module pair.
 :- import_module string.
 
@@ -15,7 +16,11 @@
    ---> fact(string)
    ;    not(sentence).
 
-:- pred print_step(int::in, list(sentence)::in, list(sentence)::in) is det.
+:- type tuple 
+    ---> tuple(set(sentence),  % D (the proponent defences)
+               set(sentence)). % C (the opponent culprits)
+
+:- pred print_step(int::in, tuple::in) is det.
 :- pred print_step_list(list(sentence)::in) is det.
 :- pred print_step_list_brackets(list(sentence)::in) is det.
 :- func sentence_to_string(sentence) = string is det.
@@ -26,9 +31,11 @@
 
 main(!IO) :-
   D = fact("a") - fact("y") - fact("z"),
-  print_step(2, [snd(fst(D)), fact("b"), fact("c")], [not(fact("release"))]).
+  print_step(2,
+    tuple(list_to_set([snd(fst(D)), fact("b"), fact("c")]), 
+          list_to_set([not(fact("release"))]))).
 
-print_step(N, D, C) :-
+print_step(N, tuple(D, C)) :-
   format("*** Step %d\n", [i(N)]),
   %format("P:    ~w\n", [P]),
   %format("O:    [", []),
@@ -36,9 +43,9 @@ print_step(N, D, C) :-
   %format("G:    [", []),
   %print_step_list_brackets(G),
   format("D:    [", []),
-  print_step_list(D),
+  print_step_list(to_sorted_list(D)),
   format("C:    [", []),
-  print_step_list(C).
+  print_step_list(to_sorted_list(C)).
 
 print_step_list([]) :-
   format("]\n", []).
