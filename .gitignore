@@ -7,8 +7,10 @@
 *~
 
 # Mercury temp files
+*.c
 *.c_date
 *.d
 *.exe
 *.mh
+*.mih
 *.o
