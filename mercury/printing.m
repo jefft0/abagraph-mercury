@@ -1,3 +1,6 @@
+% Ported to Mercury from abagraph in Prolog by Robert Craven:
+% http://robertcraven.org/proarg/abagraph.html
+
 :- module printing.
 :- interface.
 

@@ -1,3 +1,6 @@
+% Ported to Mercury from abagraph in Prolog by Robert Craven:
+% http://robertcraven.org/proarg/abagraph.html
+
 :- module abagraph.
 :- interface.
 
@@ -124,7 +127,7 @@ derivation_step(step_tuple(P, O, D, C), T1) :-
 
 proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C), T1) :-
   % TODO: proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
-  S = fact("a"), PropUnMrkMinus = set.init,
+  S = fact("a"), PropUnMrkMinus = set.init, % Debug
   (if assumption(S) then
     proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, T1),
     poss_print_case("1.(i)")
