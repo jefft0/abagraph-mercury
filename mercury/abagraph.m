@@ -10,13 +10,15 @@
 :- import_module pair.
 :- import_module list.
 :- import_module set.
+:- import_module int.
 :- import_module options.
 :- import_module printing.
 
 :- pred assumption(sentence::in) is semidet.
 :- pred derive(sentence::in) is det.
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
-%:- derivation(step_tuple::int, int::in, string::out, int::out) is det.
+:- pred derivation(step_tuple::in, int::in, derive_result::out, int::out) is det.
+:- pred derivation_step(step_tuple::in, step_tuple::out) is det.
 
 main(!IO) :-
   derive(fact("a")).
@@ -40,8 +42,8 @@ derive(S) :-
     true),
   %retractall(sols(_)),
   %assert(sols(1)),
-  %derivation(InitTuple, 1, _Result, _),
-  %TODO print_result(Result),
+  derivation(InitTuple, 1, Result, _),
+  print_result(Result),
   %incr_sols.
   true.
 
@@ -57,7 +59,6 @@ initial_derivation_tuple(
   %            assumption(A)),
   %        D0),
   D0 = filter(assumption, PropUnMrk),
-  %findall(V-[], member(V, O_PropUnMrk), PropGr).
   PropGr = map((func(V) = V-set.init), PropUnMrk).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -65,5 +66,18 @@ initial_derivation_tuple(
 %
 % DERIVATION CONTROL: basic control structure
 
-%derivation(T, InN, Result, N) :-
-%  T = step_tuple(N)
+derivation(T, InN, Result, N) :-
+  (if T = step_tuple(set.init-PropMrk-PropG, set.init-OppM, D, C) then
+    Result = derive_result(PropMrk-PropG, OppM, D, C),
+    N = InN
+  else
+    derivation_step(T, T1),
+    (if verbose then
+      print_step(InN, T1)
+    else
+      true),
+    OutN = InN + 1,
+    derivation(T1, OutN, Result, N)).
+
+derivation_step(T, T1) :-
+  T1 = T.
