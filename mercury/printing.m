@@ -38,12 +38,14 @@
                       set(sentence),                  % D (the proponent defences)
                       set(sentence)).                 % C (the opponent culprits)
 
+:- pred poss_print_case(string::in) is det.
 :- pred print_step(int::in, step_tuple::in) is det.
 :- pred print_result(derive_result::in) is det.
 
 :- implementation.
 
 :- import_module list.
+:- import_module options.
 
 :- pred print_step_list(list(sentence)::in) is det.
 :- pred print_opponent_step_list(list(opponent_state)::in) is det.
@@ -59,6 +61,12 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % PRINTING: DERIVATION STEPS
+
+poss_print_case(Case) :-
+ (if verbose then
+   format("\nCase %s\n", [s(Case)])
+ else
+   true).
 
 print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C)) :-
   format("*** Step %d\n", [i(N)]),
