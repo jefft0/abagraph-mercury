@@ -28,7 +28,14 @@
                    set(sentence),                                       % D (the proponent defences)
                    set(sentence)).                                      % C (the opponent culprits)
 
+:- type derive_result 
+   ---> derive_result(pair(set(sentence), arg_graph), % PropMrk-PropG
+                      set(opponent_state),            % OppM
+                      set(sentence),                  % D (the proponent defences)
+                      set(sentence)).                 % C (the opponent culprits)
+
 :- pred print_step(int::in, step_tuple::in) is det.
+:- pred print_result(derive_result::in) is det.
 
 :- implementation.
 
@@ -43,6 +50,11 @@
 :- pred puts(string::in) is det.
 % format(S, PolyTypes). Write string.format(S, PolyTypes) to stdout.
 :- pred format(string::in, list(poly_type)::in) is det.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% PRINTING: DERIVATION STEPS
 
 print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C)) :-
   format("*** Step %d\n", [i(N)]),
@@ -79,6 +91,20 @@ print_opponent_step_list([Claim-UnMrk-Mrk-Graph|T]) :-
   else
     format("%s,\n       ", [s(State)]),
     print_opponent_step_list(T)).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% PRINTING: PRINT TO FILE
+
+print_result(_Result) :-
+  % TODO: Implement show_result (and maybe print_to_file).
+  true.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% PRINTING: HELPERS
 
 sentence_to_string(fact(C)) = string.format("fact(%s)", [s(C)]).
 sentence_to_string(not(S)) = string.format("not(%s)", [s(sentence_to_string(S))]).
