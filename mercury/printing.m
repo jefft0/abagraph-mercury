@@ -14,6 +14,10 @@
 
 :- type arg_graph == set(arg_graph_member).
 
+:- type proponent_state == pair(pair(set(sentence),  % PropUnMrk
+                                     set(sentence)), % PropM
+                                     arg_graph).     % PropG
+
 :- type opponent_state == pair(pair(pair(sentence,       % Claim
                                          set(sentence)), % UnMrk
                                          set(sentence)), % Mrk
@@ -23,10 +27,10 @@
                                        set(opponent_state)).  % OppMrk
 
 :- type step_tuple 
-   ---> step_tuple(pair(pair(set(sentence), set(sentence)), arg_graph), % PROPONENT potential argument graph
-                   opponent_arg_graph_set,                              % Opponent argument graph set
-                   set(sentence),                                       % D (the proponent defences)
-                   set(sentence)).                                      % C (the opponent culprits)
+   ---> step_tuple(proponent_state,        % PROPONENT potential argument graph
+                   opponent_arg_graph_set, % Opponent argument graph set
+                   set(sentence),          % D (the proponent defences)
+                   set(sentence)).         % C (the opponent culprits)
 
 :- type derive_result 
    ---> derive_result(pair(set(sentence), arg_graph), % PropMrk-PropG
