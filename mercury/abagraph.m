@@ -64,20 +64,14 @@ assumption(fact("a")).
 assumption(fact("b")).
 
 % TODO: Compute this like in loadf.
-non_assumption(fact("p")).
-non_assumption(fact("q")).
+non_assumption(not(fact("a"))).
+non_assumption(not(fact("b"))).
 
 % TODO: This should be dynamic.
-rule(fact("p"), [fact("b")]).
-rule(fact("q"), []).
+rule(not(fact("a")), [fact("b")]).
+rule(not(fact("b")), []).
 
-%contrary(A, not(A)).
-contrary(A, Contrary) :-
-  (A = fact("a") ->
-    Contrary = fact("p")
-  ;
-    % A = fact("b")
-    Contrary = fact("q")).
+contrary(A, not(A)).
 
 % ("set some options" moved to options.m.)
 
