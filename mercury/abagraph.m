@@ -29,7 +29,7 @@
 :- pred rule(sentence::in, list(sentence)::in) is semidet.
 :- pred contrary(sentence::in, sentence::out) is det.
 
-:- pred derive(sentence::in) is nondet.
+:- pred derive(sentence::in) is semidet.
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
 :- pred derivation(step_tuple::in, int::in, derivation_result::out, int::out) is nondet.
 :- pred derivation_step(step_tuple::in, step_tuple::out) is nondet.
@@ -38,17 +38,23 @@
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is det.
 %:- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), arg_graph)::in, 
 %          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is det.
-:- pred opponent_step(step_tuple::in, step_tuple::out) is det.
+:- pred opponent_step(step_tuple::in, step_tuple::out) is nondet.
 :- pred append_element_nodup(list(T)::in, T::in, list(T)::out) is det.
 :- pred append_elements_nodup(list(T)::in, list(T)::in, list(T)::out) is det.
 :- pred choose_turn(proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
 :- pred proponent_sentence_choice(list(sentence)::in, sentence::out, list(sentence)::out) is det.
+:- pred opponent_abagraph_choice(list(opponent_state)::in, opponent_state::out, list(opponent_state)::out) is det.
+:- pred opponent_sentence_choice(opponent_state::in, sentence::out, opponent_state::out) is nondet.
 :- pred turn_choice(turn_choice::in, proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
 :- pred sentence_choice(proponent_sentence_choice::in, list(sentence)::in, sentence::out, list(sentence)::out) is det.
+:- pred sentence_choice_backtrack(opponent_sentence_choice::in, list(sentence)::in, sentence::out, list(sentence)::out) is nondet.
+:- pred opponent_abagraph_choice(opponent_abagraph_choice::in, list(opponent_state)::in, opponent_state::out, list(opponent_state)::out) is det.
 :- pred get_first_assumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred get_first_nonassumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred get_newest_nonassumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet. 
+:- pred select(T::out, list(T)::in, list(T)::out) is nondet.
+:- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
 
 main(!IO) :-
   unsorted_solutions((pred(0::out) is nondet :- derive(fact("a"))), _).
@@ -147,9 +153,20 @@ proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C), T1) :-
     poss_print_case("1.(ii)")
   ).
 
-opponent_step(T, T1) :-
-  % TODO: Implement.
-  T1 = T.
+opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C), T1) :-
+  opponent_abagraph_choice(OppUnMrk, OppArg, OppUnMrkMinus),
+  opponent_sentence_choice(OppArg, S, OppArgMinus),
+  (
+    assumption(S),
+    %opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, [P|RestT], T1)
+    T1 = step_tuple(P, OppUnMrk-OppMrk, D, C) %Debug
+  ;
+    non_assumption(S),
+    %opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, [P|RestT], T1),
+    T1 = step_tuple(P, OppUnMrk-OppMrk, D, C), %Debug
+    poss_print_case("2.(ii)")
+  ).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -230,6 +247,14 @@ proponent_sentence_choice(P, S, Pminus) :-
   get_proponent_sentence_choice(PropSentenceStrategy),
   sentence_choice(PropSentenceStrategy, P, S, Pminus).
 
+opponent_abagraph_choice(O, JC, Ominus) :-
+  get_opponent_abagraph_choice(OppJCStrategy),
+  opponent_abagraph_choice(OppJCStrategy, O, JC, Ominus).
+
+opponent_sentence_choice(Claim-Ss-Marked-OGraph, Se, Claim-Ssminus-Marked-OGraph) :-
+  get_opponent_sentence_choice(OppSentenceStrategy),
+  sentence_choice_backtrack(OppSentenceStrategy, Ss, Se, Ssminus).
+
 turn_choice(p, P-_-_, _, Player) :-
   (P \= [] ->
     Player = proponent
@@ -266,6 +291,27 @@ sentence_choice(p, Ss, S, Ssminus) :-
   get_first_nonassumption_or_other(Ss, S, Ssminus).
 sentence_choice(pn, Ss, S, Ssminus) :-
  get_newest_nonassumption_or_other(Ss, S, Ssminus).
+
+% in the following we only need to backtrack over assumptions
+
+sentence_choice_backtrack(p, Ss, S, Ssminus) :-
+  find_first((pred(X::in) is semidet :- \+ assumption(X)), Ss, S, Ssminus).
+sentence_choice_backtrack(p, Ss, S, Ssminus) :-
+  % Debug: This will select again the same nonassumption from above.
+  select(S, Ss, Ssminus).
+
+%
+
+opponent_abagraph_choice(o, O, JC, Ominus) :-
+  ([X|Rest] = O ->
+    JC = X, Ominus = Rest
+  ;
+    unexpected($file, $pred, "O cannot be empty")).
+opponent_abagraph_choice(n, O, JC, Ominus) :-
+  (split_last(O, Rest, X) ->
+    JC = X, Ominus = Rest
+  ;
+    unexpected($file, $pred, "O cannot be empty")).
 
 % helpers
 
@@ -317,3 +363,10 @@ find_first(Pred, L, First, Lminus) :-
         % Keep accumulating.
         AccOut = MaybeFirst-append(LPart, [X])),
     L, no-[]).
+
+select(X, [Head|Tail], Rest) :-
+  select3_(Tail, Head, X, Rest).
+
+select3_(Tail, Head, Head, Tail).
+select3_([Head2|Tail], Head, X, [Head|Rest]) :-
+    select3_(Tail, Head2, X, Rest).
