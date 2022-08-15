@@ -17,10 +17,18 @@
         ;    turn_choice
         ;    verbose.
 
+:- type turn_choice
+        ---> p
+        ;    o
+        ;    s.
+
 :- pred option(option_key::in, string::out) is det.
 :- pred verbose is semidet.
+:- pred get_turn_choice(turn_choice::out) is det.
 
 :- implementation.
+
+:- import_module require.
 
 option(derivation_type, "ab").
 option(fileID, "_sol_").
@@ -36,3 +44,10 @@ option(verbose, "true").
 
 verbose :-
   option(verbose, "true").
+
+get_turn_choice(Out) :-
+  option(turn_choice, Val),
+  (Val = "p" -> Out = p ;
+  (Val = "o" -> Out = o ;
+  (Val = "s" -> Out = s ;
+    unexpected($file, $pred, "invalid turn_choice")))).

@@ -39,7 +39,7 @@
 :- pred append_element_nodup(list(T)::in, T::in, list(T)::out) is det.
 :- pred append_elements_nodup(list(T)::in, list(T)::in, list(T)::out) is det.
 :- pred choose_turn(proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
-:- pred turn_choice(string::in, proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
+:- pred turn_choice(turn_choice::in, proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
 
 main(!IO) :-
   derive(fact("a")).
@@ -58,9 +58,9 @@ rule(fact("q"), []).
 
 %contrary(A, not(A)).
 contrary(A, Contrary) :-
-  (if A = fact("a") then
+  (A = fact("a") ->
     Contrary = fact("p")
-  else
+  ;
     % A = fact("b")
     Contrary = fact("q")).
 
@@ -75,9 +75,9 @@ derive(S) :-
   %retractall(proving(_)),
   %assert(proving(S)),
   initial_derivation_tuple(make_singleton_set(S), InitTuple),
-  (if verbose then
+  (verbose ->
     print_step(0, InitTuple)
-  else
+  ;
     true),
   %retractall(sols(_)),
   %assert(sols(1)),
@@ -108,32 +108,32 @@ initial_derivation_tuple(
 % DERIVATION CONTROL: basic control structure
 
 derivation(T, InN, Result, N) :-
-  (if T = step_tuple(set.init-PropMrk-PropG, []-OppM, D, C) then
+  (T = step_tuple(set.init-PropMrk-PropG, []-OppM, D, C) ->
     Result = derivation_result(PropMrk-PropG, OppM, D, C),
     N = InN
-  else
+  ;
     derivation_step(T, T1),
-    (if verbose then
+    (verbose ->
       print_step(InN, T1)
-    else
+    ;
       true),
     OutN = InN + 1,
     derivation(T1, OutN, Result, N)).
 
 derivation_step(step_tuple(P, O, D, C), T1) :-
   choose_turn(P, O, Turn),
-  (if Turn = proponent then
+  (Turn = proponent ->
     proponent_step(step_tuple(P, O, D, C), T1)
-  else
+  ;
     opponent_step(step_tuple(P, O, D, C), T1)).
 
 proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C), T1) :-
   % TODO: proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
   S = fact("a"), PropUnMrkMinus = set.init, % Debug
-  (if assumption(S) then
+  (assumption(S) ->
     proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, T1),
     poss_print_case("1.(i)")
-  else
+  ;
     % Don't check non_assumption(S) because there is no other case.
     % non_assumption(S),
     proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, T1), % Debug: Use proponent_nonasm.
@@ -153,12 +153,12 @@ opponent_step(T, T1) :-
 proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, 
               step_tuple(PropUnMrkMinus-PropMrk1-PropGr, OppUnMrk1-OppMrk, D, C)) :-
   contrary(A, Contrary),
-  (if \+ (member(Member1, OppUnMrk), Member1 = Contrary-_-_-_), 
-      \+ (member(Member2, OppMrk),   Member2 = Contrary-_-_-_) then
+  ((\+ (member(Member1, OppUnMrk), Member1 = Contrary-_-_-_), 
+    \+ (member(Member2, OppMrk),   Member2 = Contrary-_-_-_)) ->
     append_element_nodup(OppUnMrk, 
       Contrary-make_singleton_set(Contrary)-set.init-make_singleton_set(Contrary-set.init),
       OppUnMrk1)
-  else
+  ;
     OppUnMrk1 = OppUnMrk),
   insert(A, PropMrk, PropMrk1).
   % TODO: Do we need Att? ord_add_element(Att, (Contrary,A), Att1).
@@ -189,10 +189,10 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C,
 % - otherwise, Res is L
 append_element_nodup([], Element, [Element]).
 append_element_nodup([H|T], Element, [HOut|Rest]) :-
-  (if H = Element then
+  (H = Element ->
     HOut = Element,
     Rest = T
-  else
+  ;
     HOut = H,
     append_element_nodup(T, Element, Rest)).
 
@@ -210,32 +210,28 @@ append_elements_nodup([Element|Elements], InList, Result) :-
 % SELECTION FUNCTIONS
 
 choose_turn(P, O, Player) :-
-  (if P = set.init-_-_ then
+  (P = set.init-_-_ ->
     Player = opponent
-  else (if O = []-_ then
+  ;(O = []-_ ->
     Player = proponent
-  else
-    option(turn_choice, TurnStrategy),
+  ;
+    get_turn_choice(TurnStrategy),
     turn_choice(TurnStrategy, P, O, Player))).
 
-turn_choice(TurnStrategy, P-_-_, O-_, Player) :-
-  (if TurnStrategy = "p" then
-    % proponent priority.
-    (if P \= set.init then
-      Player = proponent
-    else
-      Player = opponent)
-  else (if TurnStrategy = "o" then
-    % opponent priority.
-    (if O \= [] then
-      Player = opponent
-    else
-      Player = proponent)
-  else
-    % The default is "s": smallest number of sentences/justification-pairs first.
-    count(P, PN),
-    length(O, ON),
-    (if PN =< ON then
-      Player = proponent
-    else
-      Player = opponent))).
+turn_choice(p, P-_-_, _, Player) :-
+  (P \= set.init ->
+    Player = proponent
+  ;
+    Player = opponent).
+turn_choice(o, _, O-_, Player) :-
+  (O \= [] ->
+    Player = opponent
+  ;
+    Player = proponent).
+turn_choice(s, P-_-_, O-_, Player) :-
+  count(P, PN),
+  length(O, ON),
+  (PN =< ON ->
+    Player = proponent
+  ;
+    Player = opponent).
