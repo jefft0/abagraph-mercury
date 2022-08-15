@@ -33,20 +33,20 @@
 :- pred derivation(step_tuple::in, int::in, derivation_result::out, int::out) is det.
 :- pred derivation_step(step_tuple::in, step_tuple::out) is det.
 :- pred proponent_step(step_tuple::in, step_tuple::out) is det.
-:- pred proponent_asm(sentence::in, set(sentence)::in, pair(set(sentence), arg_graph)::in, 
+:- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), arg_graph)::in, 
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is det.
-%:- pred proponent_nonasm(sentence::in, set(sentence)::in, pair(set(sentence), arg_graph)::in, 
+%:- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), arg_graph)::in, 
 %          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is det.
 :- pred opponent_step(step_tuple::in, step_tuple::out) is det.
 :- pred append_element_nodup(list(T)::in, T::in, list(T)::out) is det.
 :- pred append_elements_nodup(list(T)::in, list(T)::in, list(T)::out) is det.
 :- pred choose_turn(proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
-:- pred proponent_sentence_choice(set(sentence)::in, sentence::out, set(sentence)::out) is det.
+:- pred proponent_sentence_choice(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred turn_choice(turn_choice::in, proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
-:- pred sentence_choice(proponent_sentence_choice::in, set(sentence)::in, sentence::out, set(sentence)::out) is det.
-:- pred get_first_assumption_or_other(set(sentence)::in, sentence::out, set(sentence)::out) is det.
-:- pred get_first_nonassumption_or_other(set(sentence)::in, sentence::out, set(sentence)::out) is det.
-:- pred find_first(pred(T)::in(pred(in) is semidet), set(T)::in, T::out, set(T)::out) is semidet. 
+:- pred sentence_choice(proponent_sentence_choice::in, list(sentence)::in, sentence::out, list(sentence)::out) is det.
+:- pred get_first_assumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
+:- pred get_first_nonassumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
+:- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet. 
 
 main(!IO) :-
   derive(fact("a")).
@@ -95,14 +95,14 @@ derive(S) :-
 
 initial_derivation_tuple(
     PropUnMrk,
-    step_tuple(PropUnMrk-set.init-PropGr, % PropUnMrk-PropM-PropGr
+    step_tuple(O_PropUnMrk-set.init-PropGr, % PropUnMrk-PropM-PropGr
                []-[],                     % OppUnMrk-OppM (members of each are Claim-UnMrk-Mrk-Graph)
                % TODO: Support GB. 
                D0,                        % D
                set.init)) :-              % C
                % TODO: Do we need Att?
-  % PropUnMrk is already a set. Instead of findall, use the set filter.
-  %list_to_ord_set(PropUnMrk, O_PropUnMrk),
+  to_sorted_list(PropUnMrk, O_PropUnMrk),
+  % Instead of findall, use the set filter.
   %findall(A, (member(A, O_PropUnMrk),
   %            assumption(A)),
   %        D0),
@@ -115,7 +115,7 @@ initial_derivation_tuple(
 % DERIVATION CONTROL: basic control structure
 
 derivation(T, InN, Result, N) :-
-  (T = step_tuple(set.init-PropMrk-PropG, []-OppM, D, C) ->
+  (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C) ->
     Result = derivation_result(PropMrk-PropG, OppM, D, C),
     N = InN
   ;
@@ -162,7 +162,7 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C,
   ((\+ (member(Member1, OppUnMrk), Member1 = Contrary-_-_-_), 
     \+ (member(Member2, OppMrk),   Member2 = Contrary-_-_-_)) ->
     append_element_nodup(OppUnMrk, 
-      Contrary-make_singleton_set(Contrary)-set.init-make_singleton_set(Contrary-set.init),
+      Contrary-[Contrary]-set.init-make_singleton_set(Contrary-set.init),
       OppUnMrk1)
   ;
     OppUnMrk1 = OppUnMrk),
@@ -216,7 +216,7 @@ append_elements_nodup([Element|Elements], InList, Result) :-
 % SELECTION FUNCTIONS
 
 choose_turn(P, O, Player) :-
-  (P = set.init-_-_ ->
+  (P = []-_-_ ->
     Player = opponent
   ;(O = []-_ ->
     Player = proponent
@@ -229,7 +229,7 @@ proponent_sentence_choice(P, S, Pminus) :-
   sentence_choice(PropSentenceStrategy, P, S, Pminus).
 
 turn_choice(p, P-_-_, _, Player) :-
-  (P \= set.init ->
+  (P \= [] ->
     Player = proponent
   ;
     Player = opponent).
@@ -239,7 +239,7 @@ turn_choice(o, _, O-_, Player) :-
   ;
     Player = proponent).
 turn_choice(s, P-_-_, O-_, Player) :-
-  count(P, PN),
+  length(P, PN),
   length(O, ON),
   (PN =< ON ->
     Player = proponent
@@ -259,9 +259,9 @@ get_first_assumption_or_other(Ss, A, Ssminus) :-
   (find_first(assumption, Ss, First, SsminusA) ->
     A = First, Ssminus = SsminusA
   ;
-    % No assumption. Arbitrarily get a set member.
-    ([H|SsminusList] = to_sorted_list(Ss) ->
-      A = H, Ssminus = list_to_set(SsminusList)
+    % No assumption. Get the first member.
+    ([H|Rest] = Ss ->
+      A = H, Ssminus = Rest
     ;
       % We don't expect this.
       unexpected($file, $pred, "Ss cannot be empty"))).
@@ -270,23 +270,23 @@ get_first_nonassumption_or_other(Ss, A, Ssminus) :-
   (find_first((pred(X::in) is semidet :- \+ assumption(X)), Ss, First, SsminusA) ->
     A = First, Ssminus = SsminusA
   ;
-    % No non-assumption. Arbitrarily get a set member.
-    ([H|SsminusList] = to_sorted_list(Ss) ->
-      A = H, Ssminus = list_to_set(SsminusList)
+    % No non-assumption. Get the first member.
+    ([H|Rest] = Ss ->
+      A = H, Ssminus = Rest
     ;
       % We don't expect this.
       unexpected($file, $pred, "Ss cannot be empty"))).
 
-% First the first member in S where Pred(X) and set Sminus to S without it.
+% First the first member in L where Pred(X) and set Lminus to L without it.
 % Fail if can't find any Pred(X).
-find_first(Pred, S, First, Sminus) :-
-  % The accumulator state is MaybeFirst-SWithoutFirst
-  yes(First)-Sminus = foldl(
-    func(X, MaybeFirst-SPart) = AccOut :-
+find_first(Pred, L, First, Lminus) :-
+  % The accumulator state is MaybeFirst-LWithoutFirst
+  yes(First)-Lminus = foldl(
+    func(X, MaybeFirst-LPart) = AccOut :-
       ((MaybeFirst = no, Pred(X)) ->
         % We got the first.
-        AccOut = yes(X)-SPart
+        AccOut = yes(X)-LPart
       ;
         % Keep accumulating.
-        AccOut = MaybeFirst-insert(SPart, X)),
-    S, no-set.init).
+        AccOut = MaybeFirst-append(LPart, [X])),
+    L, no-[]).

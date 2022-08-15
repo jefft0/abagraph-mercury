@@ -18,14 +18,14 @@
 
 :- type arg_graph == set(arg_graph_member).
 
-:- type proponent_state == pair(pair(set(sentence),  % PropUnMrk
-                                     set(sentence)), % PropM
-                                     arg_graph).     % PropG
+:- type proponent_state == pair(pair(list(sentence),  % PropUnMrk
+                                     set(sentence)),  % PropM
+                                     arg_graph).      % PropG
 
-:- type opponent_state == pair(pair(pair(sentence,       % Claim
-                                         set(sentence)), % UnMrk
-                                         set(sentence)), % Mrk
-                                         arg_graph).     % Graph
+:- type opponent_state == pair(pair(pair(sentence,        % Claim
+                                         list(sentence)), % UnMrk
+                                         set(sentence)),  % Mrk
+                                         arg_graph).      % Graph
 
 :- type opponent_arg_graph_set == pair(list(opponent_state),   % OppUnMrk
                                        list(opponent_state)).  % OppMrk
@@ -53,7 +53,7 @@
 :- pred print_step_list(list(sentence)::in) is det.
 :- pred print_opponent_step_list(list(opponent_state)::in) is det.
 :- func sentence_to_string(sentence) = string is det.
-:- func sentence_set_to_string(set(sentence)) = string is det.
+:- func sentence_list_to_string(list(sentence)) = string is det.
 :- func arg_graph_to_string(arg_graph) = string is det.
 % puts(S). Write the string S to stdout without a newline.
 :- pred puts(string::in) is det.
@@ -73,8 +73,8 @@ poss_print_case(Case) :-
 
 print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C)) :-
   format("*** Step %d\n", [i(N)]),
-  format("P:    %s-%s-%s\n", [s(sentence_set_to_string(PropUnMrk)),
-                              s(sentence_set_to_string(PropMrk)),
+  format("P:    %s-%s-%s\n", [s(sentence_list_to_string(PropUnMrk)),
+                              s(sentence_list_to_string(to_sorted_list(PropMrk))),
                               s(arg_graph_to_string(PropGr))]),
   format("O:    [", []),
   print_opponent_step_list(OppUnMrk),
@@ -98,8 +98,8 @@ print_opponent_step_list([]) :-
   format("]\n", []).
 print_opponent_step_list([Claim-UnMrk-Mrk-Graph|T]) :-
   State = format("%s-%s-%s-%s", [s(sentence_to_string(Claim)),
-                                 s(sentence_set_to_string(UnMrk)),
-                                 s(sentence_set_to_string(Mrk)),
+                                 s(sentence_list_to_string(UnMrk)),
+                                 s(sentence_list_to_string(to_sorted_list(Mrk))),
                                  s(arg_graph_to_string(Graph))]),
   (if T = [] then
     format("%s]\n", [s(State)])
@@ -124,12 +124,12 @@ print_result(_Result) :-
 sentence_to_string(fact(C)) = string.format("fact(%s)", [s(C)]).
 sentence_to_string(not(S)) = string.format("not(%s)", [s(sentence_to_string(S))]).
 
-sentence_set_to_string(S) =
-  string.format("[%s]", [s(join_list(",", map(sentence_to_string, to_sorted_list(S))))]).
+sentence_list_to_string(S) =
+  string.format("[%s]", [s(join_list(",", map(sentence_to_string, S)))]).
 
 arg_graph_to_string(G) = Result :-
-  NodeList = map((func(H-T) = string.format("%s-%s", [s(sentence_to_string(H)),
-                                                      s(sentence_set_to_string(T))])), 
+  NodeList = map((func(H-B) = string.format("%s-%s", [s(sentence_to_string(H)),
+                                                      s(sentence_list_to_string(to_sorted_list(B)))])), 
                  to_sorted_list(G)),
   Result = string.format("[%s]", [s(join_list(",", NodeList))]).
 
