@@ -4,6 +4,7 @@
 :- module printing.
 :- interface.
 
+:- import_module list.
 :- import_module set.
 :- import_module pair.
 :- import_module string.
@@ -26,8 +27,8 @@
                                          set(sentence)), % Mrk
                                          arg_graph).     % Graph
 
-:- type opponent_arg_graph_set == pair(set(opponent_state),   % OppUnMrk
-                                       set(opponent_state)).  % OppMrk
+:- type opponent_arg_graph_set == pair(list(opponent_state),   % OppUnMrk
+                                       list(opponent_state)).  % OppMrk
 
 :- type step_tuple 
    ---> step_tuple(proponent_state,        % PROPONENT potential argument graph
@@ -35,19 +36,18 @@
                    set(sentence),          % D (the proponent defences)
                    set(sentence)).         % C (the opponent culprits)
 
-:- type derive_result 
-   ---> derive_result(pair(set(sentence), arg_graph), % PropMrk-PropG
-                      set(opponent_state),            % OppM
-                      set(sentence),                  % D (the proponent defences)
-                      set(sentence)).                 % C (the opponent culprits)
+:- type derivation_result 
+   ---> derivation_result(pair(set(sentence), arg_graph), % PropMrk-PropG
+                          list(opponent_state),           % OppM
+                          set(sentence),                  % D (the proponent defences)
+                          set(sentence)).                 % C (the opponent culprits)
 
 :- pred poss_print_case(string::in) is det.
 :- pred print_step(int::in, step_tuple::in) is det.
-:- pred print_result(derive_result::in) is det.
+:- pred print_result(derivation_result::in) is det.
 
 :- implementation.
 
-:- import_module list.
 :- import_module options.
 
 :- pred print_step_list(list(sentence)::in) is det.
@@ -77,7 +77,7 @@ print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C)) :-
                               s(sentence_set_to_string(PropMrk)),
                               s(arg_graph_to_string(PropGr))]),
   format("O:    [", []),
-  print_opponent_step_list(to_sorted_list(OppUnMrk)),
+  print_opponent_step_list(OppUnMrk),
   %format("G:    [", []),
   %print_step_list_brackets(G),
   format("D:    [", []),

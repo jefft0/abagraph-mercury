@@ -28,7 +28,7 @@
 
 :- pred derive(sentence::in) is det.
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
-:- pred derivation(step_tuple::in, int::in, derive_result::out, int::out) is det.
+:- pred derivation(step_tuple::in, int::in, derivation_result::out, int::out) is det.
 :- pred derivation_step(step_tuple::in, step_tuple::out) is det.
 :- pred proponent_step(step_tuple::in, step_tuple::out) is det.
 :- pred proponent_asm(sentence::in, set(sentence)::in, pair(set(sentence), arg_graph)::in, 
@@ -89,7 +89,7 @@ derive(S) :-
 initial_derivation_tuple(
     PropUnMrk,
     step_tuple(PropUnMrk-set.init-PropGr, % PropUnMrk-PropM-PropGr
-               set.init-set.init,         % OppUnMrk-OppM (members of each are Claim-UnMrk-Mrk-Graph)
+               []-[],                     % OppUnMrk-OppM (members of each are Claim-UnMrk-Mrk-Graph)
                % TODO: Support GB. 
                D0,                        % D
                set.init)) :-              % C
@@ -108,8 +108,8 @@ initial_derivation_tuple(
 % DERIVATION CONTROL: basic control structure
 
 derivation(T, InN, Result, N) :-
-  (if T = step_tuple(set.init-PropMrk-PropG, set.init-OppM, D, C) then
-    Result = derive_result(PropMrk-PropG, OppM, D, C),
+  (if T = step_tuple(set.init-PropMrk-PropG, []-OppM, D, C) then
+    Result = derivation_result(PropMrk-PropG, OppM, D, C),
     N = InN
   else
     derivation_step(T, T1),
@@ -155,7 +155,9 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C,
   contrary(A, Contrary),
   (if \+ (member(Member1, OppUnMrk), Member1 = Contrary-_-_-_), 
       \+ (member(Member2, OppMrk),   Member2 = Contrary-_-_-_) then
-    OppUnMrk1 = OppUnMrk %Debug append_element_nodup(OppUnMrk, Contrary-[Contrary]-[]-[Contrary-[]], OppUnMrk1)
+    append_element_nodup(OppUnMrk, 
+      Contrary-make_singleton_set(Contrary)-set.init-make_singleton_set(Contrary-set.init),
+      OppUnMrk1)
   else
     OppUnMrk1 = OppUnMrk),
   insert(A, PropMrk, PropMrk1).
@@ -210,7 +212,7 @@ append_elements_nodup([Element|Elements], InList, Result) :-
 choose_turn(P, O, Player) :-
   (if P = set.init-_-_ then
     Player = opponent
-  else (if O = set.init-_ then
+  else (if O = []-_ then
     Player = proponent
   else
     option(turn_choice, TurnStrategy),
@@ -225,14 +227,14 @@ turn_choice(TurnStrategy, P-_-_, O-_, Player) :-
       Player = opponent)
   else (if TurnStrategy = "o" then
     % opponent priority.
-    (if O \= set.init then
+    (if O \= [] then
       Player = opponent
     else
       Player = proponent)
   else
     % The default is "s": smallest number of sentences/justification-pairs first.
     count(P, PN),
-    count(O, ON),
+    length(O, ON),
     (if PN =< ON then
       Player = proponent
     else
