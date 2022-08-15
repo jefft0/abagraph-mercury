@@ -17,14 +17,14 @@
         ;    turn_choice
         ;    verbose.
 
-:- type turn_choice
-        ---> p
-        ;    o
-        ;    s.
+:- type turn_choice ---> p; o; s.
+
+:- type proponent_sentence_choice ---> p. %TODO: Implement others o; n; e; p; pn; be; bp.
 
 :- pred option(option_key::in, string::out) is det.
 :- pred verbose is semidet.
 :- pred get_turn_choice(turn_choice::out) is det.
+:- pred get_proponent_sentence_choice(proponent_sentence_choice::out) is det.
 
 :- implementation.
 
@@ -51,3 +51,15 @@ get_turn_choice(Out) :-
   (Val = "o" -> Out = o ;
   (Val = "s" -> Out = s ;
     unexpected($file, $pred, "invalid turn_choice")))).
+
+get_proponent_sentence_choice(Out) :-
+  option(proponent_sentence_choice, Val),
+  %TODO: Implement others.
+  %(Val = "o" -> Out = o ;
+  %(Val = "n" -> Out = n ;
+  %(Val = "e" -> Out = e ;
+  (Val = "p" -> Out = p ;
+  %(Val = "pn" -> Out = pn ;
+  %(Val = "be" -> Out = be ;
+  %(Val = "bp" -> Out = bp ;
+    unexpected($file, $pred, "invalid proponent_sentence_choice")).
