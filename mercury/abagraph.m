@@ -14,6 +14,8 @@
 :- import_module list.
 :- import_module set.
 :- import_module int.
+:- import_module maybe.
+:- import_module require.
 :- import_module options.
 :- import_module printing.
 
@@ -39,7 +41,12 @@
 :- pred append_element_nodup(list(T)::in, T::in, list(T)::out) is det.
 :- pred append_elements_nodup(list(T)::in, list(T)::in, list(T)::out) is det.
 :- pred choose_turn(proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
+:- pred proponent_sentence_choice(set(sentence)::in, sentence::out, set(sentence)::out) is det.
 :- pred turn_choice(turn_choice::in, proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
+:- pred sentence_choice(proponent_sentence_choice::in, set(sentence)::in, sentence::out, set(sentence)::out) is det.
+:- pred get_first_assumption_or_other(set(sentence)::in, sentence::out, set(sentence)::out) is det.
+:- pred get_first_nonassumption_or_other(set(sentence)::in, sentence::out, set(sentence)::out) is det.
+:- pred find_first(pred(T)::in(pred(in) is semidet), set(T)::in, T::out, set(T)::out) is semidet. 
 
 main(!IO) :-
   derive(fact("a")).
@@ -128,8 +135,7 @@ derivation_step(step_tuple(P, O, D, C), T1) :-
     opponent_step(step_tuple(P, O, D, C), T1)).
 
 proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C), T1) :-
-  % TODO: proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
-  S = fact("a"), PropUnMrkMinus = set.init, % Debug
+  proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
   (assumption(S) ->
     proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, T1),
     poss_print_case("1.(i)")
@@ -218,6 +224,10 @@ choose_turn(P, O, Player) :-
     get_turn_choice(TurnStrategy),
     turn_choice(TurnStrategy, P, O, Player))).
 
+proponent_sentence_choice(P, S, Pminus) :-
+  get_proponent_sentence_choice(PropSentenceStrategy),
+  sentence_choice(PropSentenceStrategy, P, S, Pminus).
+
 turn_choice(p, P-_-_, _, Player) :-
   (P \= set.init ->
     Player = proponent
@@ -235,3 +245,48 @@ turn_choice(s, P-_-_, O-_, Player) :-
     Player = proponent
   ;
     Player = opponent).
+
+%
+
+sentence_choice(e, Ss, S, Ssminus) :-
+  get_first_assumption_or_other(Ss, S, Ssminus).
+sentence_choice(p, Ss, S, Ssminus) :-
+  get_first_nonassumption_or_other(Ss, S, Ssminus).
+
+% helpers
+
+get_first_assumption_or_other(Ss, A, Ssminus) :-
+  (find_first(assumption, Ss, First, SsminusA) ->
+    A = First, Ssminus = SsminusA
+  ;
+    % No assumption. Arbitrarily get a set member.
+    ([H|SsminusList] = to_sorted_list(Ss) ->
+      A = H, Ssminus = list_to_set(SsminusList)
+    ;
+      % We don't expect this.
+      unexpected($file, $pred, "Ss cannot be empty"))).
+
+get_first_nonassumption_or_other(Ss, A, Ssminus) :-
+  (find_first((pred(X::in) is semidet :- \+ assumption(X)), Ss, First, SsminusA) ->
+    A = First, Ssminus = SsminusA
+  ;
+    % No non-assumption. Arbitrarily get a set member.
+    ([H|SsminusList] = to_sorted_list(Ss) ->
+      A = H, Ssminus = list_to_set(SsminusList)
+    ;
+      % We don't expect this.
+      unexpected($file, $pred, "Ss cannot be empty"))).
+
+% First the first member in S where Pred(X) and set Sminus to S without it.
+% Fail if can't find any Pred(X).
+find_first(Pred, S, First, Sminus) :-
+  % The accumulator state is MaybeFirst-SWithoutFirst
+  yes(First)-Sminus = foldl(
+    func(X, MaybeFirst-SPart) = AccOut :-
+      ((MaybeFirst = no, Pred(X)) ->
+        % We got the first.
+        AccOut = yes(X)-SPart
+      ;
+        % Keep accumulating.
+        AccOut = MaybeFirst-insert(SPart, X)),
+    S, no-set.init).
