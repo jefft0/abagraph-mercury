@@ -36,6 +36,8 @@
 %:- pred proponent_nonasm(sentence::in, set(sentence)::in, pair(set(sentence), arg_graph)::in, 
 %          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is det.
 :- pred opponent_step(step_tuple::in, step_tuple::out) is det.
+:- pred append_element_nodup(list(T)::in, T::in, list(T)::out) is det.
+:- pred append_elements_nodup(list(T)::in, list(T)::in, list(T)::out) is det.
 :- pred choose_turn(proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
 :- pred turn_choice(string::in, proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
 
@@ -179,6 +181,26 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % SUBSIDIARY FUNCTIONS - GRAPH, LIST, MISC
+
+% append_element_nodup(L, E, Res)
+% - Res is the result of adding E to the end of L, if E is not in L
+% - otherwise, Res is L
+append_element_nodup([], Element, [Element]).
+append_element_nodup([H|T], Element, [HOut|Rest]) :-
+  (if H = Element then
+    HOut = Element,
+    Rest = T
+  else
+    HOut = H,
+    append_element_nodup(T, Element, Rest)).
+
+% append_elements_nodup(Es, L, Res)
+% - Res is the result of adding all members of Es not already in L
+%   to the end of L
+append_elements_nodup([], Result, Result).
+append_elements_nodup([Element|Elements], InList, Result) :-
+ append_element_nodup(InList, Element, OutList),
+ append_elements_nodup(Elements, OutList, Result).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
