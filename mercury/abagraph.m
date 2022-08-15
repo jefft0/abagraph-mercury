@@ -46,6 +46,7 @@
 :- pred sentence_choice(proponent_sentence_choice::in, list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred get_first_assumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred get_first_nonassumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
+:- pred get_newest_nonassumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet. 
 
 main(!IO) :-
@@ -248,10 +249,22 @@ turn_choice(s, P-_-_, O-_, Player) :-
 
 %
 
+sentence_choice(o, Ss, S, Ssminus) :-
+  ([X|Rest] = Ss ->
+    S = X, Ssminus = Rest
+  ;
+    unexpected($file, $pred, "Ss cannot be empty")).
+sentence_choice(n, Ss, S, Ssminus) :-
+  (split_last(Ss, Rest, X) ->
+    S = X, Ssminus = Rest
+  ;
+    unexpected($file, $pred, "Ss cannot be empty")).
 sentence_choice(e, Ss, S, Ssminus) :-
   get_first_assumption_or_other(Ss, S, Ssminus).
 sentence_choice(p, Ss, S, Ssminus) :-
   get_first_nonassumption_or_other(Ss, S, Ssminus).
+sentence_choice(pn, Ss, S, Ssminus) :-
+ get_newest_nonassumption_or_other(Ss, S, Ssminus).
 
 % helpers
 
@@ -269,6 +282,19 @@ get_first_assumption_or_other(Ss, A, Ssminus) :-
 get_first_nonassumption_or_other(Ss, A, Ssminus) :-
   (find_first((pred(X::in) is semidet :- \+ assumption(X)), Ss, First, SsminusA) ->
     A = First, Ssminus = SsminusA
+  ;
+    % No non-assumption. Get the first member.
+    ([H|Rest] = Ss ->
+      A = H, Ssminus = Rest
+    ;
+      % We don't expect this.
+      unexpected($file, $pred, "Ss cannot be empty"))).
+
+get_newest_nonassumption_or_other(Ss, A, Ssminus) :-
+  reverse(Ss, RevSs),
+  (find_first((pred(X::in) is semidet :- \+ assumption(X)), RevSs, First, RevSsminus) ->
+    A = First,
+    reverse(RevSsminus, Ssminus)
   ;
     % No non-assumption. Get the first member.
     ([H|Rest] = Ss ->
