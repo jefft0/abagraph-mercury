@@ -15,6 +15,7 @@
 :- import_module set.
 :- import_module int.
 :- import_module maybe.
+:- import_module solutions.
 :- import_module require.
 :- import_module options.
 :- import_module printing.
@@ -28,11 +29,11 @@
 :- pred rule(sentence::in, list(sentence)::in) is semidet.
 :- pred contrary(sentence::in, sentence::out) is det.
 
-:- pred derive(sentence::in) is det.
+:- pred derive(sentence::in) is nondet.
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
-:- pred derivation(step_tuple::in, int::in, derivation_result::out, int::out) is det.
-:- pred derivation_step(step_tuple::in, step_tuple::out) is det.
-:- pred proponent_step(step_tuple::in, step_tuple::out) is det.
+:- pred derivation(step_tuple::in, int::in, derivation_result::out, int::out) is nondet.
+:- pred derivation_step(step_tuple::in, step_tuple::out) is nondet.
+:- pred proponent_step(step_tuple::in, step_tuple::out) is nondet.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), arg_graph)::in, 
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is det.
 %:- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), arg_graph)::in, 
@@ -50,7 +51,7 @@
 :- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet. 
 
 main(!IO) :-
-  derive(fact("a")).
+  unsorted_solutions((pred(0::out) is nondet :- derive(fact("a"))), _).
 
 % TODO: This should be dynamic.
 assumption(fact("a")).
@@ -90,9 +91,8 @@ derive(S) :-
   %retractall(sols(_)),
   %assert(sols(1)),
   derivation(InitTuple, 1, Result, _),
-  print_result(Result),
+  print_result(Result).
   %incr_sols.
-  true.
 
 initial_derivation_tuple(
     PropUnMrk,
@@ -137,14 +137,15 @@ derivation_step(step_tuple(P, O, D, C), T1) :-
 
 proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C), T1) :-
   proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
-  (assumption(S) ->
+  (
+    assumption(S),
     proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, T1),
     poss_print_case("1.(i)")
   ;
-    % Don't check non_assumption(S) because there is no other case.
-    % non_assumption(S),
+    non_assumption(S),
     proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, T1), % Debug: Use proponent_nonasm.
-    poss_print_case("1.(ii)")).
+    poss_print_case("1.(ii)")
+  ).
 
 opponent_step(T, T1) :-
   % TODO: Implement.
