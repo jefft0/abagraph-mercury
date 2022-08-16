@@ -26,7 +26,7 @@
 
 :- pred assumption(sentence::in) is semidet.
 :- pred non_assumption(sentence::in) is semidet.
-:- pred rule(sentence::in, list(sentence)::in) is semidet.
+:- pred rule(sentence::in, list(sentence)::out) is nondet.
 :- pred contrary(sentence::in, sentence::out) is det.
 
 :- pred derive(sentence::in) is semidet.
@@ -45,6 +45,7 @@
 :- pred proponent_sentence_choice(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred opponent_abagraph_choice(list(opponent_state)::in, opponent_state::out, list(opponent_state)::out) is det.
 :- pred opponent_sentence_choice(opponent_state::in, sentence::out, opponent_state::out) is nondet.
+:- pred rule_choice(sentence::in, list(sentence)::out, string::in) is nondet.
 :- pred turn_choice(turn_choice::in, proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
 :- pred sentence_choice(proponent_sentence_choice::in, list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred sentence_choice_backtrack(opponent_sentence_choice::in, list(sentence)::in, sentence::out, list(sentence)::out) is nondet.
@@ -52,6 +53,8 @@
 :- pred get_first_assumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred get_first_nonassumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred get_newest_nonassumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
+:- pred sort_rule_pairs(proponent_rule_choice::in, string::in, list(list(sentence))::in, list(list(sentence))::out) is det.
+:- pred rule_sort_small_bodies(list(sentence)::in, list(sentence)::in, builtin.comparison_result::out) is det.
 :- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet. 
 :- pred select(T::out, list(T)::in, list(T)::out) is nondet.
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
@@ -249,6 +252,19 @@ opponent_sentence_choice(Claim-Ss-Marked-OGraph, Se, Claim-Ssminus-Marked-OGraph
   get_opponent_sentence_choice(OppSentenceStrategy),
   sentence_choice_backtrack(OppSentenceStrategy, Ss, Se, Ssminus).
 
+% PropInfo here holds information about the current state of
+% proponent's derivations.
+% Omit "proponent" since it is not used.
+%rule_choice(Head, Body, proponent, PropInfo) :-
+rule_choice(Head, Body, PropInfo) :-
+  solutions((pred(B::out) is nondet :- rule(Head, B)), Rules),
+  get_proponent_rule_choice(PropRuleStrategy),
+  sort_rule_pairs(PropRuleStrategy, PropInfo, Rules, SortedRulePairs),
+  % Note: The cut is not needed since the above predicates are det.
+  % !,
+  member(Body, SortedRulePairs),
+  rule(Head, Body).              % added to fix Fan's first bug
+
 turn_choice(p, P-_-_, _, Player) :-
   (P \= [] ->
     Player = proponent
@@ -350,6 +366,14 @@ get_newest_nonassumption_or_other(Ss, A, Ssminus) :-
     ;
       % We don't expect this.
       unexpected($file, $pred, "Ss cannot be empty"))).
+
+% rule sorting
+
+sort_rule_pairs(s, _PropInfo, Pairs, SortedPairs) :-
+  sort(rule_sort_small_bodies, Pairs, SortedPairs).
+
+rule_sort_small_bodies(Body1, Body2, Result) :-
+  builtin.compare(Result, length(Body1) + 0, length(Body2) + 0).
 
 % First the first member in L where Pred(X) and set Lminus to L without it.
 % Fail if can't find any Pred(X).
