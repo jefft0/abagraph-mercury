@@ -19,7 +19,7 @@
 
 :- type opponent_abagraph_choice ---> o; n. %TODO: Implement others: s; l; lmb.
 
-:- type opponent_sentence_choice ---> p. %TODO: Implement others: o; n; e; pn.
+:- type opponent_sentence_choice ---> p; pn. %TODO: Implement others: o; n; e.
 
 :- type proponent_sentence_choice ---> o; n; e; p; pn. %TODO: Implement others: be; bp.
 
@@ -81,10 +81,10 @@ get_opponent_sentence_choice(Out) :-
   %(Val = "n" -> Out = n ;
   %(Val = "e" -> Out = e ;
   (Val = "p" -> Out = p ;
-  %(Val = "pn" -> Out = pn ;
+  (Val = "pn" -> Out = pn ;
   %(Val = "be" -> Out = be ;
   %(Val = "bp" -> Out = bp ;
-    unexpected($file, $pred, "invalid proponent_sentence_choice")).
+    unexpected($file, $pred, "invalid proponent_sentence_choice"))).
 
 get_turn_choice(Out) :-
   option(turn_choice, Val),

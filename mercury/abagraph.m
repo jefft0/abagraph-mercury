@@ -294,6 +294,13 @@ sentence_choice_backtrack(p, Ss, S, Ssminus) :-
   ;
     select(S, Ss, Ssminus)).
 
+sentence_choice_backtrack(pn, Ss, S, Ssminus) :-
+  reverse(Ss, RevSs),
+  (find_first((pred(X::in) is semidet :- \+ assumption(X)), RevSs, First, SsminusS) ->
+    S = First, Ssminus = SsminusS
+  ;
+    select(S, RevSs, Ssminus)).
+
 %
 
 opponent_abagraph_choice(o, O, JC, Ominus) :-
