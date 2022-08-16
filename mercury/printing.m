@@ -13,13 +13,13 @@
    ---> fact(string)
    ;    not(sentence).
 
-:- type arg_graph_member == pair(sentence,        % The node.
-                                 set(sentence)). % Connected nodes.
+:- type arg_graph_member == pair(sentence,        % Vertex
+                                 set(sentence)).  % Neighbors
 
 :- type arg_graph == set(arg_graph_member).
 
 :- type proponent_state == pair(pair(list(sentence),  % PropUnMrk
-                                     set(sentence)),  % PropM
+                                     set(sentence)),  % PropMrk
                                      arg_graph).      % PropG
 
 :- type opponent_state == pair(pair(pair(sentence,        % Claim
