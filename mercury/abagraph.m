@@ -289,10 +289,10 @@ sentence_choice(pn, Ss, S, Ssminus) :-
 % in the following we only need to backtrack over assumptions
 
 sentence_choice_backtrack(p, Ss, S, Ssminus) :-
-  find_first((pred(X::in) is semidet :- \+ assumption(X)), Ss, S, Ssminus).
-sentence_choice_backtrack(p, Ss, S, Ssminus) :-
-  % Debug: This will select again the same nonassumption from above.
-  select(S, Ss, Ssminus).
+  (find_first((pred(X::in) is semidet :- \+ assumption(X)), Ss, First, SsminusS) ->
+    S = First, Ssminus = SsminusS
+  ;
+    select(S, Ss, Ssminus)).
 
 %
 
