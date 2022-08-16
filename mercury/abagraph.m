@@ -97,7 +97,7 @@ derive(S) :-
 initial_derivation_tuple(
     PropUnMrk,
     step_tuple(O_PropUnMrk-set.init-PropGr, % PropUnMrk-PropM-PropGr
-               []-[],                     % OppUnMrk-OppM (members of each are Claim-UnMrk-Mrk-Graph)
+               []-set.init,                 % OppUnMrk-OppM (members of each are Claim-UnMrk-Mrk-Graph)
                % TODO: Support GB. 
                D0,                        % D
                set.init)) :-              % C

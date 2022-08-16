@@ -28,7 +28,7 @@
                                          arg_graph).      % Graph
 
 :- type opponent_arg_graph_set == pair(list(opponent_state),   % OppUnMrk
-                                       list(opponent_state)).  % OppMrk
+                                       set(opponent_state)).   % OppMrk
 
 :- type step_tuple 
    ---> step_tuple(proponent_state,        % PROPONENT potential argument graph
@@ -38,7 +38,7 @@
 
 :- type derivation_result 
    ---> derivation_result(pair(set(sentence), arg_graph), % PropMrk-PropG
-                          list(opponent_state),           % OppM
+                          set(opponent_state),            % OppMrk
                           set(sentence),                  % D (the proponent defences)
                           set(sentence)).                 % C (the opponent culprits)
 
