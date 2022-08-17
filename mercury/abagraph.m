@@ -74,7 +74,8 @@ non_assumption(not(fact("b"))).
 rule(not(fact("a")), [fact("b")]).
 rule(not(fact("b")), []).
 
-contrary(A, not(A)).
+contrary(not(A), A).
+contrary(fact(A), not(fact(A))).
 
 % ("set some options" moved to options.m.)
 
