@@ -4,31 +4,27 @@
 :- module printing.
 :- interface.
 
+:- import_module digraph.
 :- import_module list.
-:- import_module set.
 :- import_module pair.
+:- import_module set.
 :- import_module string.
 
 :- type sentence
    ---> fact(string)
    ;    not(sentence).
 
-:- type arg_graph_member == pair(sentence,        % Vertex
-                                 set(sentence)).  % Neighbors
+:- type proponent_state == pair(pair(list(sentence),     % PropUnMrk
+                                     set(sentence)),     % PropMrk
+                                     digraph(sentence)). % PropG
 
-:- type arg_graph == set(arg_graph_member).
+:- type opponent_state == pair(pair(pair(sentence,           % Claim
+                                         list(sentence)),    % UnMrk
+                                         set(sentence)),     % Mrk
+                                         digraph(sentence)). % Graph
 
-:- type proponent_state == pair(pair(list(sentence),  % PropUnMrk
-                                     set(sentence)),  % PropMrk
-                                     arg_graph).      % PropG
-
-:- type opponent_state == pair(pair(pair(sentence,        % Claim
-                                         list(sentence)), % UnMrk
-                                         set(sentence)),  % Mrk
-                                         arg_graph).      % Graph
-
-:- type opponent_arg_graph_set == pair(list(opponent_state),   % OppUnMrk
-                                       set(opponent_state)).   % OppMrk
+:- type opponent_arg_graph_set == pair(list(opponent_state), % OppUnMrk
+                                       set(opponent_state)). % OppMrk
 
 :- type step_tuple 
    ---> step_tuple(proponent_state,        % PROPONENT potential argument graph
@@ -42,10 +38,10 @@
                             set(sentence)).         % C (the opponent culprits)
 
 :- type derivation_result 
-   ---> derivation_result(pair(set(sentence), arg_graph), % PropMrk-PropG
-                          set(opponent_state),            % OppMrk
-                          set(sentence),                  % D (the proponent defences)
-                          set(sentence)).                 % C (the opponent culprits)
+   ---> derivation_result(pair(set(sentence), digraph(sentence)), % PropMrk-PropG
+                          set(opponent_state),                    % OppMrk
+                          set(sentence),                          % D (the proponent defences)
+                          set(sentence)).                         % C (the opponent culprits)
 
 :- pred poss_print_case(string::in) is det.
 :- pred print_step(int::in, step_tuple::in) is det.
@@ -59,7 +55,7 @@
 :- pred print_opponent_step_list(list(opponent_state)::in) is det.
 :- func sentence_to_string(sentence) = string is det.
 :- func sentence_list_to_string(list(sentence)) = string is det.
-:- func arg_graph_to_string(arg_graph) = string is det.
+:- func arg_graph_to_string(digraph(sentence)) = string is det.
 % puts(S). Write the string S to stdout without a newline.
 :- pred puts(string::in) is det.
 % format(S, PolyTypes). Write string.format(S, PolyTypes) to stdout.
@@ -133,10 +129,11 @@ sentence_list_to_string(S) =
   string.format("[%s]", [s(join_list(",", map(sentence_to_string, S)))]).
 
 arg_graph_to_string(G) = Result :-
-  NodeList = map((func(H-B) = string.format("%s-%s", [s(sentence_to_string(H)),
-                                                      s(sentence_list_to_string(to_sorted_list(B)))])), 
-                 to_sorted_list(G)),
-  Result = string.format("[%s]", [s(join_list(",", NodeList))]).
+  %NodeList = map((func(H-B) = string.format("%s-%s", [s(sentence_to_string(H)),
+  %                                                    s(sentence_list_to_string(to_sorted_list(B)))])), 
+  %               to_sorted_list(G)),
+  %Result = string.format("[%s]", [s(join_list(",", NodeList))]).
+  Result = "TODO: Implement for digraph".
 
 :- pragma foreign_proc("C",
 puts(S::in),

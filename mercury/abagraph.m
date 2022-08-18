@@ -10,15 +10,16 @@
 
 :- implementation.
 
-:- import_module pair.
-:- import_module list.
-:- import_module set.
+:- import_module digraph.
 :- import_module int.
+:- import_module list.
 :- import_module maybe.
-:- import_module solutions.
-:- import_module require.
 :- import_module options.
+:- import_module pair.
 :- import_module printing.
+:- import_module require.
+:- import_module set.
+:- import_module solutions.
 
 :- type turn
         ---> proponent
@@ -34,12 +35,12 @@
 :- pred derivation(step_tuple::in, int::in, derivation_result::out, int::out) is nondet.
 :- pred derivation_step(step_tuple::in, step_tuple::out) is nondet.
 :- pred proponent_step(step_tuple::in, step_tuple::out) is nondet.
-:- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), arg_graph)::in, 
+:- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in, 
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is det.
-%:- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), arg_graph)::in, 
+%:- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in, 
 %          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is det.
 :- pred opponent_ia(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
-          opponent_step_tuple::in, step_tuple::out) is nondet.
+          opponent_step_tuple::in, step_tuple::out) is semidet.
 :- pred opponent_ib(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is det.
 :- pred opponent_step(step_tuple::in, step_tuple::out) is nondet.
@@ -110,8 +111,8 @@ initial_derivation_tuple(
     step_tuple(O_PropUnMrk-set.init-PropGr, % PropUnMrk-PropM-PropGr
                []-set.init,                 % OppUnMrk-OppM (members of each are Claim-UnMrk-Mrk-Graph)
                % TODO: Support GB. 
-               D0,                        % D
-               set.init)) :-              % C
+               D0,                          % D
+               set.init)) :-                % C
                % TODO: Do we need Att?
   to_sorted_list(PropUnMrk, O_PropUnMrk),
   % Instead of findall, use the set filter.
@@ -119,7 +120,8 @@ initial_derivation_tuple(
   %            assumption(A)),
   %        D0),
   D0 = filter(assumption, PropUnMrk),
-  PropGr = map((func(V) = V-set.init), PropUnMrk).
+  PropGr = fold(func(V, GIn) = GOut :- add_vertex(V, _, GIn, GOut),
+                PropUnMrk, digraph.init).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -185,9 +187,8 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C,
   contrary(A, Contrary),
   ((\+ (member(Member1, OppUnMrk), Member1 = Contrary-_-_-_), 
     \+ (member(Member2, OppMrk),   Member2 = Contrary-_-_-_)) ->
-    append_element_nodup(OppUnMrk, 
-      Contrary-[Contrary]-set.init-make_singleton_set(Contrary-set.init),
-      OppUnMrk1)
+    add_vertex(Contrary, _, digraph.init, GContrary),
+    append_element_nodup(OppUnMrk, Contrary-[Contrary]-set.init-GContrary, OppUnMrk1)
   ;
     OppUnMrk1 = OppUnMrk),
   insert(A, PropMrk, PropMrk1).
