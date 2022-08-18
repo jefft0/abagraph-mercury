@@ -26,10 +26,10 @@
 
 :- pred assumption(sentence::in) is semidet.
 :- pred non_assumption(sentence::in) is semidet.
-:- pred rule(sentence::in, list(sentence)::out) is nondet.
+:- pred rule(sentence::in, list(sentence)::out) is semidet.
 :- pred contrary(sentence::in, sentence::out) is det.
 
-:- pred derive(sentence::in) is semidet.
+:- pred derive(sentence::in, derivation_result::out) is nondet.
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
 :- pred derivation(step_tuple::in, int::in, derivation_result::out, int::out) is nondet.
 :- pred derivation_step(step_tuple::in, step_tuple::out) is nondet.
@@ -38,6 +38,10 @@
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is det.
 %:- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), arg_graph)::in, 
 %          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is det.
+:- pred opponent_ia(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
+          opponent_step_tuple::in, step_tuple::out) is nondet.
+:- pred opponent_ib(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
+          opponent_step_tuple::in, step_tuple::out) is det.
 :- pred opponent_step(step_tuple::in, step_tuple::out) is nondet.
 :- pred append_element_nodup(list(T)::in, T::in, list(T)::out) is det.
 :- pred append_elements_nodup(list(T)::in, list(T)::in, list(T)::out) is det.
@@ -47,9 +51,12 @@
 :- pred opponent_sentence_choice(opponent_state::in, sentence::out, opponent_state::out) is nondet.
 :- pred rule_choice(sentence::in, list(sentence)::out, string::in) is nondet.
 :- pred turn_choice(turn_choice::in, proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
-:- pred sentence_choice(proponent_sentence_choice::in, list(sentence)::in, sentence::out, list(sentence)::out) is det.
-:- pred sentence_choice_backtrack(opponent_sentence_choice::in, list(sentence)::in, sentence::out, list(sentence)::out) is nondet.
-:- pred opponent_abagraph_choice(opponent_abagraph_choice::in, list(opponent_state)::in, opponent_state::out, list(opponent_state)::out) is det.
+:- pred sentence_choice(proponent_sentence_choice::in, list(sentence)::in, sentence::out,
+          list(sentence)::out) is det.
+:- pred sentence_choice_backtrack(opponent_sentence_choice::in, list(sentence)::in, sentence::out,
+          list(sentence)::out) is nondet.
+:- pred opponent_abagraph_choice(opponent_abagraph_choice::in, list(opponent_state)::in,
+          opponent_state::out, list(opponent_state)::out) is det.
 :- pred get_first_assumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred get_first_nonassumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred get_newest_nonassumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
@@ -60,7 +67,7 @@
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
 
 main(!IO) :-
-  unsorted_solutions((pred(0::out) is nondet :- derive(fact("a"))), _).
+  unsorted_solutions((pred(0::out) is nondet :- derive(fact("a"), _)), _).
 
 % TODO: This should be dynamic.
 assumption(fact("a")).
@@ -84,7 +91,7 @@ contrary(fact(A), not(fact(A))).
 %
 % DERIVATION CONTROL: entry predicates
 
-derive(S) :-
+derive(S, Result) :-
   %retractall(proving(_)),
   %assert(proving(S)),
   initial_derivation_tuple(make_singleton_set(S), InitTuple),
@@ -196,6 +203,27 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C,
 %  % TODO: Support GB. gb_acyclicity_check(G, S, Body, G1).
 
 %%%%%%%%%% opponent
+
+% TODO: opponent_i
+
+opponent_ia(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
+            opponent_step_tuple(P, D, C), step_tuple(P, OppUnMrkMinus1-OppMrk, D, C)) :-
+  (gb_derivation -> 
+    true
+  ;
+    \+ member(A, C)),    % also sound for gb? CHECK in general
+  insert(A, Marked, Marked1),
+  append_element_nodup(OppUnMrkMinus, Claim-UnMrkMinus-Marked1-Graph, OppUnMrkMinus1).
+
+opponent_ib(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk, 
+            opponent_step_tuple(P, D, C), step_tuple(P, OppUnMrkMinus-OppMrk1, D, C)) :-
+ % TODO: Support GB. contrary(A, Contrary),
+ % TODO: Support GB. gb_acyclicity_check(G, Claim, [Contrary], G1),
+ insert(A, Marked, Marked1),
+ insert(Claim-UnMrkMinus-Marked1-Graph, OppMrk, OppMrk1).
+
+% TODO: opponent_ic
+% TODO: opponent_ii
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -310,7 +338,6 @@ sentence_choice_backtrack(p, Ss, S, Ssminus) :-
     S = First, Ssminus = SsminusS
   ;
     select(S, Ss, Ssminus)).
-
 sentence_choice_backtrack(pn, Ss, S, Ssminus) :-
   reverse(Ss, RevSs),
   (find_first((pred(X::in) is semidet :- \+ assumption(X)), RevSs, First, SsminusS) ->
