@@ -36,6 +36,11 @@
                    set(sentence),          % D (the proponent defences)
                    set(sentence)).         % C (the opponent culprits)
 
+:- type opponent_step_tuple 
+   ---> opponent_step_tuple(proponent_state,        % PROPONENT potential argument graph
+                            set(sentence),          % D (the proponent defences)
+                            set(sentence)).         % C (the opponent culprits)
+
 :- type derivation_result 
    ---> derivation_result(pair(set(sentence), arg_graph), % PropMrk-PropG
                           set(opponent_state),            % OppMrk
