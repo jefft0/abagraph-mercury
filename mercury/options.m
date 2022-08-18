@@ -17,6 +17,8 @@
         ;    turn_choice
         ;    verbose.
 
+:- type derivation_type ---> ab; gb.
+
 :- type opponent_abagraph_choice ---> o; n. %TODO: Implement others: s; l; lmb.
 
 :- type opponent_sentence_choice ---> p; pn. %TODO: Implement others: o; n; e.
@@ -29,6 +31,10 @@
 
 :- pred option(option_key::in, string::out) is det.
 :- pred verbose is semidet.
+:- pred ab_derivation is semidet.
+:- pred gb_derivation is semidet.
+
+:- pred get_derivation_type(derivation_type::out) is det.
 :- pred get_opponent_abagraph_choice(opponent_abagraph_choice::out) is det.
 :- pred get_opponent_sentence_choice(opponent_sentence_choice::out) is det.
 :- pred get_proponent_sentence_choice(proponent_sentence_choice::out) is det.
@@ -53,8 +59,21 @@ option(show_solution, "true").
 option(turn_choice, "p").  % Use "p" instead of "[p,o]" like the web page documentation.
 option(verbose, "true").
 
+% OPTIONS: checking
+
+ab_derivation :-
+ get_derivation_type(ab).
+gb_derivation :-
+ get_derivation_type(gb).
+
 verbose :-
   option(verbose, "true").
+
+get_derivation_type(Out) :-
+  option(derivation_type, Val),
+  (Val = "ab" -> Out = ab ;
+  (Val = "gb" -> Out = gb ;
+    unexpected($file, $pred, "invalid value"))).
 
 get_opponent_abagraph_choice(Out) :-
   option(opponent_abagraph_choice, Val),
