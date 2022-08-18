@@ -55,6 +55,7 @@
 :- pred print_opponent_step_list(list(opponent_state)::in) is det.
 :- func sentence_to_string(sentence) = string is det.
 :- func sentence_list_to_string(list(sentence)) = string is det.
+:- func sentence_set_to_string(set(sentence)) = string is det.
 :- func arg_graph_to_string(digraph(sentence)) = string is det.
 % puts(S). Write the string S to stdout without a newline.
 :- pred puts(string::in) is det.
@@ -75,7 +76,7 @@ poss_print_case(Case) :-
 print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C)) :-
   format("*** Step %d\n", [i(N)]),
   format("P:    %s-%s-%s\n", [s(sentence_list_to_string(PropUnMrk)),
-                              s(sentence_list_to_string(to_sorted_list(PropMrk))),
+                              s(sentence_set_to_string(PropMrk)),
                               s(arg_graph_to_string(PropGr))]),
   format("O:    [", []),
   print_opponent_step_list(OppUnMrk),
@@ -100,7 +101,7 @@ print_opponent_step_list([]) :-
 print_opponent_step_list([Claim-UnMrk-Mrk-Graph|T]) :-
   State = format("%s-%s-%s-%s", [s(sentence_to_string(Claim)),
                                  s(sentence_list_to_string(UnMrk)),
-                                 s(sentence_list_to_string(to_sorted_list(Mrk))),
+                                 s(sentence_set_to_string(Mrk)),
                                  s(arg_graph_to_string(Graph))]),
   (if T = [] then
     format("%s]\n", [s(State)])
@@ -125,15 +126,18 @@ print_result(_Result) :-
 sentence_to_string(fact(C)) = string.format("fact(%s)", [s(C)]).
 sentence_to_string(not(S)) = string.format("not(%s)", [s(sentence_to_string(S))]).
 
-sentence_list_to_string(S) =
-  string.format("[%s]", [s(join_list(",", map(sentence_to_string, S)))]).
+sentence_list_to_string(L) =
+  string.format("[%s]", [s(join_list(",", map(sentence_to_string, L)))]).
+
+sentence_set_to_string(S) = sentence_list_to_string(to_sorted_list(S)).
 
 arg_graph_to_string(G) = Result :-
-  %NodeList = map((func(H-B) = string.format("%s-%s", [s(sentence_to_string(H)),
-  %                                                    s(sentence_list_to_string(to_sorted_list(B)))])), 
-  %               to_sorted_list(G)),
-  %Result = string.format("[%s]", [s(join_list(",", NodeList))]).
-  Result = "TODO: Implement for digraph".
+  NodeList = map((func(V) = string.format("%s-%s", [s(sentence_to_string(V)),
+                                                    s(sentence_set_to_string(Neighbors))]) :-
+                    KeySet = lookup_from(G, lookup_key(G, V)),
+                    Neighbors = map(func(K) = lookup_vertex(G, K), KeySet)), 
+                 to_sorted_list(vertices(G))),
+  Result = string.format("[%s]", [s(join_list(",", NodeList))]).
 
 :- pragma foreign_proc("C",
 puts(S::in),
