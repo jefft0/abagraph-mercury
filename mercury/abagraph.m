@@ -28,7 +28,7 @@
 :- pred assumption(sentence::in) is semidet.
 :- pred non_assumption(sentence::in) is semidet.
 :- pred rule(sentence::in, list(sentence)::out) is semidet.
-:- pred contrary(sentence::in, sentence::out) is det.
+:- pred contrary(sentence::in, sentence::out) is semidet.
 
 :- pred derive(sentence::in, derivation_result::out) is nondet.
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
@@ -36,13 +36,17 @@
 :- pred derivation_step(step_tuple::in, step_tuple::out) is nondet.
 :- pred proponent_step(step_tuple::in, step_tuple::out) is nondet.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in, 
-          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is det.
+          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is semidet.
 %:- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in, 
 %          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is det.
+:- pred opponent_i(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
+          opponent_step_tuple::in, step_tuple::out) is nondet.
 :- pred opponent_ia(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is semidet.
 :- pred opponent_ib(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is det.
+:- pred opponent_ic(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
+          opponent_step_tuple::in, step_tuple::out) is semidet.
 :- pred opponent_step(step_tuple::in, step_tuple::out) is nondet.
 :- pred append_element_nodup(list(T)::in, T::in, list(T)::out) is det.
 :- pred append_elements_nodup(list(T)::in, list(T)::in, list(T)::out) is det.
@@ -82,7 +86,6 @@ non_assumption(not(fact("b"))).
 rule(not(fact("a")), [fact("b")]).
 rule(not(fact("b")), []).
 
-contrary(not(A), A).
 contrary(fact(A), not(fact(A))).
 
 % ("set some options" moved to options.m.)
@@ -165,8 +168,7 @@ opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C), T1) :-
   opponent_sentence_choice(OppArg, S, OppArgMinus),
   (
     assumption(S),
-    %opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, [P|RestT], T1)
-    T1 = step_tuple(P, OppUnMrk-OppMrk, D, C) %Debug
+    opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C), T1)
   ;
     non_assumption(S),
     %opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, [P|RestT], T1),
@@ -205,7 +207,19 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C,
 
 %%%%%%%%%% opponent
 
-% TODO: opponent_i
+opponent_i(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C), T1) :-
+  (
+    \+ member(A, D),
+    (member(A, C) -> 
+      opponent_ib(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C), T1),
+      poss_print_case("2.(ib)")
+    ;
+      opponent_ic(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C), T1),
+      poss_print_case("2.(ic)"))
+  ;
+    opponent_ia(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C), T1),
+    poss_print_case("2.(ia)")
+  ).
 
 opponent_ia(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
             opponent_step_tuple(P, D, C), step_tuple(P, OppUnMrkMinus1-OppMrk, D, C)) :-
@@ -223,7 +237,26 @@ opponent_ib(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
  insert(A, Marked, Marked1),
  insert(Claim-UnMrkMinus-Marked1-Graph, OppMrk, OppMrk1).
 
-% TODO: opponent_ic
+opponent_ic(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk, 
+            opponent_step_tuple(PropUnMrk-PropMrk-PropGr, D, C), 
+            step_tuple(PropUnMrk1-PropMrk-PropGr1, OppUnMrkMinus-OppMrk1, D1, C1)) :-
+  contrary(A, Contrary),
+  (search_key(PropGr, Contrary, _) -> 
+    PropUnMrk = PropUnMrk1,
+    PropGr = PropGr1
+  ;
+    append_element_nodup(PropUnMrk, Contrary, PropUnMrk1),
+    add_vertex(Contrary, _, PropGr, PropGr1)),
+  (assumption(Contrary) -> 
+    insert(Contrary, D, D1)
+  ; 
+    D1 = D),
+  insert(A, C, C1),
+  insert(A, Marked, Marked1),
+  insert(Claim-UnMrkMinus-Marked1-Graph, OppMrk, OppMrk1).
+  % TODO: Do we need Att? insert(Att, (Contrary,A), Att1),
+  % TODO: Support GB. gb_acyclicity_check(G, Claim, [Contrary], G1).
+
 % TODO: opponent_ii
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
