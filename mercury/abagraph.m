@@ -48,6 +48,7 @@
 :- pred opponent_ic(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is semidet.
 :- pred opponent_step(step_tuple::in, step_tuple::out) is nondet.
+:- pred filter_marked(list(sentence)::in, set(sentence)::in, list(sentence)::out, list(sentence)::out) is det.
 :- pred append_element_nodup(list(T)::in, T::in, list(T)::out) is det.
 :- pred append_elements_nodup(list(T)::in, list(T)::in, list(T)::out) is det.
 :- pred choose_turn(proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
@@ -263,6 +264,28 @@ opponent_ic(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % SUBSIDIARY FUNCTIONS
+
+% TODO: update_argument_graph
+
+% filter_marked(Body, AlreadyProved, Unproved, UnprovedAs)
+filter_marked([], _, [], []).
+filter_marked([S|RestBody], Proved, InUnproved, InUnprovedAs) :-
+  (assumption(S) ->
+    A = S,
+    (member(A, Proved) -> 
+      InUnproved = OutUnproved,
+      InUnprovedAs = OutUnprovedAs
+    ;
+      InUnproved = [A|OutUnproved],
+      InUnprovedAs = [A|OutUnprovedAs]),
+    filter_marked(RestBody, Proved, OutUnproved, OutUnprovedAs)
+  ;
+    (member(S, Proved) -> 
+      InUnproved = OutUnproved
+    ;  
+      InUnproved = [S|OutUnproved]),
+    InUnprovedAs = OutUnprovedAs,
+    filter_marked(RestBody, Proved, OutUnproved, OutUnprovedAs)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
