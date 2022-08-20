@@ -347,9 +347,16 @@ acyclic(G) :-
   %\+ member([_,_|_]-_, RedG).
   count(vertices(G)) > 0.
 
-graph_union(G1, _G2, G) :-
-  % TODO: Implement.
-  G = G1.
+graph_union(G1, G2, G) :-
+  % For each vertex V in G1, add it to G2 plus edges from V.
+  G = fold((func(V, G2In) = G2Out :-
+              % Add the vertex because there might not be an edge.
+              add_vertex(V, _, G2In, G2InWithV),
+              % Add each edge to G2.
+              NeighborKeySet = lookup_from(G1, lookup_key(G1, V)),
+              G2Out = fold(func(Key, G2Acc) = add_vertex_pair(V-lookup_vertex(G1, Key), G2Acc),
+                           NeighborKeySet, G2InWithV)),
+           vertices(G1), G2).
 
 % append_element_nodup(L, E, Res)
 % - Res is the result of adding E to the end of L, if E is not in L
