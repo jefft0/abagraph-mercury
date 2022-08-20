@@ -37,8 +37,8 @@
 :- pred proponent_step(step_tuple::in, step_tuple::out) is nondet.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in, 
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is semidet.
-%:- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in, 
-%          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is det.
+:- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
+          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is nondet.
 :- pred opponent_i(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is nondet.
 :- pred opponent_ia(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
@@ -47,8 +47,17 @@
           opponent_step_tuple::in, step_tuple::out) is det.
 :- pred opponent_ic(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is semidet.
+:- pred opponent_ii(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
+          opponent_step_tuple::in, step_tuple::out) is det.
+:- pred iterate_bodies(list(list(sentence))::in, sentence::in, opponent_state::in, 
+                       pair(list(opponent_state), set(opponent_state))::in, set(sentence)::in,
+                       pair(list(opponent_state), set(opponent_state))::out) is det.
 :- pred opponent_step(step_tuple::in, step_tuple::out) is nondet.
+:- pred update_argument_graph(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
+          list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out) is semidet.
 :- pred filter_marked(list(sentence)::in, set(sentence)::in, list(sentence)::out, list(sentence)::out) is det.
+:- pred acyclic(digraph(sentence)::in) is semidet.
+:- pred graph_union(digraph(sentence)::in, digraph(sentence)::in, digraph(sentence)::out) is det.
 :- pred append_element_nodup(list(T)::in, T::in, list(T)::out) is det.
 :- pred append_elements_nodup(list(T)::in, list(T)::in, list(T)::out) is det.
 :- pred choose_turn(proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
@@ -75,15 +84,12 @@
 main(!IO) :-
   unsorted_solutions((pred(0::out) is nondet :- derive(fact("a"), _)), _).
 
-% TODO: This should be dynamic.
 assumption(fact("a")).
 assumption(fact("b")).
 
-% TODO: Compute this like in loadf.
 non_assumption(not(fact("a"))).
 non_assumption(not(fact("b"))).
 
-% TODO: This should be dynamic.
 rule(not(fact("a")), [fact("b")]).
 rule(not(fact("b")), []).
 
@@ -160,7 +166,7 @@ proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C), T1) :-
     poss_print_case("1.(i)")
   ;
     non_assumption(S),
-    proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, T1), % Debug: Use proponent_nonasm.
+    proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, T1),
     poss_print_case("1.(ii)")
   ).
 
@@ -172,11 +178,9 @@ opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C), T1) :-
     opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C), T1)
   ;
     non_assumption(S),
-    %opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, [P|RestT], T1),
-    T1 = step_tuple(P, OppUnMrk-OppMrk, D, C), %Debug
+    opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C), T1),
     poss_print_case("2.(ii)")
   ).
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -198,13 +202,14 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C,
   % TODO: Do we need Att? ord_add_element(Att, (Contrary,A), Att1).
   % TODO: Support GB. gb_acyclicity_check(G, A, [Contrary], G1).
 
-%proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C)) :-
-%  rule_choice(S, Body, proponent, [D,PropGr]),
-%  \+ (member(X, Body), member(X, C)),
-%  update_argument_graph(S, Body, PropMrk-PropGr, NewUnMrk, NewUnMrkAs, PropMrk1-PropGr1),
-%  append_elements_nodup(NewUnMrk, PropUnMrkMinus, PropUnMrk1),
-%  ord_add_elements(NewUnMrkAs, D, D1).
-%  % TODO: Support GB. gb_acyclicity_check(G, S, Body, G1).
+proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, 
+                 step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C)) :-
+  rule_choice(S, Body, "[D,PropGr]"),
+  \+ (member(X, Body), member(X, C)),
+  update_argument_graph(S, Body, PropMrk-PropGr, NewUnMrk, NewUnMrkAs, PropMrk1-PropGr1),
+  append_elements_nodup(NewUnMrk, PropUnMrkMinus, PropUnMrk1),
+  union(list_to_set(NewUnMrkAs), D, D1).
+  % TODO: Support GB. gb_acyclicity_check(G, S, Body, G1).
 
 %%%%%%%%%% opponent
 
@@ -258,14 +263,53 @@ opponent_ic(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
   % TODO: Do we need Att? insert(Att, (Contrary,A), Att1),
   % TODO: Support GB. gb_acyclicity_check(G, Claim, [Contrary], G1).
 
-% TODO: opponent_ii
+opponent_ii(S, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C),
+            step_tuple(P, OppUnMrkMinus1-OppMrk1, D, C)) :-
+  solutions((pred(Body::out) is nondet :- rule(S, Body)), Bodies),
+  iterate_bodies(Bodies, S, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk, C,
+                 OppUnMrkMinus1-OppMrk1).
+
+iterate_bodies([], _, _, OppUnMrkMinus-OppMrk, _, OppUnMrkMinus-OppMrk).
+iterate_bodies([Body|RestBodies], S, Claim-UnMrkMinus-Marked-Graph, InOppUnMrkMinus-InOppMrk, C,
+               OppUnMrkMinus1-OppMrk1) :-
+  (update_argument_graph(S, Body, Marked-Graph, UnMarked, _UnMarkedAs, Marked1-Graph1) ->
+    append_elements_nodup(UnMarked, UnMrkMinus, UnMrk1),
+    ((\+ gb_derivation, member(A, Body), member(A, C)) -> 
+      OutOppUnMrkMinus = InOppUnMrkMinus,
+      insert(Claim-UnMrk1-Marked1-Graph1, InOppMrk, OutOppMrk)
+    ;
+      append_element_nodup(InOppUnMrkMinus, Claim-UnMrk1-Marked1-Graph1, OutOppUnMrkMinus),
+      OutOppMrk = InOppMrk),
+    % TODO: Support GB. OutG = InG,
+    iterate_bodies(RestBodies, S, Claim-UnMrkMinus-Marked-Graph, OutOppUnMrkMinus-OutOppMrk, C,
+                   OppUnMrkMinus1-OppMrk1)
+  ;
+    iterate_bodies(RestBodies, S, Claim-UnMrkMinus-Marked-Graph, InOppUnMrkMinus-InOppMrk, C,
+                   OppUnMrkMinus1-OppMrk1)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % SUBSIDIARY FUNCTIONS
 
-% TODO: update_argument_graph
+% update_argument_graph(S, Body, Marked-Graph, Unproved, UnprovedAs, Marked1-Graph1)
+% - update graph representation of an argument with rule(S, Body)
+% - check updated version for acyclicity
+% - record the previously unproved sentences and assumptions from body
+update_argument_graph(S, Body, Marked-Graph, UnMarked, UnMarkedAs, Marked1-Graph1) :-
+  filter_marked(Body, Marked, UnMarked, UnMarkedAs),
+  GraphMinus = Graph, %Debug ord_del_element(Graph, S-[], GraphMinus),
+  insert(S, Marked, Marked1),
+  list_to_set(Body, O_Body),
+  GraphMinus1 = GraphMinus, %Debug ord_add_element(GraphMinus, S-O_Body, GraphMinus1),
+  BodyUnMarkedGraph = fold(func(B, GIn) = GOut :-
+                             (\+ search_key(GraphMinus1, B, _) ->
+                               add_vertex(B, _, GIn, GOut)
+                             ;
+                               GOut = GIn),
+                           O_Body, digraph.init),
+  graph_union(GraphMinus1, BodyUnMarkedGraph, Graph1),
+  acyclic(Graph1).
 
 % filter_marked(Body, AlreadyProved, Unproved, UnprovedAs)
 filter_marked([], _, [], []).
@@ -291,6 +335,18 @@ filter_marked([S|RestBody], Proved, InUnproved, InUnprovedAs) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % SUBSIDIARY FUNCTIONS - GRAPH, LIST, MISC
+
+acyclic(G) :-
+  % TODO: Implement.
+  %\+ (member(V-Edges, G),
+  %    ord_member(V, Edges)),
+  %reduce(G, RedG),
+  %\+ member([_,_|_]-_, RedG).
+  count(vertices(G)) > 0.
+
+graph_union(G1, _G2, G) :-
+  % TODO: Implement.
+  G = G1.
 
 % append_element_nodup(L, E, Res)
 % - Res is the result of adding E to the end of L, if E is not in L
