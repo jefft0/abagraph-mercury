@@ -158,7 +158,7 @@ print_to_file(_Result) :-
 %
 % PRINTING: HELPERS
 
-sentence_to_string(fact(C)) = string.format("fact(%s)", [s(C)]).
+sentence_to_string(fact(C)) = string.format("%s", [s(C)]).
 sentence_to_string(not(S)) = string.format("not(%s)", [s(sentence_to_string(S))]).
 
 sentence_list_to_string(L) =
