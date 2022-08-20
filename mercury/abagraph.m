@@ -320,12 +320,7 @@ filter_marked([S|RestBody], Proved, InUnproved, InUnprovedAs) :-
 % SUBSIDIARY FUNCTIONS - GRAPH, LIST, MISC
 
 acyclic(G) :-
-  % TODO: Implement.
-  %\+ (member(V-Edges, G),
-  %    ord_member(V, Edges)),
-  %reduce(G, RedG),
-  %\+ member([_,_|_]-_, RedG).
-  \+ G = digraph.init.
+  is_dag(G).
 
 graph_union(G1, G2, G) :-
   % For each vertex V in G1, add it to G2 plus edges from V.
