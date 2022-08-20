@@ -299,10 +299,7 @@ iterate_bodies([Body|RestBodies], S, Claim-UnMrkMinus-Marked-Graph, InOppUnMrkMi
 update_argument_graph(S, Body, Marked-Graph, UnMarked, UnMarkedAs, Marked1-Graph1) :-
   filter_marked(Body, Marked, UnMarked, UnMarkedAs),
   %ord_del_element(Graph, S-[], GraphMinus),
-  (search_key(Graph, S, SKey), lookup_from(Graph, SKey, set.init) ->
-    GraphMinus = Graph % Debug: Delete S.
-  ;
-    GraphMinus = Graph),
+  GraphMinus = Graph, % Note: We don't need to  delete S because it will be added again below.
   insert(S, Marked, Marked1),
   list_to_set(Body, O_Body),
   %ord_add_element(GraphMinus, S-O_Body, GraphMinus1),
