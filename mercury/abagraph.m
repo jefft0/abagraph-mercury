@@ -4,9 +4,9 @@
 :- module abagraph.
 :- interface.
 
-:- import_module io.
+:- import_module printing.
 
-:- pred main(io::di, io::uo) is det.
+:- pred derive(sentence::in, derivation_result::out) is nondet.
 
 :- implementation.
 
@@ -17,7 +17,6 @@
 :- import_module maybe.
 :- import_module options.
 :- import_module pair.
-:- import_module printing.
 :- import_module require.
 :- import_module set.
 :- import_module solutions.
@@ -26,7 +25,6 @@
         ---> proponent
         ;    opponent.        
 
-:- pred derive(sentence::in, derivation_result::out) is nondet.
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
 :- pred derivation(step_tuple::in, int::in, set(sentence)::in, derivation_result::out, int::out) is nondet.
 :- pred derivation_step(step_tuple::in, set(sentence)::in, step_tuple::out) is nondet.
@@ -76,9 +74,6 @@
 :- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet. 
 :- pred select(T::out, list(T)::in, list(T)::out) is nondet.
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
-
-main(!IO) :-
-  unsorted_solutions((pred(R::out) is nondet :- derive(fact("a"), R)), _).
 
 % ("set some options" moved to options.m.)
 

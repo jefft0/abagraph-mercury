@@ -4,8 +4,14 @@
 :- module loading.
 :- interface.
 
-:- import_module list.
+:- import_module io.
 :- import_module printing.
+
+:- pred main(io::di, io::uo) is det.
+
+:- interface.
+
+:- import_module list.
 :- import_module set.
 
 :- pred assumption(sentence).
@@ -19,7 +25,11 @@
 
 :- implementation.
 
+:- import_module abagraph.
 :- import_module solutions.
+
+main(!IO) :-
+  unsorted_solutions((pred(R::out) is nondet :- derive(fact("a"), R)), _).
 
 assumption(fact("a")).
 assumption(fact("b")).
