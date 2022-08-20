@@ -47,10 +47,6 @@
 :- pred print_step(int::in, step_tuple::in) is det.
 :- pred print_result(derivation_result::in) is det.
 
-:- implementation.
-
-:- import_module options.
-
 :- pred print_step_list(list(sentence)::in) is det.
 :- pred print_opponent_step_list(list(opponent_state)::in) is det.
 :- pred show_result(derivation_result::in) is det.
@@ -65,6 +61,10 @@
 :- pred puts(string::in) is det.
 % format(S, PolyTypes). Write string.format(S, PolyTypes) to stdout.
 :- pred format(string::in, list(poly_type)::in) is det.
+
+:- implementation.
+
+:- import_module options.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
