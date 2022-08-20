@@ -82,7 +82,7 @@
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
 
 main(!IO) :-
-  unsorted_solutions((pred(0::out) is nondet :- derive(fact("a"), _)), _).
+  unsorted_solutions((pred(R::out) is nondet :- derive(fact("grass_wet"), R)), _).
 
 assumption(fact("a")).
 assumption(fact("b")).
@@ -345,7 +345,7 @@ acyclic(G) :-
   %    ord_member(V, Edges)),
   %reduce(G, RedG),
   %\+ member([_,_|_]-_, RedG).
-  count(vertices(G)) > 0.
+  \+ G = digraph.init.
 
 graph_union(G1, G2, G) :-
   % For each vertex V in G1, add it to G2 plus edges from V.
