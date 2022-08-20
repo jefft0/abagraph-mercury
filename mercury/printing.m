@@ -53,10 +53,14 @@
 
 :- pred print_step_list(list(sentence)::in) is det.
 :- pred print_opponent_step_list(list(opponent_state)::in) is det.
+:- pred show_result(derivation_result::in) is det.
+:- pred print_opponent_graphs(list(opponent_state)::in) is det.
+:- pred print_to_file(derivation_result::in) is det.
 :- func sentence_to_string(sentence) = string is det.
 :- func sentence_list_to_string(list(sentence)) = string is det.
 :- func sentence_set_to_string(set(sentence)) = string is det.
 :- func arg_graph_to_string(digraph(sentence)) = string is det.
+:- func opponent_state_to_string(opponent_state) = string is det.
 % puts(S). Write the string S to stdout without a newline.
 :- pred puts(string::in) is det.
 % format(S, PolyTypes). Write string.format(S, PolyTypes) to stdout.
@@ -68,9 +72,9 @@
 % PRINTING: DERIVATION STEPS
 
 poss_print_case(Case) :-
- (if verbose then
+ (verbose ->
    format("\nCase %s\n", [s(Case)])
- else
+ ;
    true).
 
 print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C)) :-
@@ -90,32 +94,63 @@ print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C)) :-
 print_step_list([]) :-
   format("]\n", []).
 print_step_list([H|T]) :-
-  (if T = [] then
+  (T = [] ->
     format("%s]\n", [s(sentence_to_string(H))])
-  else
+  ;
     format("%s,\n       ", [s(sentence_to_string(H))]),
     print_step_list(T)).
 
 print_opponent_step_list([]) :-
   format("]\n", []).
-print_opponent_step_list([Claim-UnMrk-Mrk-Graph|T]) :-
-  State = format("%s-%s-%s-%s", [s(sentence_to_string(Claim)),
-                                 s(sentence_list_to_string(UnMrk)),
-                                 s(sentence_set_to_string(Mrk)),
-                                 s(arg_graph_to_string(Graph))]),
-  (if T = [] then
-    format("%s]\n", [s(State)])
-  else
-    format("%s,\n       ", [s(State)]),
+print_opponent_step_list([H|T]) :-
+  (T = [] ->
+    format("%s]\n", [s(opponent_state_to_string(H))])
+  ;
+    format("%s,\n       ", [s(opponent_state_to_string(H))]),
     print_opponent_step_list(T)).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% PRINTING: RESULTS
+
+show_result(derivation_result(_-PGraph, OppMrk, D, C)) :-
+  format("\nPGRAPH:              %s\n", [s(arg_graph_to_string(PGraph))]),
+  format("DEFENCE:             %s\n", [s(sentence_set_to_string(D))]),
+  format("OGRAPHS:             [", []),
+  print_opponent_graphs(to_sorted_list(OppMrk)),
+  format("CULPRITS:            %s\n", [s(sentence_set_to_string(C))]).
+% format('ATT:                 ~w~n', [Att]),
+% format('GRAPH:               ~w~n', [G]).
+
+print_opponent_graphs([]) :-
+  format("]\n", []).
+print_opponent_graphs([H|T]) :-
+  (T = [] ->
+    format("%s]\n", [s(opponent_state_to_string(H))])
+  ;
+    format("%s,\n                      ", [s(opponent_state_to_string(H))]),
+    print_opponent_graphs(T)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % PRINTING: PRINT TO FILE
 
-print_result(_Result) :-
-  % TODO: Implement show_result (and maybe print_to_file).
+print_result(Result) :-
+  option(print_to_file, Print),
+  (Print = "true" ->
+    print_to_file(Result)
+  ; 
+    true),
+  option(show_solution, Show),
+  (Show = "true" ->
+    show_result(Result)
+  ;  
+    true).
+
+print_to_file(_Result) :-
+  % TODO: Implement.
   true.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -138,6 +173,12 @@ arg_graph_to_string(G) = Result :-
                     Neighbors = map(func(K) = lookup_vertex(G, K), KeySet)), 
                  to_sorted_list(vertices(G))),
   Result = string.format("[%s]", [s(join_list(",", NodeList))]).
+
+opponent_state_to_string(Claim-UnMrk-Mrk-Graph) =
+  string.format("%s-%s-%s-%s", [s(sentence_to_string(Claim)),
+                                s(sentence_list_to_string(UnMrk)),
+                                s(sentence_set_to_string(Mrk)),
+                                s(arg_graph_to_string(Graph))]).
 
 :- pragma foreign_proc("C",
 puts(S::in),
