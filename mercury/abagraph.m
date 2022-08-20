@@ -13,6 +13,7 @@
 :- import_module digraph.
 :- import_module int.
 :- import_module list.
+:- import_module loading.
 :- import_module maybe.
 :- import_module options.
 :- import_module pair.
@@ -25,16 +26,12 @@
         ---> proponent
         ;    opponent.        
 
-:- pred assumption(sentence::in) is semidet.
-:- pred non_assumption(sentence::in) is semidet.
-:- pred rule(sentence::in, list(sentence)::out) is semidet.
-:- pred contrary(sentence::in, sentence::out) is semidet.
-
 :- pred derive(sentence::in, derivation_result::out) is nondet.
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
-:- pred derivation(step_tuple::in, int::in, derivation_result::out, int::out) is nondet.
-:- pred derivation_step(step_tuple::in, step_tuple::out) is nondet.
-:- pred proponent_step(step_tuple::in, step_tuple::out) is nondet.
+:- pred derivation(step_tuple::in, int::in, set(sentence)::in, derivation_result::out, int::out) is nondet.
+:- pred derivation_step(step_tuple::in, set(sentence)::in, step_tuple::out) is nondet.
+:- pred proponent_step(step_tuple::in, set(sentence)::in, step_tuple::out) is nondet.
+:- pred opponent_step(step_tuple::in, set(sentence)::in, step_tuple::out) is nondet.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in, 
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is semidet.
 :- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
@@ -52,7 +49,6 @@
 :- pred iterate_bodies(list(list(sentence))::in, sentence::in, opponent_state::in, 
                        pair(list(opponent_state), set(opponent_state))::in, set(sentence)::in,
                        pair(list(opponent_state), set(opponent_state))::out) is det.
-:- pred opponent_step(step_tuple::in, step_tuple::out) is nondet.
 :- pred update_argument_graph(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out) is semidet.
 :- pred filter_marked(list(sentence)::in, set(sentence)::in, list(sentence)::out, list(sentence)::out) is det.
@@ -82,18 +78,7 @@
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
 
 main(!IO) :-
-  unsorted_solutions((pred(R::out) is nondet :- derive(fact("grass_wet"), R)), _).
-
-assumption(fact("a")).
-assumption(fact("b")).
-
-non_assumption(not(fact("a"))).
-non_assumption(not(fact("b"))).
-
-rule(not(fact("a")), [fact("b")]).
-rule(not(fact("b")), []).
-
-contrary(fact(A), not(fact(A))).
+  unsorted_solutions((pred(R::out) is nondet :- derive(fact("a"), R)), _).
 
 % ("set some options" moved to options.m.)
 
@@ -112,7 +97,7 @@ derive(S, Result) :-
     true),
   %retractall(sols(_)),
   %assert(sols(1)),
-  derivation(InitTuple, 1, Result, _),
+  derivation(InitTuple, 1, non_assumptions, Result, _),
   print_result(Result).
   %incr_sols.
 
@@ -129,7 +114,7 @@ initial_derivation_tuple(
   %findall(A, (member(A, O_PropUnMrk),
   %            assumption(A)),
   %        D0),
-  D0 = filter(assumption, PropUnMrk),
+  D0 = filter((pred(X::in) is semidet :- assumption(X)), PropUnMrk),
   PropGr = fold(func(V, GIn) = GOut :- add_vertex(V, _, GIn, GOut),
                 PropUnMrk, digraph.init).
 
@@ -138,46 +123,46 @@ initial_derivation_tuple(
 %
 % DERIVATION CONTROL: basic control structure
 
-derivation(T, InN, Result, N) :-
+derivation(T, InN, NonAssumptions, Result, N) :-
   (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C) ->
     Result = derivation_result(PropMrk-PropG, OppM, D, C),
     N = InN
   ;
-    derivation_step(T, T1),
+    derivation_step(T, NonAssumptions, T1),
     (verbose ->
       print_step(InN, T1)
     ;
       true),
     OutN = InN + 1,
-    derivation(T1, OutN, Result, N)).
+    derivation(T1, OutN, NonAssumptions, Result, N)).
 
-derivation_step(step_tuple(P, O, D, C), T1) :-
+derivation_step(step_tuple(P, O, D, C), NonAssumptions, T1) :-
   choose_turn(P, O, Turn),
   (Turn = proponent ->
-    proponent_step(step_tuple(P, O, D, C), T1)
+    proponent_step(step_tuple(P, O, D, C), NonAssumptions, T1)
   ;
-    opponent_step(step_tuple(P, O, D, C), T1)).
+    opponent_step(step_tuple(P, O, D, C), NonAssumptions, T1)).
 
-proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C), T1) :-
+proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C), NonAssumptions, T1) :-
   proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
   (
     assumption(S),
     proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, T1),
     poss_print_case("1.(i)")
   ;
-    non_assumption(S),
+    member(S, NonAssumptions),
     proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, T1),
     poss_print_case("1.(ii)")
   ).
 
-opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C), T1) :-
+opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C), NonAssumptions, T1) :-
   opponent_abagraph_choice(OppUnMrk, OppArg, OppUnMrkMinus),
   opponent_sentence_choice(OppArg, S, OppArgMinus),
   (
     assumption(S),
     opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C), T1)
   ;
-    non_assumption(S),
+    member(S, NonAssumptions),
     opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C), T1),
     poss_print_case("2.(ii)")
   ).
@@ -484,7 +469,7 @@ opponent_abagraph_choice(n, O, JC, Ominus) :-
 % helpers
 
 get_first_assumption_or_other(Ss, A, Ssminus) :-
-  (find_first(assumption, Ss, First, SsminusA) ->
+  (find_first((pred(X::in) is semidet :- assumption(X)), Ss, First, SsminusA) ->
     A = First, Ssminus = SsminusA
   ;
     % No assumption. Get the first member.
