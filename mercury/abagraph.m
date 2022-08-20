@@ -298,10 +298,16 @@ iterate_bodies([Body|RestBodies], S, Claim-UnMrkMinus-Marked-Graph, InOppUnMrkMi
 % - record the previously unproved sentences and assumptions from body
 update_argument_graph(S, Body, Marked-Graph, UnMarked, UnMarkedAs, Marked1-Graph1) :-
   filter_marked(Body, Marked, UnMarked, UnMarkedAs),
-  GraphMinus = Graph, %Debug ord_del_element(Graph, S-[], GraphMinus),
+  %ord_del_element(Graph, S-[], GraphMinus),
+  (search_key(Graph, S, SKey), lookup_from(Graph, SKey, set.init) ->
+    GraphMinus = Graph % Debug: Delete S.
+  ;
+    GraphMinus = Graph),
   insert(S, Marked, Marked1),
   list_to_set(Body, O_Body),
-  GraphMinus1 = GraphMinus, %Debug ord_add_element(GraphMinus, S-O_Body, GraphMinus1),
+  %ord_add_element(GraphMinus, S-O_Body, GraphMinus1),
+  GraphMinus1 = fold(func(B, GIn) = add_vertex_pair(S-B, GIn),
+                     O_Body, GraphMinus),
   BodyUnMarkedGraph = fold(func(B, GIn) = GOut :-
                              (\+ search_key(GraphMinus1, B, _) ->
                                add_vertex(B, _, GIn, GOut)
