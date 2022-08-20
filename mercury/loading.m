@@ -14,9 +14,7 @@
 :- import_module list.
 :- import_module set.
 
-:- pred assumption(sentence).
-:- mode assumption(in) is semidet.
-:- mode assumption(out) is multi.
+:- pred assumption(sentence::in) is semidet.
 :- pred rule(sentence, list(sentence)).
 :- mode rule(in, out) is semidet.
 :- mode rule(out, out) is multi.
@@ -42,9 +40,10 @@ contrary(fact(A), not(fact(A))).
 non_assumptions = list_to_set(solutions((pred(S::out) is nondet :- 
                     (
                       rule(H, Body),
-                      member(S, [H|Body])
+                      member(S, [H|Body]),
+                      \+ assumption(S)
                     ;
+                      rule(_, Body),
+                      member(A, Body),
                       assumption(A),
-                      contrary(A, S)
-                    ),
-                    \+ assumption(S)))).
+                      contrary(A, S))))).
