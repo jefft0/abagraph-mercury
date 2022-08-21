@@ -12,14 +12,10 @@
 :- interface.
 
 :- import_module list.
-:- import_module set.
 
 :- pred assumption(sentence::in) is semidet.
-:- pred rule(sentence, list(sentence)).
-:- mode rule(in, out) is semidet.
-:- mode rule(out, out) is multi.
+:- pred rule(sentence::in, list(sentence)::out) is semidet.
 :- pred contrary(sentence::in, sentence::out) is semidet.
-:- func non_assumptions = set(sentence) is det.
 
 :- implementation.
 
@@ -37,13 +33,13 @@ rule(not(fact("b")), []).
 
 contrary(fact(A), not(fact(A))).
 
-non_assumptions = list_to_set(solutions((pred(S::out) is nondet :- 
-                    (
-                      rule(H, Body),
-                      member(S, [H|Body]),
-                      \+ assumption(S)
-                    ;
-                      rule(_, Body),
-                      member(A, Body),
-                      assumption(A),
-                      contrary(A, S))))).
+%non_assumptions = list_to_set(solutions((pred(S::out) is nondet :- 
+%                    (
+%                      rule(H, Body),
+%                      member(S, [H|Body]),
+%                      \+ assumption(S)
+%                    ;
+%                      rule(_, Body),
+%                      member(A, Body),
+%                      assumption(A),
+%                      contrary(A, S))))).

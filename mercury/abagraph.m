@@ -26,10 +26,10 @@
         ;    opponent.        
 
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
-:- pred derivation(step_tuple::in, int::in, set(sentence)::in, derivation_result::out, int::out) is nondet.
-:- pred derivation_step(step_tuple::in, set(sentence)::in, step_tuple::out) is nondet.
-:- pred proponent_step(step_tuple::in, set(sentence)::in, step_tuple::out) is nondet.
-:- pred opponent_step(step_tuple::in, set(sentence)::in, step_tuple::out) is nondet.
+:- pred derivation(step_tuple::in, int::in, derivation_result::out, int::out) is nondet.
+:- pred derivation_step(step_tuple::in, step_tuple::out) is nondet.
+:- pred proponent_step(step_tuple::in, step_tuple::out) is nondet.
+:- pred opponent_step(step_tuple::in, step_tuple::out) is nondet.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in, 
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is semidet.
 :- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
@@ -92,7 +92,7 @@ derive(S, Result) :-
     true),
   %retractall(sols(_)),
   %assert(sols(1)),
-  derivation(InitTuple, 1, non_assumptions, Result, _),
+  derivation(InitTuple, 1, Result, _),
   print_result(Result).
   %incr_sols.
 
@@ -118,46 +118,44 @@ initial_derivation_tuple(
 %
 % DERIVATION CONTROL: basic control structure
 
-derivation(T, InN, NonAssumptions, Result, N) :-
+derivation(T, InN, Result, N) :-
   (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C) ->
     Result = derivation_result(PropMrk-PropG, OppM, D, C),
     N = InN
   ;
-    derivation_step(T, NonAssumptions, T1),
+    derivation_step(T, T1),
     (verbose ->
       print_step(InN, T1)
     ;
       true),
     OutN = InN + 1,
-    derivation(T1, OutN, NonAssumptions, Result, N)).
+    derivation(T1, OutN, Result, N)).
 
-derivation_step(step_tuple(P, O, D, C), NonAssumptions, T1) :-
+derivation_step(step_tuple(P, O, D, C), T1) :-
   choose_turn(P, O, Turn),
   (Turn = proponent ->
-    proponent_step(step_tuple(P, O, D, C), NonAssumptions, T1)
+    proponent_step(step_tuple(P, O, D, C), T1)
   ;
-    opponent_step(step_tuple(P, O, D, C), NonAssumptions, T1)).
+    opponent_step(step_tuple(P, O, D, C), T1)).
 
-proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C), NonAssumptions, T1) :-
+proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C), T1) :-
   proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
-  (
-    assumption(S),
+  (assumption(S) ->
     proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, T1),
     poss_print_case("1.(i)")
   ;
-    member(S, NonAssumptions),
+    %TODO: Do we need to compute and explicitly check? non_assumption(S),
     proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, T1),
     poss_print_case("1.(ii)")
   ).
 
-opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C), NonAssumptions, T1) :-
+opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C), T1) :-
   opponent_abagraph_choice(OppUnMrk, OppArg, OppUnMrkMinus),
   opponent_sentence_choice(OppArg, S, OppArgMinus),
-  (
-    assumption(S),
+  (assumption(S) ->
     opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C), T1)
   ;
-    member(S, NonAssumptions),
+    %TODO: Do we need to compute and explicitly check? non_assumption(S),
     opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C), T1),
     poss_print_case("2.(ii)")
   ).
