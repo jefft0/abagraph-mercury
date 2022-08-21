@@ -24,3 +24,7 @@
 *.mih
 *.module_dep
 *.o
+
+# abagraph output files
+*.dot
+*.pdf
