@@ -31,9 +31,11 @@
 :- pred proponent_step(step_tuple::in, step_tuple::out) is nondet.
 :- pred opponent_step(step_tuple::in, step_tuple::out) is nondet.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in, 
-          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is semidet.
+          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
+          step_tuple::out) is semidet.
 :- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
-          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, step_tuple::out) is nondet.
+          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
+          step_tuple::out) is nondet.
 :- pred opponent_i(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is nondet.
 :- pred opponent_ia(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
@@ -102,8 +104,8 @@ initial_derivation_tuple(
                []-set.init,                 % OppUnMrk-OppM (members of each are Claim-UnMrk-Mrk-Graph)
                % TODO: Support GB. 
                D0,                          % D
-               set.init)) :-                % C
-               % TODO: Do we need Att?
+               set.init,                    % C
+               set.init)) :-                % Att
   to_sorted_list(PropUnMrk, O_PropUnMrk),
   % Instead of findall, use the set filter.
   %findall(A, (member(A, O_PropUnMrk),
@@ -119,8 +121,8 @@ initial_derivation_tuple(
 % DERIVATION CONTROL: basic control structure
 
 derivation(T, InN, Result, N) :-
-  (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C) ->
-    Result = derivation_result(PropMrk-PropG, OppM, D, C),
+  (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C, Att) ->
+    Result = derivation_result(PropMrk-PropG, OppM, D, C, Att),
     N = InN
   ;
     derivation_step(T, T1),
@@ -131,32 +133,32 @@ derivation(T, InN, Result, N) :-
     OutN = InN + 1,
     derivation(T1, OutN, Result, N)).
 
-derivation_step(step_tuple(P, O, D, C), T1) :-
+derivation_step(step_tuple(P, O, D, C, Att), T1) :-
   choose_turn(P, O, Turn),
   (Turn = proponent ->
-    proponent_step(step_tuple(P, O, D, C), T1)
+    proponent_step(step_tuple(P, O, D, C, Att), T1)
   ;
-    opponent_step(step_tuple(P, O, D, C), T1)).
+    opponent_step(step_tuple(P, O, D, C, Att), T1)).
 
-proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C), T1) :-
+proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att), T1) :-
   proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
   (assumption(S) ->
-    proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, T1),
+    proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1),
     poss_print_case("1.(i)")
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
-    proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, T1),
+    proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1),
     poss_print_case("1.(ii)")
   ).
 
-opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C), T1) :-
+opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1) :-
   opponent_abagraph_choice(OppUnMrk, OppArg, OppUnMrkMinus),
   opponent_sentence_choice(OppArg, S, OppArgMinus),
   (assumption(S) ->
-    opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C), T1)
+    opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1)
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
-    opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C), T1),
+    opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1),
     poss_print_case("2.(ii)")
   ).
 
@@ -167,8 +169,8 @@ opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C), T1) :-
 
 %%%%%%%%%% proponent
 
-proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, 
-              step_tuple(PropUnMrkMinus-PropMrk1-PropGr, OppUnMrk1-OppMrk, D, C)) :-
+proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
+              step_tuple(PropUnMrkMinus-PropMrk1-PropGr, OppUnMrk1-OppMrk, D, C, Att1)) :-
   contrary(A, Contrary),
   ((\+ (member(Member1, OppUnMrk), Member1 = Contrary-_-_-_), 
     \+ (member(Member2, OppMrk),   Member2 = Contrary-_-_-_)) ->
@@ -176,12 +178,12 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C,
     append_element_nodup(OppUnMrk, Contrary-[Contrary]-set.init-GContrary, OppUnMrk1)
   ;
     OppUnMrk1 = OppUnMrk),
-  insert(A, PropMrk, PropMrk1).
-  % TODO: Do we need Att? ord_add_element(Att, (Contrary,A), Att1).
+  insert(A, PropMrk, PropMrk1),
+  insert(Contrary-A, Att, Att1).
   % TODO: Support GB. gb_acyclicity_check(G, A, [Contrary], G1).
 
-proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, 
-                 step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C)) :-
+proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
+                 step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att)) :-
   rule_choice(S, Body, "[D,PropGr]"),
   \+ (member(X, Body), member(X, C)),
   update_argument_graph(S, Body, PropMrk-PropGr, NewUnMrk, NewUnMrkAs, PropMrk1-PropGr1),
@@ -191,22 +193,22 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C,
 
 %%%%%%%%%% opponent
 
-opponent_i(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C), T1) :-
+opponent_i(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C, Att), T1) :-
   (
     \+ member(A, D),
     (member(A, C) -> 
-      opponent_ib(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C), T1),
+      opponent_ib(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C, Att), T1),
       poss_print_case("2.(ib)")
     ;
-      opponent_ic(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C), T1),
+      opponent_ic(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C, Att), T1),
       poss_print_case("2.(ic)"))
   ;
-    opponent_ia(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C), T1),
+    opponent_ia(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C, Att), T1),
     poss_print_case("2.(ia)")
   ).
 
 opponent_ia(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
-            opponent_step_tuple(P, D, C), step_tuple(P, OppUnMrkMinus1-OppMrk, D, C)) :-
+            opponent_step_tuple(P, D, C, Att), step_tuple(P, OppUnMrkMinus1-OppMrk, D, C, Att)) :-
   (gb_derivation -> 
     true
   ;
@@ -215,15 +217,15 @@ opponent_ia(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
   append_element_nodup(OppUnMrkMinus, Claim-UnMrkMinus-Marked1-Graph, OppUnMrkMinus1).
 
 opponent_ib(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk, 
-            opponent_step_tuple(P, D, C), step_tuple(P, OppUnMrkMinus-OppMrk1, D, C)) :-
+            opponent_step_tuple(P, D, C, Att), step_tuple(P, OppUnMrkMinus-OppMrk1, D, C, Att)) :-
  % TODO: Support GB. contrary(A, Contrary),
  % TODO: Support GB. gb_acyclicity_check(G, Claim, [Contrary], G1),
  insert(A, Marked, Marked1),
  insert(Claim-UnMrkMinus-Marked1-Graph, OppMrk, OppMrk1).
 
 opponent_ic(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk, 
-            opponent_step_tuple(PropUnMrk-PropMrk-PropGr, D, C), 
-            step_tuple(PropUnMrk1-PropMrk-PropGr1, OppUnMrkMinus-OppMrk1, D1, C1)) :-
+            opponent_step_tuple(PropUnMrk-PropMrk-PropGr, D, C, Att), 
+            step_tuple(PropUnMrk1-PropMrk-PropGr1, OppUnMrkMinus-OppMrk1, D1, C1, Att1)) :-
   contrary(A, Contrary),
   (search_key(PropGr, Contrary, _) -> 
     PropUnMrk = PropUnMrk1,
@@ -237,12 +239,12 @@ opponent_ic(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
     D1 = D),
   insert(A, C, C1),
   insert(A, Marked, Marked1),
-  insert(Claim-UnMrkMinus-Marked1-Graph, OppMrk, OppMrk1).
-  % TODO: Do we need Att? insert(Att, (Contrary,A), Att1),
+  insert(Claim-UnMrkMinus-Marked1-Graph, OppMrk, OppMrk1),
+  insert(Contrary-A, Att, Att1).
   % TODO: Support GB. gb_acyclicity_check(G, Claim, [Contrary], G1).
 
-opponent_ii(S, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C),
-            step_tuple(P, OppUnMrkMinus1-OppMrk1, D, C)) :-
+opponent_ii(S, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att),
+            step_tuple(P, OppUnMrkMinus1-OppMrk1, D, C, Att)) :-
   solutions((pred(Body::out) is nondet :- rule(S, Body)), Bodies),
   iterate_bodies(Bodies, S, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk, C,
                  OppUnMrkMinus1-OppMrk1).

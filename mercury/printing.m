@@ -26,22 +26,27 @@
 :- type opponent_arg_graph_set == pair(list(opponent_state), % OppUnMrk
                                        set(opponent_state)). % OppMrk
 
+:- type attack == pair(sentence).
+
 :- type step_tuple 
    ---> step_tuple(proponent_state,        % PROPONENT potential argument graph
                    opponent_arg_graph_set, % Opponent argument graph set
                    set(sentence),          % D (the proponent defences)
-                   set(sentence)).         % C (the opponent culprits)
+                   set(sentence),          % C (the opponent culprits)
+                   set(attack)).           % Att (set of attacks, used only for printing)
 
 :- type opponent_step_tuple 
    ---> opponent_step_tuple(proponent_state,        % PROPONENT potential argument graph
                             set(sentence),          % D (the proponent defences)
-                            set(sentence)).         % C (the opponent culprits)
+                            set(sentence),          % C (the opponent culprits)
+                            set(attack)).           % Att
 
 :- type derivation_result 
    ---> derivation_result(pair(set(sentence), digraph(sentence)), % PropMrk-PropG
                           set(opponent_state),                    % OppMrk
                           set(sentence),                          % D (the proponent defences)
-                          set(sentence)).                         % C (the opponent culprits)
+                          set(sentence),                          % C (the opponent culprits)
+                          set(attack)).                           % Att
 
 :- pred poss_print_case(string::in) is det.
 :- pred print_step(int::in, step_tuple::in) is det.
@@ -69,13 +74,13 @@
                         list(node_info)::out) is det.
 :- pred proponent_edges(list(graph_member)::in, list(node_info)::in, uint64::in) is det.
 :- pred opponent_clusters(list(opponent_state)::in, set(sentence)::in, set(sentence)::in,
-                          list(node_info)::in, list(pair(sentence))::in, uint64::in, int::in) is det.
+                          list(node_info)::in, list(attack)::in, uint64::in, int::in) is det.
 :- pred opponent_nodes(pair(list(graph_member), list(sentence))::in, set(sentence)::in, set(sentence)::in, 
                        int::in, int::in, uint64::in, list(node_info)::in, list(node_info)::out) is det.
 :- pred opponent_edges(list(graph_member)::in, set(sentence)::in, set(sentence)::in, int::in, 
                        list(node_info)::in, uint64::in) is det.
 :- pred body_edges(list(sentence)::in, sentence::in, int::in, list(node_info)::in, uint64::in) is semidet.
-:- pred attacks(list(pair(sentence))::in, list(node_info)::in, list(node_info)::in, uint64::in) is det.
+:- pred attacks(list(attack)::in, list(node_info)::in, list(node_info)::in, uint64::in) is det.
 :- pred format_lines(list(string)::in, uint64::in).
 
 :- func sentence_to_string(sentence) = string is det.
@@ -110,7 +115,7 @@ poss_print_case(Case) :-
  ;
    true).
 
-print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C)) :-
+print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C, _Att)) :-
   format("*** Step %d\n", [i(N)]),
   format("P:    %s-%s-%s\n", [s(sentence_list_to_string(PropUnMrk)),
                               s(sentence_set_to_string(PropMrk)),
@@ -147,7 +152,7 @@ print_opponent_step_list([H|T]) :-
 %
 % PRINTING: RESULTS
 
-show_result(derivation_result(_-PGraph, OppMrk, D, C)) :-
+show_result(derivation_result(_-PGraph, OppMrk, D, C, _Att)) :-
   format("\nPGRAPH:              %s\n", [s(digraph_to_string(PGraph))]),
   format("DEFENCE:             %s\n", [s(sentence_set_to_string(D))]),
   format("OGRAPHS:             [", []),
@@ -254,10 +259,9 @@ print_to_file(Proving, Result) :-
 % where P has the form:             NodesP-EdgesP
 % where Oset members have the form: Claim-Unmarked-Marked-Edges
 
-dot_file(Proving, derivation_result(_PNodes-PGraph, Oset, D, C), Fd) :-
+dot_file(Proving, derivation_result(_PNodes-PGraph, Oset, D, C, Att), Fd) :-
   dot_preliminaries(Fd),
   proponent_cluster(Proving, PGraph, Fd, PropNodeInfo),
-  Att = insert(insert(set.init, not(fact("a"))-fact("a")), not(fact("b"))-fact("b")), %Debug
   opponent_clusters(to_sorted_list(Oset), D, C, PropNodeInfo, to_sorted_list(Att), Fd, 1),
   format(Fd, "\n}\n", []).
 
