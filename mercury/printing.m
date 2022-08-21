@@ -315,7 +315,7 @@ proponent_nodes(Proving, [S-Neighbors|Rest], N, Fd, [node_info(S, N, 0)|RestNode
       graph_colour("proponent_nonAsm_toBeProved", Colour)
     ;
       graph_colour("proponent_nonAsm", Colour)),
-    format(Fd, "[label=\"%s\",fillcolor=\"%s\",color=\"%s\",fontcolor=\"white\"];%s", 
+    format(Fd, "[label=\"%s\",fillcolor=\"%s\",color=\"%s\",fontcolor=\"white\"];\n", 
            [s(sentence_to_string(S)), s(Colour), s(Colour)]),
     N1 = N + 1,
     proponent_nodes(Proving, Rest, N1, Fd, RestNodes)).
