@@ -51,7 +51,8 @@ option(num_sols, "0").    % all solutions
 %Debug option(opponent_abagraph_choice, "s").
 option(opponent_abagraph_choice, "o").
 option(opponent_sentence_choice, "p").
-option(print_to_file, "fail").
+%Debug option(print_to_file, "fail").
+option(print_to_file, "true").
 option(proponent_sentence_choice, "p").
 %Debug option(proponent_rule_choice, "l1").
 option(proponent_rule_choice, "s").

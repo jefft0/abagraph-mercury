@@ -93,7 +93,7 @@ derive(S, Result) :-
   %retractall(sols(_)),
   %assert(sols(1)),
   derivation(InitTuple, 1, Result, _),
-  print_result(Result).
+  print_result(S, Result).
   %incr_sols.
 
 initial_derivation_tuple(
