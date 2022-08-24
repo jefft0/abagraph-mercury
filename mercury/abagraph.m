@@ -33,7 +33,7 @@
 :- pred derivation_step(step_tuple::in, step_tuple::out) is nondet.
 :- pred proponent_step(step_tuple::in, step_tuple::out) is nondet.
 :- pred opponent_step(step_tuple::in, step_tuple::out) is nondet.
-:- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in, 
+:- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
           step_tuple::out) is semidet.
 :- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
@@ -49,7 +49,7 @@
           opponent_step_tuple::in, step_tuple::out) is semidet.
 :- pred opponent_ii(sentence::in, opponent_state::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is det.
-:- pred iterate_bodies(list(list(sentence))::in, sentence::in, opponent_state::in, 
+:- pred iterate_bodies(list(list(sentence))::in, sentence::in, opponent_state::in,
                        pair(list(opponent_state), set(opponent_state))::in, set(sentence)::in,
                        pair(list(opponent_state), set(opponent_state))::out) is det.
 :- pred update_argument_graph(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
@@ -82,7 +82,7 @@
 :- pred rule_sort_look_ahead_1(prop_info::in, list(sentence)::in, list(sentence)::in,
           builtin.comparison_result::out) is det.
 :- pred count_nonD_nonJsP(list(sentence)::in, set(sentence)::in, digraph(sentence)::in, int::in, int::out) is det.
-:- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet. 
+:- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet.
 :- pred select(T::out, list(T)::in, list(T)::out) is nondet.
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
 
@@ -111,7 +111,7 @@ initial_derivation_tuple(
     PropUnMrk,
     step_tuple(O_PropUnMrk-set.init-PropGr, % PropUnMrk-PropM-PropGr
                []-set.init,                 % OppUnMrk-OppM (members of each are Claim-UnMrk-Mrk-Graph)
-               % TODO: Support GB. 
+               % TODO: Support GB.
                D0,                          % D
                set.init,                    % C
                set.init)) :-                % Att
@@ -181,7 +181,7 @@ opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1) :-
 proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
               step_tuple(PropUnMrkMinus-PropMrk1-PropGr, OppUnMrk1-OppMrk, D, C, Att1)) :-
   contrary(A, Contrary),
-  ((\+ (member(Member1, OppUnMrk), Member1 = Contrary-_-_-_), 
+  ((\+ (member(Member1, OppUnMrk), Member1 = Contrary-_-_-_),
     \+ (member(Member2, OppMrk),   Member2 = Contrary-_-_-_)) ->
     add_vertex(Contrary, _, digraph.init, GContrary),
     append_element_nodup(OppUnMrk, Contrary-[Contrary]-set.init-GContrary, OppUnMrk1)
@@ -205,7 +205,7 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
 opponent_i(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C, Att), T1) :-
   (
     \+ member(A, D),
-    (member(A, C) -> 
+    (member(A, C) ->
       opponent_ib(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C, Att), T1),
       poss_print_case("2.(ib)")
     ;
@@ -218,33 +218,33 @@ opponent_i(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C
 
 opponent_ia(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
             opponent_step_tuple(P, D, C, Att), step_tuple(P, OppUnMrkMinus1-OppMrk, D, C, Att)) :-
-  (gb_derivation -> 
+  (gb_derivation ->
     true
   ;
     \+ member(A, C)),    % also sound for gb? CHECK in general
   insert(A, Marked, Marked1),
   append_element_nodup(OppUnMrkMinus, Claim-UnMrkMinus-Marked1-Graph, OppUnMrkMinus1).
 
-opponent_ib(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk, 
+opponent_ib(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
             opponent_step_tuple(P, D, C, Att), step_tuple(P, OppUnMrkMinus-OppMrk1, D, C, Att)) :-
  % TODO: Support GB. contrary(A, Contrary),
  % TODO: Support GB. gb_acyclicity_check(G, Claim, [Contrary], G1),
  insert(A, Marked, Marked1),
  insert(Claim-UnMrkMinus-Marked1-Graph, OppMrk, OppMrk1).
 
-opponent_ic(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk, 
-            opponent_step_tuple(PropUnMrk-PropMrk-PropGr, D, C, Att), 
+opponent_ic(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
+            opponent_step_tuple(PropUnMrk-PropMrk-PropGr, D, C, Att),
             step_tuple(PropUnMrk1-PropMrk-PropGr1, OppUnMrkMinus-OppMrk1, D1, C1, Att1)) :-
   contrary(A, Contrary),
-  (search_key(PropGr, Contrary, _) -> 
+  (search_key(PropGr, Contrary, _) ->
     PropUnMrk = PropUnMrk1,
     PropGr = PropGr1
   ;
     append_element_nodup(PropUnMrk, Contrary, PropUnMrk1),
     add_vertex(Contrary, _, PropGr, PropGr1)),
-  (assumption(Contrary) -> 
+  (assumption(Contrary) ->
     insert(Contrary, D, D1)
-  ; 
+  ;
     D1 = D),
   insert(A, C, C1),
   insert(A, Marked, Marked1),
@@ -263,7 +263,7 @@ iterate_bodies([Body|RestBodies], S, Claim-UnMrkMinus-Marked-Graph, InOppUnMrkMi
                OppUnMrkMinus1-OppMrk1) :-
   (update_argument_graph(S, Body, Marked-Graph, UnMarked, _UnMarkedAs, Marked1-Graph1) ->
     append_elements_nodup(UnMarked, UnMrkMinus, UnMrk1),
-    ((\+ gb_derivation, member(A, Body), member(A, C)) -> 
+    ((\+ gb_derivation, member(A, Body), member(A, C)) ->
       OutOppUnMrkMinus = InOppUnMrkMinus,
       insert(Claim-UnMrk1-Marked1-Graph1, InOppMrk, OutOppMrk)
     ;
@@ -308,7 +308,7 @@ filter_marked([], _, [], []).
 filter_marked([S|RestBody], Proved, InUnproved, InUnprovedAs) :-
   (assumption(S) ->
     A = S,
-    (member(A, Proved) -> 
+    (member(A, Proved) ->
       InUnproved = OutUnproved,
       InUnprovedAs = OutUnprovedAs
     ;
@@ -316,9 +316,9 @@ filter_marked([S|RestBody], Proved, InUnproved, InUnprovedAs) :-
       InUnprovedAs = [A|OutUnprovedAs]),
     filter_marked(RestBody, Proved, OutUnproved, OutUnprovedAs)
   ;
-    (member(S, Proved) -> 
+    (member(S, Proved) ->
       InUnproved = OutUnproved
-    ;  
+    ;
       InUnproved = [S|OutUnproved]),
     InUnprovedAs = OutUnprovedAs,
     filter_marked(RestBody, Proved, OutUnproved, OutUnprovedAs)).
@@ -475,7 +475,7 @@ opponent_abagraph_choice(_, [], _, _) :-
 get_smallest_ss([], _, JC, JC).
 get_smallest_ss([Claim-Ss-Marked-Graph|RestJCs], BestLSoFar, BestJCSoFar, BestJC) :-
   length(Ss, L), % if L = 1, could we stop?
-  (L < BestLSoFar -> 
+  (L < BestLSoFar ->
     NewL = L,
     NewJC = Claim-Ss-Marked-Graph
   ;

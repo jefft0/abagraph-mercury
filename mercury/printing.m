@@ -28,20 +28,20 @@
 
 :- type attack == pair(sentence).
 
-:- type step_tuple 
+:- type step_tuple
    ---> step_tuple(proponent_state,        % PROPONENT potential argument graph
                    opponent_arg_graph_set, % Opponent argument graph set
                    set(sentence),          % D (the proponent defences)
                    set(sentence),          % C (the opponent culprits)
                    set(attack)).           % Att (set of attacks, used only for printing)
 
-:- type opponent_step_tuple 
+:- type opponent_step_tuple
    ---> opponent_step_tuple(proponent_state,        % PROPONENT potential argument graph
                             set(sentence),          % D (the proponent defences)
                             set(sentence),          % C (the opponent culprits)
                             set(attack)).           % Att
 
-:- type derivation_result 
+:- type derivation_result
    ---> derivation_result(pair(set(sentence), digraph(sentence)), % PropMrk-PropG
                           set(opponent_state),                    % OppMrk
                           set(sentence),                          % D (the proponent defences)
@@ -70,14 +70,14 @@
 :- pred dot_file(sentence::in, derivation_result::in, uint64::in) is det.
 :- pred dot_preliminaries(uint64::in) is det.
 :- pred proponent_cluster(sentence::in, digraph(sentence)::in, uint64::in, list(node_info)::out) is det.
-:- pred proponent_nodes(sentence::in, list(graph_member)::in, int::in, uint64::in, 
+:- pred proponent_nodes(sentence::in, list(graph_member)::in, int::in, uint64::in,
                         list(node_info)::out) is det.
 :- pred proponent_edges(list(graph_member)::in, list(node_info)::in, uint64::in) is det.
 :- pred opponent_clusters(list(opponent_state)::in, set(sentence)::in, set(sentence)::in,
                           list(node_info)::in, list(attack)::in, uint64::in, int::in) is det.
-:- pred opponent_nodes(pair(list(graph_member), list(sentence))::in, set(sentence)::in, set(sentence)::in, 
+:- pred opponent_nodes(pair(list(graph_member), list(sentence))::in, set(sentence)::in, set(sentence)::in,
                        int::in, int::in, uint64::in, list(node_info)::in, list(node_info)::out) is det.
-:- pred opponent_edges(list(graph_member)::in, set(sentence)::in, set(sentence)::in, int::in, 
+:- pred opponent_edges(list(graph_member)::in, set(sentence)::in, set(sentence)::in, int::in,
                        list(node_info)::in, uint64::in) is det.
 :- pred body_edges(list(sentence)::in, sentence::in, int::in, list(node_info)::in, uint64::in) is semidet.
 :- pred attacks(list(attack)::in, list(node_info)::in, list(node_info)::in, uint64::in) is det.
@@ -214,7 +214,7 @@ graph_colour(Key, Val) :-
   (graph_colour1(Key, V) ->
     Val = V
   ;
-    % We don't expect this to happen. 
+    % We don't expect this to happen.
     Val = "").
 
 %
@@ -223,12 +223,12 @@ print_result(Proving, Result) :-
   option(print_to_file, Print),
   (Print = "true" ->
     print_to_file(Proving, Result)
-  ; 
+  ;
     true),
   option(show_solution, Show),
   (Show = "true" ->
     show_result(Result)
-  ;  
+  ;
     true).
 
 print_to_file(Proving, Result) :-
@@ -304,7 +304,7 @@ proponent_nodes(Proving, [S-Neighbors|Rest], N, Fd, [node_info(S, N, 0)|RestNode
       graph_colour("proponent_asm_toBeProved", Colour)
     ;
       (A = fact("cmd(_,_),_") -> Colour = "#009999" ; graph_colour("proponent_asm", Colour))),
-    format(Fd, "[label=\"%s\",fillcolor=\"%s\",color=\"%s\",fontcolor=\"white\"];\n", 
+    format(Fd, "[label=\"%s\",fillcolor=\"%s\",color=\"%s\",fontcolor=\"white\"];\n",
            [s(sentence_to_string(A)), s(Colour), s(Colour)]),
     N1 = N + 1,
     proponent_nodes(Proving, Rest, N1, Fd, RestNodes)
@@ -315,7 +315,7 @@ proponent_nodes(Proving, [S-Neighbors|Rest], N, Fd, [node_info(S, N, 0)|RestNode
       graph_colour("proponent_nonAsm_toBeProved", Colour)
     ;
       graph_colour("proponent_nonAsm", Colour)),
-    format(Fd, "[label=\"%s\",fillcolor=\"%s\",color=\"%s\",fontcolor=\"white\"];\n", 
+    format(Fd, "[label=\"%s\",fillcolor=\"%s\",color=\"%s\",fontcolor=\"white\"];\n",
            [s(sentence_to_string(S)), s(Colour), s(Colour)]),
     N1 = N + 1,
     proponent_nodes(Proving, Rest, N1, Fd, RestNodes)).
@@ -360,7 +360,7 @@ opponent_nodes([Js|RestJs]-Ss, D, C, ClusterN, N, Fd, InNodeInfo, NodeInfo) :-
     int_to_string(ClusterN, ClusterNAtom),
     int_to_string(N, NAtom),
     format(Fd, "  s%s_%s ", [s(ClusterNAtom), s(NAtom)]),
-    (member(A, C) -> 
+    (member(A, C) ->
       % MARKED SUPPORT: CULPRIT
       graph_colour("opponent_ms_asm_culprit", FillColour),
       graph_colour("opponent_ms_asm_culprit_text", Font)
@@ -396,8 +396,8 @@ opponent_nodes([]-[S|RestSs], D, C, ClusterN, N, Fd, InNodeInfo, NodeInfo) :-
     int_to_string(ClusterN, ClusterNAtom),
     int_to_string(N, NAtom),
     format(Fd, "  s%s_%s ", [s(ClusterNAtom), s(NAtom)]),
-    (assumption(S) -> 
-      (member(S, D) -> 
+    (assumption(S) ->
+      (member(S, D) ->
         % UNMARKED SUPPORT: DEFENCE SET
         graph_colour("opponent_ums_asm_defence", FillColour),
         graph_colour("opponent_ums_asm_defence_border", Colour),
@@ -413,7 +413,7 @@ opponent_nodes([]-[S|RestSs], D, C, ClusterN, N, Fd, InNodeInfo, NodeInfo) :-
         graph_colour("opponent_ums_asm", FillColour),
         graph_colour("opponent_ums_asm_border", Colour),
         graph_colour("opponent_ums_asm_text", Font)))
-    ;  
+    ;
       % UNMARKED SUPPORT: NON-ASSUMPTION
       graph_colour("opponent_ums_nonAsm", FillColour),
       graph_colour("opponent_ums_nonAsm_border", Colour),
@@ -489,7 +489,7 @@ sentence_set_to_string(S) = sentence_list_to_string(to_sorted_list(S)).
 digraph_to_list(G) =
   map((func(V) = V-Neighbors :-
          KeySet = lookup_from(G, lookup_key(G, V)),
-         Neighbors = map(func(K) = lookup_vertex(G, K), to_sorted_list(KeySet))), 
+         Neighbors = map(func(K) = lookup_vertex(G, K), to_sorted_list(KeySet))),
       to_sorted_list(vertices(G))).
 
 digraph_to_string(G) = Result :-

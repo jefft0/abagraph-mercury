@@ -33,7 +33,7 @@ rule(not(fact("b")), []).
 
 contrary(fact(A), not(fact(A))).
 
-%non_assumptions = list_to_set(solutions((pred(S::out) is nondet :- 
+%non_assumptions = list_to_set(solutions((pred(S::out) is nondet :-
 %                    (
 %                      rule(H, Body),
 %                      member(S, [H|Body]),
