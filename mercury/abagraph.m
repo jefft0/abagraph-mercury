@@ -23,7 +23,10 @@
 
 :- type turn
         ---> proponent
-        ;    opponent.        
+        ;    opponent.
+
+:- type prop_info
+   ---> prop_info(set(sentence), digraph(sentence)).
 
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
 :- pred derivation(step_tuple::in, int::in, derivation_result::out, int::out) is nondet.
@@ -60,7 +63,7 @@
 :- pred proponent_sentence_choice(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred opponent_abagraph_choice(list(opponent_state)::in, opponent_state::out, list(opponent_state)::out) is det.
 :- pred opponent_sentence_choice(opponent_state::in, sentence::out, opponent_state::out) is nondet.
-:- pred rule_choice(sentence::in, list(sentence)::out, string::in) is nondet.
+:- pred rule_choice(sentence::in, list(sentence)::out, prop_info::in) is nondet.
 :- pred turn_choice(turn_choice::in, proponent_state::in, opponent_arg_graph_set::in, turn::out) is det.
 :- pred sentence_choice(proponent_sentence_choice::in, list(sentence)::in, sentence::out,
           list(sentence)::out) is det.
@@ -73,8 +76,12 @@
 :- pred get_first_assumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred get_first_nonassumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred get_newest_nonassumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
-:- pred sort_rule_pairs(proponent_rule_choice::in, string::in, list(list(sentence))::in, list(list(sentence))::out) is det.
+:- pred sort_rule_pairs(proponent_rule_choice::in, prop_info::in, list(list(sentence))::in,
+          list(list(sentence))::out) is det.
 :- pred rule_sort_small_bodies(list(sentence)::in, list(sentence)::in, builtin.comparison_result::out) is det.
+:- pred rule_sort_look_ahead_1(prop_info::in, list(sentence)::in, list(sentence)::in,
+          builtin.comparison_result::out) is det.
+:- pred count_nonD_nonJsP(list(sentence)::in, set(sentence)::in, digraph(sentence)::in, int::in, int::out) is det.
 :- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet. 
 :- pred select(T::out, list(T)::in, list(T)::out) is nondet.
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
@@ -186,7 +193,7 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
 
 proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
                  step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att)) :-
-  rule_choice(S, Body, "[D,PropGr]"),
+  rule_choice(S, Body, prop_info(D, PropGr)),
   \+ (member(X, Body), member(X, C)),
   update_argument_graph(S, Body, PropMrk-PropGr, NewUnMrk, NewUnMrkAs, PropMrk1-PropGr1),
   append_elements_nodup(NewUnMrk, PropUnMrkMinus, PropUnMrk1),
@@ -528,9 +535,29 @@ get_newest_nonassumption_or_other(Ss, A, Ssminus) :-
 
 sort_rule_pairs(s, _PropInfo, Pairs, SortedPairs) :-
   sort(rule_sort_small_bodies, Pairs, SortedPairs).
+sort_rule_pairs(l1, PropInfo, Pairs, SortedPairs) :-
+  sort((pred(X::in, Y::in, R::out) is det :- rule_sort_look_ahead_1(PropInfo, X, Y, R)), Pairs, SortedPairs).
 
 rule_sort_small_bodies(Body1, Body2, Result) :-
   builtin.compare(Result, length(Body1) + 0, length(Body2) + 0).
+
+% here we minimize (Body - (D \cup JsP))
+rule_sort_look_ahead_1(prop_info(D, P_Graph), Body1, Body2, Result) :-
+  count_nonD_nonJsP(Body1, D, P_Graph, 0, NB1),
+  count_nonD_nonJsP(Body2, D, P_Graph, 0, NB2),
+  builtin.compare(Result, NB1, NB2).
+
+count_nonD_nonJsP([], _, _, N, N).
+count_nonD_nonJsP([S|Rest], D, P_Graph, N, NB) :-
+  (\+ member(S, D),
+   % \+ member(S-[_|_], P_Graph
+   \+ (search_key(P_Graph, S, SKey), is_edge(P_Graph, SKey, _)) ->
+    N1 = N + 1,
+    count_nonD_nonJsP(Rest, D, P_Graph, N1, NB)
+  ;
+    count_nonD_nonJsP(Rest, D, P_Graph, N, NB)).
+
+%
 
 % First the first member in L where Pred(X) and set Lminus to L without it.
 % Fail if can't find any Pred(X).

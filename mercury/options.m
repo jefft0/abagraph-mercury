@@ -25,7 +25,7 @@
 
 :- type proponent_sentence_choice ---> o; n; e; p; pn. %TODO: Implement others: be; bp.
 
-:- type proponent_rule_choice ---> s. %TODO: Implement others: l1.
+:- type proponent_rule_choice ---> s; l1.
 
 :- type turn_choice ---> p; o; s.
 
@@ -52,8 +52,7 @@ option(opponent_abagraph_choice, "s").
 option(opponent_sentence_choice, "p").
 option(print_to_file, "fail").
 option(proponent_sentence_choice, "p").
-%Debug option(proponent_rule_choice, "l1").
-option(proponent_rule_choice, "s").
+option(proponent_rule_choice, "l1").
 option(show_solution, "true").
 option(turn_choice, "p").  % Use "p" instead of "[p,o]" like the web page documentation.
 option(verbose, "fail").
@@ -112,8 +111,8 @@ get_proponent_rule_choice(Out) :-
   option(proponent_rule_choice, Val),
   %TODO: Implement others.
   (Val = "s" -> Out = s ;
-  %(Val = "l1" -> Out = l1 ;
-    unexpected($file, $pred, "invalid value")).
+  (Val = "l1" -> Out = l1 ;
+    unexpected($file, $pred, "invalid value"))).
 
 get_turn_choice(Out) :-
   option(turn_choice, Val),
