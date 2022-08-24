@@ -56,7 +56,7 @@ option(proponent_sentence_choice, "p").
 option(proponent_rule_choice, "s").
 option(show_solution, "true").
 option(turn_choice, "p").  % Use "p" instead of "[p,o]" like the web page documentation.
-option(verbose, "true").
+option(verbose, "fail").
 
 % OPTIONS: checking
 
