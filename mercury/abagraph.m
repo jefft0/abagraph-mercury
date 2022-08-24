@@ -68,6 +68,8 @@
           list(sentence)::out) is nondet.
 :- pred opponent_abagraph_choice(opponent_abagraph_choice::in, list(opponent_state)::in,
           opponent_state::out, list(opponent_state)::out) is det.
+:- pred get_smallest_ss(list(opponent_state)::in, int::in, opponent_state::in, opponent_state::out) is det.
+:- pred get_largest_ss(list(opponent_state)::in, int::in, opponent_state::in, opponent_state::out) is det.
 :- pred get_first_assumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred get_first_nonassumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred get_newest_nonassumption_or_other(list(sentence)::in, sentence::out, list(sentence)::out) is det.
@@ -445,16 +447,45 @@ sentence_choice_backtrack(pn, Ss, S, Ssminus) :-
 
 %
 
-opponent_abagraph_choice(o, O, JC, Ominus) :-
-  ([X|Rest] = O ->
+opponent_abagraph_choice(o, [JC|Ominus], JC, Ominus).
+opponent_abagraph_choice(n, [H|T], JC, Ominus) :-
+  (split_last([H|T], Rest, X) ->
     JC = X, Ominus = Rest
   ;
-    unexpected($file, $pred, "O cannot be empty")).
-opponent_abagraph_choice(n, O, JC, Ominus) :-
-  (split_last(O, Rest, X) ->
-    JC = X, Ominus = Rest
+    % We don't expect this to happen because the list is not empty.
+    unexpected($file, $pred, "[H|T] cannot be empty")).
+opponent_abagraph_choice(s, [Claim-Ss-Marked-Graph|RestJCs], JC, Ominus) :-
+  length(Ss, L),
+  get_smallest_ss(RestJCs, L, Claim-Ss-Marked-Graph, JC),
+  delete_all([Claim-Ss-Marked-Graph|RestJCs], JC, Ominus).
+opponent_abagraph_choice(l, [Claim-Ss-Marked-Graph|RestJCs], JC, Ominus) :-
+  length(Ss, L),
+  get_largest_ss(RestJCs, L, Claim-Ss-Marked-Graph, JC),
+  delete_all([Claim-Ss-Marked-Graph|RestJCs], JC, Ominus).
+opponent_abagraph_choice(_, [], _, _) :-
+  unexpected($file, $pred, "O cannot be empty").
+
+get_smallest_ss([], _, JC, JC).
+get_smallest_ss([Claim-Ss-Marked-Graph|RestJCs], BestLSoFar, BestJCSoFar, BestJC) :-
+  length(Ss, L), % if L = 1, could we stop?
+  (L < BestLSoFar -> 
+    NewL = L,
+    NewJC = Claim-Ss-Marked-Graph
   ;
-    unexpected($file, $pred, "O cannot be empty")).
+    NewL = BestLSoFar,
+    NewJC = BestJCSoFar),
+  get_smallest_ss(RestJCs, NewL, NewJC, BestJC).
+
+get_largest_ss([], _, JC, JC).
+get_largest_ss([Claim-Ss-Marked-Graph|RestJCs], BestLSoFar, BestJCSoFar, BestJC) :-
+  length(Ss, L),
+  (L > BestLSoFar ->
+    NewL = L,
+    NewJC = Claim-Ss-Marked-Graph
+  ;
+    NewL = BestLSoFar,
+    NewJC = BestJCSoFar),
+  get_largest_ss(RestJCs, NewL, NewJC, BestJC).
 
 % helpers
 

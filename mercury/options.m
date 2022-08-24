@@ -19,7 +19,7 @@
 
 :- type derivation_type ---> ab; gb.
 
-:- type opponent_abagraph_choice ---> o; n. %TODO: Implement others: s; l; lmb.
+:- type opponent_abagraph_choice ---> o; n; s; l. %TODO: Implement others: lmb.
 
 :- type opponent_sentence_choice ---> p; pn. %TODO: Implement others: o; n; e.
 
@@ -48,8 +48,7 @@
 option(derivation_type, "ab").
 option(fileID, "_sol_").
 option(num_sols, "0").    % all solutions
-%Debug option(opponent_abagraph_choice, "s").
-option(opponent_abagraph_choice, "o").
+option(opponent_abagraph_choice, "s").
 option(opponent_sentence_choice, "p").
 option(print_to_file, "fail").
 option(proponent_sentence_choice, "p").
@@ -57,7 +56,7 @@ option(proponent_sentence_choice, "p").
 option(proponent_rule_choice, "s").
 option(show_solution, "true").
 option(turn_choice, "p").  % Use "p" instead of "[p,o]" like the web page documentation.
-option(verbose, "fail").
+option(verbose, "true").
 
 % OPTIONS: checking
 
@@ -80,10 +79,10 @@ get_opponent_abagraph_choice(Out) :-
   %TODO: Implement others.
   (Val = "o" -> Out = o ;
   (Val = "n" -> Out = n ;
-  %(Val = "s" -> Out = s ;
-  %(Val = "l" -> Out = l ;
+  (Val = "s" -> Out = s ;
+  (Val = "l" -> Out = l ;
   %(Val = "lmb" -> Out = lmb ;
-    unexpected($file, $pred, "invalid value"))).
+    unexpected($file, $pred, "invalid value"))))).
 
 get_opponent_sentence_choice(Out) :-
   option(opponent_sentence_choice, Val),
