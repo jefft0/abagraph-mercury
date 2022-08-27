@@ -39,7 +39,7 @@
 :- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
           step_tuple::out) is nondet.
-:- pred opponent_i(sentence::in, opponent_pot_arg_graph::in, opponent_arg_graph_set::in,
+:- pred opponent_i(opponent_pot_arg_graph::in, sentence::in, opponent_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is nondet.
 :- pred opponent_ia(sentence::in, opponent_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is semidet.
@@ -154,22 +154,22 @@ proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att), T1) :-
   proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
   (assumption(S) ->
     proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1),
-    poss_print_case("1.(i)")
+    poss_print_proponent_case("1.(i)", S)
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
     proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1),
-    poss_print_case("1.(ii)")
+    poss_print_proponent_case("1.(ii)", S)
   ).
 
 opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1) :-
   opponent_abagraph_choice(OppUnMrk, OppArg, OppUnMrkMinus),
   opponent_sentence_choice(OppArg, S, OppArgMinus),
   (assumption(S) ->
-    opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1)
+    opponent_i(OppArg, S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1)
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
     opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1),
-    poss_print_case("2.(ii)")
+    poss_print_opponent_case("2.(ii)", OppArg, S)
   ).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -203,18 +203,18 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
 
 %%%%%%%%%% opponent
 
-opponent_i(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1) :-
+opponent_i(OppArgForPrint, A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1) :-
   (
     \+ member(A, D),
     (member(A, C) ->
       opponent_ib(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
-      poss_print_case("2.(ib)")
+      poss_print_opponent_case("2.(ib)", OppArgForPrint, A)
     ;
       opponent_ic(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
-      poss_print_case("2.(ic)"))
+      poss_print_opponent_case("2.(ic)", OppArgForPrint, A))
   ;
     opponent_ia(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
-    poss_print_case("2.(ia)")
+    poss_print_opponent_case("2.(ia)", OppArgForPrint, A)
   ).
 
 opponent_ia(A, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
