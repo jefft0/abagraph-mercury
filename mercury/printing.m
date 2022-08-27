@@ -14,14 +14,12 @@
    ---> fact(string)
    ;    not(sentence).
 
-:- type pot_arg_graph == pair(pair(list(sentence),     % unmarked
-                                   set(sentence)),     % marked
-                                   digraph(sentence)). % graph
+:- type pot_arg_graph == pair(pair(list(sentence),     % Unmarked
+                                   set(sentence)),     % Marked
+                                   digraph(sentence)). % Graph
 
-:- type opponent_pot_arg_graph == pair(pair(pair(sentence,           % claim
-                                                 list(sentence)),    % unmarked
-                                                 set(sentence)),     % marked
-                                                 digraph(sentence)). % graph
+:- type opponent_pot_arg_graph == pair(sentence,       % Claim
+                                       pot_arg_graph). % Potential arg graph
 
 :- type opponent_arg_graph_set == pair(list(opponent_pot_arg_graph), % OppUnMrk
                                        set(opponent_pot_arg_graph)). % OppMrk
@@ -331,7 +329,7 @@ proponent_edges([S-O_Body|Rest], NodeInfo, Fd) :-
 %
 
 opponent_clusters([], _, _, _, _, _, _).
-opponent_clusters([_Claim-Ss-_Marked-OGraph|RestOpJs], D, C, PropNodeInfo, Att, Fd, ClusterN) :-
+opponent_clusters([_Claim-(Ss-_Marked-OGraph)|RestOpJs], D, C, PropNodeInfo, Att, Fd, ClusterN) :-
   format(Fd, "\n subgraph cluster%i {\n", [i(ClusterN)]),
   format(Fd, "  label = \"O%i\";\n", [i(ClusterN)]),
   format_lines([
@@ -498,7 +496,7 @@ digraph_to_string(G) = Result :-
                  digraph_to_list(G)),
   Result = format("[%s]", [s(join_list(",", NodeList))]).
 
-opponent_pot_arg_graph_to_string(Claim-UnMrk-Mrk-Graph) =
+opponent_pot_arg_graph_to_string(Claim-(UnMrk-Mrk-Graph)) =
   format("%s-%s-%s-%s", [s(sentence_to_string(Claim)),
                          s(sentence_list_to_string(UnMrk)),
                          s(sentence_set_to_string(Mrk)),

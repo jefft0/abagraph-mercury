@@ -182,10 +182,10 @@ opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1) :-
 proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
               step_tuple(PropUnMrkMinus-PropMrk1-PropGr, OppUnMrk1-OppMrk, D, C, Att1)) :-
   contrary(A, Contrary),
-  ((\+ (member(Member1, OppUnMrk), Member1 = Contrary-_-_-_),
-    \+ (member(Member2, OppMrk),   Member2 = Contrary-_-_-_)) ->
+  ((\+ (member(Member1, OppUnMrk), Member1 = Contrary-(_-_-_)),
+    \+ (member(Member2, OppMrk),   Member2 = Contrary-(_-_-_))) ->
     add_vertex(Contrary, _, digraph.init, GContrary),
-    append_element_nodup(OppUnMrk, Contrary-[Contrary]-set.init-GContrary, OppUnMrk1)
+    append_element_nodup(OppUnMrk, Contrary-([Contrary]-set.init-GContrary), OppUnMrk1)
   ;
     OppUnMrk1 = OppUnMrk),
   insert(A, PropMrk, PropMrk1),
@@ -203,37 +203,37 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
 
 %%%%%%%%%% opponent
 
-opponent_i(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C, Att), T1) :-
+opponent_i(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1) :-
   (
     \+ member(A, D),
     (member(A, C) ->
-      opponent_ib(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C, Att), T1),
+      opponent_ib(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
       poss_print_case("2.(ib)")
     ;
-      opponent_ic(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C, Att), T1),
+      opponent_ic(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
       poss_print_case("2.(ic)"))
   ;
-    opponent_ia(A, Claim-UnMrkMinus-Marked-Graph, OMinus, opponent_step_tuple(P, D, C, Att), T1),
+    opponent_ia(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
     poss_print_case("2.(ia)")
   ).
 
-opponent_ia(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
+opponent_ia(A, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
             opponent_step_tuple(P, D, C, Att), step_tuple(P, OppUnMrkMinus1-OppMrk, D, C, Att)) :-
   (gb_derivation ->
     true
   ;
     \+ member(A, C)),    % also sound for gb? CHECK in general
   insert(A, Marked, Marked1),
-  append_element_nodup(OppUnMrkMinus, Claim-UnMrkMinus-Marked1-Graph, OppUnMrkMinus1).
+  append_element_nodup(OppUnMrkMinus, Claim-(UnMrkMinus-Marked1-Graph), OppUnMrkMinus1).
 
-opponent_ib(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
+opponent_ib(A, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
             opponent_step_tuple(P, D, C, Att), step_tuple(P, OppUnMrkMinus-OppMrk1, D, C, Att)) :-
  % TODO: Support GB. contrary(A, Contrary),
  % TODO: Support GB. gb_acyclicity_check(G, Claim, [Contrary], G1),
  insert(A, Marked, Marked1),
- insert(Claim-UnMrkMinus-Marked1-Graph, OppMrk, OppMrk1).
+ insert(Claim-(UnMrkMinus-Marked1-Graph), OppMrk, OppMrk1).
 
-opponent_ic(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
+opponent_ic(A, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
             opponent_step_tuple(PropUnMrk-PropMrk-PropGr, D, C, Att),
             step_tuple(PropUnMrk1-PropMrk-PropGr1, OppUnMrkMinus-OppMrk1, D1, C1, Att1)) :-
   contrary(A, Contrary),
@@ -249,32 +249,32 @@ opponent_ic(A, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk,
     D1 = D),
   insert(A, C, C1),
   insert(A, Marked, Marked1),
-  insert(Claim-UnMrkMinus-Marked1-Graph, OppMrk, OppMrk1),
+  insert(Claim-(UnMrkMinus-Marked1-Graph), OppMrk, OppMrk1),
   insert(Contrary-A, Att, Att1).
   % TODO: Support GB. gb_acyclicity_check(G, Claim, [Contrary], G1).
 
-opponent_ii(S, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att),
+opponent_ii(S, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att),
             step_tuple(P, OppUnMrkMinus1-OppMrk1, D, C, Att)) :-
   solutions((pred(Body::out) is nondet :- rule(S, Body)), Bodies),
-  iterate_bodies(Bodies, S, Claim-UnMrkMinus-Marked-Graph, OppUnMrkMinus-OppMrk, C,
+  iterate_bodies(Bodies, S, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, C,
                  OppUnMrkMinus1-OppMrk1).
 
 iterate_bodies([], _, _, OppUnMrkMinus-OppMrk, _, OppUnMrkMinus-OppMrk).
-iterate_bodies([Body|RestBodies], S, Claim-UnMrkMinus-Marked-Graph, InOppUnMrkMinus-InOppMrk, C,
+iterate_bodies([Body|RestBodies], S, Claim-(UnMrkMinus-Marked-Graph), InOppUnMrkMinus-InOppMrk, C,
                OppUnMrkMinus1-OppMrk1) :-
   (update_argument_graph(S, Body, Marked-Graph, UnMarked, _UnMarkedAs, Marked1-Graph1) ->
     append_elements_nodup(UnMarked, UnMrkMinus, UnMrk1),
     ((\+ gb_derivation, member(A, Body), member(A, C)) ->
       OutOppUnMrkMinus = InOppUnMrkMinus,
-      insert(Claim-UnMrk1-Marked1-Graph1, InOppMrk, OutOppMrk)
+      insert(Claim-(UnMrk1-Marked1-Graph1), InOppMrk, OutOppMrk)
     ;
-      append_element_nodup(InOppUnMrkMinus, Claim-UnMrk1-Marked1-Graph1, OutOppUnMrkMinus),
+      append_element_nodup(InOppUnMrkMinus, Claim-(UnMrk1-Marked1-Graph1), OutOppUnMrkMinus),
       OutOppMrk = InOppMrk),
     % TODO: Support GB. OutG = InG,
-    iterate_bodies(RestBodies, S, Claim-UnMrkMinus-Marked-Graph, OutOppUnMrkMinus-OutOppMrk, C,
+    iterate_bodies(RestBodies, S, Claim-(UnMrkMinus-Marked-Graph), OutOppUnMrkMinus-OutOppMrk, C,
                    OppUnMrkMinus1-OppMrk1)
   ;
-    iterate_bodies(RestBodies, S, Claim-UnMrkMinus-Marked-Graph, InOppUnMrkMinus-InOppMrk, C,
+    iterate_bodies(RestBodies, S, Claim-(UnMrkMinus-Marked-Graph), InOppUnMrkMinus-InOppMrk, C,
                    OppUnMrkMinus1-OppMrk1)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -385,7 +385,7 @@ opponent_abagraph_choice(O, JC, Ominus) :-
   get_opponent_abagraph_choice(OppJCStrategy),
   opponent_abagraph_choice(OppJCStrategy, O, JC, Ominus).
 
-opponent_sentence_choice(Claim-Ss-Marked-OGraph, Se, Claim-Ssminus-Marked-OGraph) :-
+opponent_sentence_choice(Claim-(Ss-Marked-OGraph), Se, Claim-(Ssminus-Marked-OGraph)) :-
   get_opponent_sentence_choice(OppSentenceStrategy),
   sentence_choice_backtrack(OppSentenceStrategy, Ss, Se, Ssminus).
 
@@ -462,34 +462,34 @@ opponent_abagraph_choice(n, [H|T], JC, Ominus) :-
   ;
     % We don't expect this to happen because the list is not empty.
     unexpected($file, $pred, "[H|T] cannot be empty")).
-opponent_abagraph_choice(s, [Claim-Ss-Marked-Graph|RestJCs], JC, Ominus) :-
+opponent_abagraph_choice(s, [Claim-(Ss-Marked-Graph)|RestJCs], JC, Ominus) :-
   length(Ss, L),
-  get_smallest_ss(RestJCs, L, Claim-Ss-Marked-Graph, JC),
-  delete_all([Claim-Ss-Marked-Graph|RestJCs], JC, Ominus).
-opponent_abagraph_choice(l, [Claim-Ss-Marked-Graph|RestJCs], JC, Ominus) :-
+  get_smallest_ss(RestJCs, L, Claim-(Ss-Marked-Graph), JC),
+  delete_all([Claim-(Ss-Marked-Graph)|RestJCs], JC, Ominus).
+opponent_abagraph_choice(l, [Claim-(Ss-Marked-Graph)|RestJCs], JC, Ominus) :-
   length(Ss, L),
-  get_largest_ss(RestJCs, L, Claim-Ss-Marked-Graph, JC),
-  delete_all([Claim-Ss-Marked-Graph|RestJCs], JC, Ominus).
+  get_largest_ss(RestJCs, L, Claim-(Ss-Marked-Graph), JC),
+  delete_all([Claim-(Ss-Marked-Graph)|RestJCs], JC, Ominus).
 opponent_abagraph_choice(_, [], _, _) :-
   unexpected($file, $pred, "O cannot be empty").
 
 get_smallest_ss([], _, JC, JC).
-get_smallest_ss([Claim-Ss-Marked-Graph|RestJCs], BestLSoFar, BestJCSoFar, BestJC) :-
+get_smallest_ss([Claim-(Ss-Marked-Graph)|RestJCs], BestLSoFar, BestJCSoFar, BestJC) :-
   length(Ss, L), % if L = 1, could we stop?
   (L < BestLSoFar ->
     NewL = L,
-    NewJC = Claim-Ss-Marked-Graph
+    NewJC = Claim-(Ss-Marked-Graph)
   ;
     NewL = BestLSoFar,
     NewJC = BestJCSoFar),
   get_smallest_ss(RestJCs, NewL, NewJC, BestJC).
 
 get_largest_ss([], _, JC, JC).
-get_largest_ss([Claim-Ss-Marked-Graph|RestJCs], BestLSoFar, BestJCSoFar, BestJC) :-
+get_largest_ss([Claim-(Ss-Marked-Graph)|RestJCs], BestLSoFar, BestJCSoFar, BestJC) :-
   length(Ss, L),
   (L > BestLSoFar ->
     NewL = L,
-    NewJC = Claim-Ss-Marked-Graph
+    NewJC = Claim-(Ss-Marked-Graph)
   ;
     NewL = BestLSoFar,
     NewJC = BestJCSoFar),
