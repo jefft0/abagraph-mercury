@@ -21,7 +21,7 @@
 :- type opponent_pot_arg_graph == pair(pair(pair(sentence,           % claim
                                                  list(sentence)),    % unmarked
                                                  set(sentence)),     % marked
-                                                 digraph(sentence)). % grapn
+                                                 digraph(sentence)). % graph
 
 :- type opponent_arg_graph_set == pair(list(opponent_pot_arg_graph), % OppUnMrk
                                        set(opponent_pot_arg_graph)). % OppMrk
