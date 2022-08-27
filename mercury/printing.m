@@ -14,36 +14,36 @@
    ---> fact(string)
    ;    not(sentence).
 
-:- type proponent_state == pair(pair(list(sentence),     % PropUnMrk
-                                     set(sentence)),     % PropMrk
-                                     digraph(sentence)). % PropG
+:- type pot_arg_graph == pair(pair(list(sentence),     % unmarked
+                                   set(sentence)),     % marked
+                                   digraph(sentence)). % graph
 
-:- type opponent_state == pair(pair(pair(sentence,           % Claim
-                                         list(sentence)),    % UnMrk
-                                         set(sentence)),     % Mrk
-                                         digraph(sentence)). % Graph
+:- type opponent_pot_arg_graph == pair(pair(pair(sentence,           % claim
+                                                 list(sentence)),    % unmarked
+                                                 set(sentence)),     % marked
+                                                 digraph(sentence)). % grapn
 
-:- type opponent_arg_graph_set == pair(list(opponent_state), % OppUnMrk
-                                       set(opponent_state)). % OppMrk
+:- type opponent_arg_graph_set == pair(list(opponent_pot_arg_graph), % OppUnMrk
+                                       set(opponent_pot_arg_graph)). % OppMrk
 
 :- type attack == pair(sentence).
 
 :- type step_tuple
-   ---> step_tuple(proponent_state,        % PROPONENT potential argument graph
+   ---> step_tuple(pot_arg_graph,          % PROPONENT potential argument graph
                    opponent_arg_graph_set, % Opponent argument graph set
                    set(sentence),          % D (the proponent defences)
                    set(sentence),          % C (the opponent culprits)
                    set(attack)).           % Att (set of attacks, used only for printing)
 
 :- type opponent_step_tuple
-   ---> opponent_step_tuple(proponent_state,        % PROPONENT potential argument graph
+   ---> opponent_step_tuple(pot_arg_graph,          % PROPONENT potential argument graph
                             set(sentence),          % D (the proponent defences)
                             set(sentence),          % C (the opponent culprits)
                             set(attack)).           % Att
 
 :- type derivation_result
    ---> derivation_result(pair(set(sentence), digraph(sentence)), % PropMrk-PropG
-                          set(opponent_state),                    % OppMrk
+                          set(opponent_pot_arg_graph),            % OppMrk
                           set(sentence),                          % D (the proponent defences)
                           set(sentence),                          % C (the opponent culprits)
                           set(attack)).                           % Att
@@ -61,9 +61,9 @@
 :- type graph_member == pair(sentence, list(sentence)).
 
 :- pred print_step_list(list(sentence)::in) is det.
-:- pred print_opponent_step_list(list(opponent_state)::in) is det.
+:- pred print_opponent_step_list(list(opponent_pot_arg_graph)::in) is det.
 :- pred show_result(derivation_result::in) is det.
-:- pred print_opponent_graphs(list(opponent_state)::in) is det.
+:- pred print_opponent_graphs(list(opponent_pot_arg_graph)::in) is det.
 :- pred graph_colour1(string::in, string::out) is semidet.
 :- pred graph_colour(string::in, string::out) is det.
 :- pred print_to_file(sentence::in, derivation_result::in) is det.
@@ -73,7 +73,7 @@
 :- pred proponent_nodes(sentence::in, list(graph_member)::in, int::in, uint64::in,
                         list(node_info)::out) is det.
 :- pred proponent_edges(list(graph_member)::in, list(node_info)::in, uint64::in) is det.
-:- pred opponent_clusters(list(opponent_state)::in, set(sentence)::in, set(sentence)::in,
+:- pred opponent_clusters(list(opponent_pot_arg_graph)::in, set(sentence)::in, set(sentence)::in,
                           list(node_info)::in, list(attack)::in, uint64::in, int::in) is det.
 :- pred opponent_nodes(pair(list(graph_member), list(sentence))::in, set(sentence)::in, set(sentence)::in,
                        int::in, int::in, uint64::in, list(node_info)::in, list(node_info)::out) is det.
@@ -88,7 +88,7 @@
 :- func sentence_set_to_string(set(sentence)) = string is det.
 :- func digraph_to_list(digraph(sentence)) = list(graph_member) is det.
 :- func digraph_to_string(digraph(sentence)) = string is det.
-:- func opponent_state_to_string(opponent_state) = string is det.
+:- func opponent_pot_arg_graph_to_string(opponent_pot_arg_graph) = string is det.
 % puts(S). Write the string S to stdout without a newline.
 :- pred puts(string::in) is det.
 % format(S, PolyTypes). Write string.format(S, PolyTypes) to stdout.
@@ -142,9 +142,9 @@ print_opponent_step_list([]) :-
   format("]\n", []).
 print_opponent_step_list([H|T]) :-
   (T = [] ->
-    format("%s]\n", [s(opponent_state_to_string(H))])
+    format("%s]\n", [s(opponent_pot_arg_graph_to_string(H))])
   ;
-    format("%s,\n       ", [s(opponent_state_to_string(H))]),
+    format("%s,\n       ", [s(opponent_pot_arg_graph_to_string(H))]),
     print_opponent_step_list(T)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -165,9 +165,9 @@ print_opponent_graphs([]) :-
   format("]\n", []).
 print_opponent_graphs([H|T]) :-
   (T = [] ->
-    format("%s]\n", [s(opponent_state_to_string(H))])
+    format("%s]\n", [s(opponent_pot_arg_graph_to_string(H))])
   ;
-    format("%s,\n                      ", [s(opponent_state_to_string(H))]),
+    format("%s,\n                      ", [s(opponent_pot_arg_graph_to_string(H))]),
     print_opponent_graphs(T)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -498,7 +498,7 @@ digraph_to_string(G) = Result :-
                  digraph_to_list(G)),
   Result = format("[%s]", [s(join_list(",", NodeList))]).
 
-opponent_state_to_string(Claim-UnMrk-Mrk-Graph) =
+opponent_pot_arg_graph_to_string(Claim-UnMrk-Mrk-Graph) =
   format("%s-%s-%s-%s", [s(sentence_to_string(Claim)),
                          s(sentence_list_to_string(UnMrk)),
                          s(sentence_set_to_string(Mrk)),
