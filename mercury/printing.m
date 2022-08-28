@@ -14,6 +14,8 @@
    ---> fact(string)
    ;    not(sentence).
 
+:- type graph_member == pair(sentence, list(sentence)).
+
 :- type pot_arg_graph == pair(pair(list(sentence),     % Unmarked
                                    set(sentence)),     % Marked
                                    digraph(sentence)). % Graph
@@ -52,13 +54,23 @@
 :- pred print_step(int::in, step_tuple::in) is det.
 :- pred print_result(sentence::in, derivation_result::in) is det.
 
+:- func sentence_to_string(sentence) = string is det.
+:- func sentence_list_to_string(list(sentence)) = string is det.
+:- func sentence_set_to_string(set(sentence)) = string is det.
+:- func digraph_to_list(digraph(sentence)) = list(graph_member) is det.
+:- func digraph_to_string(digraph(sentence)) = string is det.
+:- func focussed_pot_arg_graph_to_string(focussed_pot_arg_graph) = string is det.
+% puts(S). Write the string S to stdout without a newline.
+:- pred puts(string::in) is det.
+% format(S, PolyTypes). Write string.format(S, PolyTypes) to stdout.
+:- pred format(string::in, list(poly_type)::in) is det.
+
 :- implementation.
 
 :- import_module int.
 :- import_module loading.
 
 :- type node_info ---> node_info(sentence, int, int).
-:- type graph_member == pair(sentence, list(sentence)).
 
 :- pred print_step_list(list(sentence)::in) is det.
 :- pred print_opponent_step_list(list(focussed_pot_arg_graph)::in) is det.
@@ -83,16 +95,6 @@
 :- pred attacks(list(attack)::in, list(node_info)::in, list(node_info)::in, uint64::in) is det.
 :- pred format_lines(list(string)::in, uint64::in).
 
-:- func sentence_to_string(sentence) = string is det.
-:- func sentence_list_to_string(list(sentence)) = string is det.
-:- func sentence_set_to_string(set(sentence)) = string is det.
-:- func digraph_to_list(digraph(sentence)) = list(graph_member) is det.
-:- func digraph_to_string(digraph(sentence)) = string is det.
-:- func focussed_pot_arg_graph_to_string(focussed_pot_arg_graph) = string is det.
-% puts(S). Write the string S to stdout without a newline.
-:- pred puts(string::in) is det.
-% format(S, PolyTypes). Write string.format(S, PolyTypes) to stdout.
-:- pred format(string::in, list(poly_type)::in) is det.
 % open(Path, Mode, Fd).
 :- pred open(string::in, string::in, uint64::out) is det.
 % close(Fd).
