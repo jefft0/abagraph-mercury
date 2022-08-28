@@ -134,6 +134,7 @@ initial_derivation_tuple(
 derivation(T, InN, Result, N) :-
   (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C, Att) ->
     Result = derivation_result(PropMrk-PropG, OppM, D, C, Att),
+    ((option(show_solution, "true"), \+ verbose) -> PreviousN = N - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
     N = InN
   ;
     derivation_step(T, T1),
