@@ -401,14 +401,17 @@ opponent_sentence_choice(Claim-(Ss-Marked-OGraph), Se, Claim-(Ssminus-Marked-OGr
 % Omit "proponent" since it is not used.
 %rule_choice(Head, Body, proponent, PropInfo) :-
 rule_choice(Head, Body, PropInfo) :-
-  solutions((pred(B::out) is nondet :- 
-               rule(Head, B),
-               (verbose -> format("Potential body: %s\n", [s(sentence_list_to_string(B))]) ; true)), Rules),
+  solutions(pred(B::out) is nondet :- rule(Head, B), RuleBodies),
   get_proponent_rule_choice(PropRuleStrategy),
-  sort_rule_pairs(PropRuleStrategy, PropInfo, Rules, SortedRulePairs),
+  sort_rule_pairs(PropRuleStrategy, PropInfo, RuleBodies, SortedRuleBodies),
   % Note: The cut is not needed since the above predicates are det.
   % !,
-  member(Body, SortedRulePairs),
+  (verbose ->
+    _ = map(func(B) = 0 :- format("Potential body: %s\n", [s(sentence_list_to_string(B))]),
+            SortedRuleBodies)
+  ;
+    true),
+  member(Body, SortedRuleBodies),
   rule(Head, Body).              % added to fix Fan's first bug
 
 turn_choice(p, P-_-_, _, Player) :-
@@ -543,10 +546,10 @@ get_newest_nonassumption_or_other(Ss, A, Ssminus) :-
 
 % rule sorting
 
-sort_rule_pairs(s, _PropInfo, Pairs, SortedPairs) :-
-  sort(rule_sort_small_bodies, Pairs, SortedPairs).
-sort_rule_pairs(l1, PropInfo, Pairs, SortedPairs) :-
-  sort((pred(X::in, Y::in, R::out) is det :- rule_sort_look_ahead_1(PropInfo, X, Y, R)), Pairs, SortedPairs).
+sort_rule_pairs(s, _PropInfo, RuleBodies, SortedRuleBodies) :-
+  sort(rule_sort_small_bodies, RuleBodies, SortedRuleBodies).
+sort_rule_pairs(l1, PropInfo, RuleBodies, SortedRuleBodies) :-
+  sort((pred(X::in, Y::in, R::out) is det :- rule_sort_look_ahead_1(PropInfo, X, Y, R)), RuleBodies, SortedRuleBodies).
 
 rule_sort_small_bodies(Body1, Body2, Result) :-
   builtin.compare(Result, length(Body1) + 0, length(Body2) + 0).
