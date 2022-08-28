@@ -144,6 +144,7 @@ derivation(T, InN, Result, N) :-
     derivation(T1, OutN, Result, N)).
 
 derivation_step(step_tuple(P, O, D, C, Att), T1) :-
+  (verbose -> puts("\n") ; true),
   choose_turn(P, O, Turn),
   (Turn = proponent ->
     proponent_step(step_tuple(P, O, D, C, Att), T1)

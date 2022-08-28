@@ -113,19 +113,19 @@
 
 poss_print_proponent_case(Case, S) :-
  (verbose ->
-   format("\nCase %s: s: %s\n", [s(Case), s(sentence_to_string(S))])
+   format("Case %s: s: %s\n", [s(Case), s(sentence_to_string(S))])
  ;
    true).
 
 poss_print_proponent_case2(Case, S, Body) :-
  (verbose ->
-   format("\nCase %s: s<-R: %s <- %s\n", [s(Case), s(sentence_to_string(S)), s(sentence_list_to_string(Body))])
+   format("Case %s: s<-R: %s <- %s\n", [s(Case), s(sentence_to_string(S)), s(sentence_list_to_string(Body))])
  ;
    true).
 
 poss_print_opponent_case(Case, _Claim-(Ss-_-_), S) :-
  (verbose ->
-   format("\nCase %s: u(G): %s\n             s:    %s\n", 
+   format("Case %s: u(G): %s\n             s:    %s\n", 
           [s(Case), s(sentence_list_to_string(Ss)), s(sentence_to_string(S))])
  ;
    true).
