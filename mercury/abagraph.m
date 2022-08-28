@@ -20,6 +20,7 @@
 :- import_module require.
 :- import_module set.
 :- import_module solutions.
+:- import_module string.
 
 :- type turn
         ---> proponent
@@ -39,7 +40,7 @@
 :- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
           step_tuple::out, list(sentence)::out) is nondet.
-:- pred opponent_i(focussed_pot_arg_graph::in, sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
+:- pred opponent_i(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is nondet.
 :- pred opponent_ia(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is semidet.
@@ -155,23 +156,28 @@ proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att), T1) :-
   proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
   (assumption(S) ->
     proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1),
-    poss_print_proponent_case("1.(i)", S)
+    poss_print_case("1.(i)"),
+    (verbose -> format("s:    %s\n", [s(sentence_to_string(S))]) ; true)
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
     proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1, BodyForPrint),
-    poss_print_proponent_case2("1.(ii)", S, BodyForPrint)
+    poss_print_case("1.(ii)"),
+    (verbose -> format("s:    %s\n", [s(sentence_to_string(S))]) ; true),
+    (verbose -> format("Selected body:  %s\n", [s(sentence_list_to_string(BodyForPrint))]) ; true)
   ).
 
 opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1) :-
   opponent_abagraph_choice(OppUnMrk, OppArg, OppUnMrkMinus),
   opponent_sentence_choice(OppArg, S, OppArgMinus),
   (assumption(S) ->
-    opponent_i(OppArg, S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1)
+    opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1)
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
     opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1),
-    poss_print_opponent_case("2.(ii)", OppArg, S)
-  ).
+    poss_print_case("2.(ii)")
+  ),
+  (verbose -> _Claim-(Ss-_-_) = OppArg, format("u(G): %s\n", [s(sentence_list_to_string(Ss))]) ; true),
+  (verbose -> format("s:    %s\n", [s(sentence_to_string(S))]) ; true).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -204,18 +210,18 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
 
 %%%%%%%%%% opponent
 
-opponent_i(OppArgForPrint, A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1) :-
+opponent_i(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1) :-
   (
     \+ member(A, D),
     (member(A, C) ->
       opponent_ib(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
-      poss_print_opponent_case("2.(ib)", OppArgForPrint, A)
+      poss_print_case("2.(ib)")
     ;
       opponent_ic(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
-      poss_print_opponent_case("2.(ic)", OppArgForPrint, A))
+      poss_print_case("2.(ic)"))
   ;
     opponent_ia(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
-    poss_print_opponent_case("2.(ia)", OppArgForPrint, A)
+    poss_print_case("2.(ia)")
   ).
 
 opponent_ia(A, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
@@ -395,7 +401,9 @@ opponent_sentence_choice(Claim-(Ss-Marked-OGraph), Se, Claim-(Ssminus-Marked-OGr
 % Omit "proponent" since it is not used.
 %rule_choice(Head, Body, proponent, PropInfo) :-
 rule_choice(Head, Body, PropInfo) :-
-  solutions((pred(B::out) is nondet :- rule(Head, B)), Rules),
+  solutions((pred(B::out) is nondet :- 
+               rule(Head, B),
+               (verbose -> format("Potential body: %s\n", [s(sentence_list_to_string(B))]) ; true)), Rules),
   get_proponent_rule_choice(PropRuleStrategy),
   sort_rule_pairs(PropRuleStrategy, PropInfo, Rules, SortedRulePairs),
   % Note: The cut is not needed since the above predicates are det.

@@ -48,9 +48,7 @@
                           set(sentence),                          % C (the opponent culprits)
                           set(attack)).                           % Att
 
-:- pred poss_print_proponent_case(string::in, sentence::in) is det.
-:- pred poss_print_proponent_case2(string::in, sentence::in, list(sentence)::in) is det.
-:- pred poss_print_opponent_case(string::in, focussed_pot_arg_graph::in, sentence::in) is det.
+:- pred poss_print_case(string::in) is det.
 :- pred print_step(int::in, step_tuple::in) is det.
 :- pred print_result(sentence::in, derivation_result::in) is det.
 
@@ -111,22 +109,9 @@
 %
 % PRINTING: DERIVATION STEPS
 
-poss_print_proponent_case(Case, S) :-
+poss_print_case(Case) :-
  (verbose ->
-   format("Case %s: s: %s\n", [s(Case), s(sentence_to_string(S))])
- ;
-   true).
-
-poss_print_proponent_case2(Case, S, Body) :-
- (verbose ->
-   format("Case %s: s<-R: %s <- %s\n", [s(Case), s(sentence_to_string(S)), s(sentence_list_to_string(Body))])
- ;
-   true).
-
-poss_print_opponent_case(Case, _Claim-(Ss-_-_), S) :-
- (verbose ->
-   format("Case %s: u(G): %s\n             s:    %s\n", 
-          [s(Case), s(sentence_list_to_string(Ss)), s(sentence_to_string(S))])
+   format("Case %s\n", [s(Case)])
  ;
    true).
 
