@@ -38,7 +38,7 @@
           step_tuple::out) is semidet.
 :- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
-          step_tuple::out) is nondet.
+          step_tuple::out, list(sentence)::out) is nondet.
 :- pred opponent_i(focussed_pot_arg_graph::in, sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is nondet.
 :- pred opponent_ia(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
@@ -157,8 +157,8 @@ proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att), T1) :-
     poss_print_proponent_case("1.(i)", S)
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
-    proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1),
-    poss_print_proponent_case("1.(ii)", S)
+    proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1, BodyForPrint),
+    poss_print_proponent_case2("1.(ii)", S, BodyForPrint)
   ).
 
 opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1) :-
@@ -193,7 +193,7 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
   % TODO: Support GB. gb_acyclicity_check(G, A, [Contrary], G1).
 
 proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
-                 step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att)) :-
+                 step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att), Body) :-
   rule_choice(S, Body, prop_info(D, PropGr)),
   \+ (member(X, Body), member(X, C)),
   update_argument_graph(S, Body, PropMrk-PropGr, NewUnMrk, NewUnMrkAs, PropMrk1-PropGr1),

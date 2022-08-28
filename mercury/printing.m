@@ -47,6 +47,7 @@
                           set(attack)).                           % Att
 
 :- pred poss_print_proponent_case(string::in, sentence::in) is det.
+:- pred poss_print_proponent_case2(string::in, sentence::in, list(sentence)::in) is det.
 :- pred poss_print_opponent_case(string::in, focussed_pot_arg_graph::in, sentence::in) is det.
 :- pred print_step(int::in, step_tuple::in) is det.
 :- pred print_result(sentence::in, derivation_result::in) is det.
@@ -111,6 +112,12 @@
 poss_print_proponent_case(Case, S) :-
  (verbose ->
    format("\nCase %s: s: %s\n", [s(Case), s(sentence_to_string(S))])
+ ;
+   true).
+
+poss_print_proponent_case2(Case, S, Body) :-
+ (verbose ->
+   format("\nCase %s: s<-R: %s<-%s\n", [s(Case), s(sentence_to_string(S)), s(sentence_list_to_string(Body))])
  ;
    true).
 
