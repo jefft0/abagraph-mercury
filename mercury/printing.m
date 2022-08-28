@@ -117,7 +117,7 @@ poss_print_proponent_case(Case, S) :-
 
 poss_print_proponent_case2(Case, S, Body) :-
  (verbose ->
-   format("\nCase %s: s<-R: %s<-%s\n", [s(Case), s(sentence_to_string(S)), s(sentence_list_to_string(Body))])
+   format("\nCase %s: s<-R: %s <- %s\n", [s(Case), s(sentence_to_string(S)), s(sentence_list_to_string(Body))])
  ;
    true).
 
