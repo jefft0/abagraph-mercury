@@ -5,17 +5,16 @@
 :- interface.
 
 :- import_module io.
+:- import_module list.
 :- import_module printing.
+:- import_module string.
 
 :- pred main(io::di, io::uo) is det.
-
-:- interface.
-
-:- import_module list.
 
 :- pred assumption(sentence::in) is semidet.
 :- pred rule(sentence::in, list(sentence)::out) is semidet.
 :- pred contrary(sentence::in, sentence::out) is semidet.
+:- func now = string is det.
 
 :- implementation.
 
@@ -32,6 +31,8 @@ rule(not(fact("a")), [fact("b")]).
 rule(not(fact("b")), []).
 
 contrary(fact(A), not(fact(A))).
+
+now = "0s:310ms:0us".
 
 %non_assumptions = list_to_set(solutions((pred(S::out) is nondet :-
 %                    (

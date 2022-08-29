@@ -111,12 +111,12 @@
 
 poss_print_case(Case) :-
  (verbose ->
-   format("Case %s\n", [s(Case)])
+   format("%s Case %s\n", [s(now), s(Case)])
  ;
    true).
 
 print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C, _Att)) :-
-  format("*** Step %d\n", [i(N)]),
+  format("%s *** Step %d\n", [s(now), i(N)]),
   format("P:    %s-%s-%s\n", [s(sentence_list_to_string(PropUnMrk)),
                               s(sentence_set_to_string(PropMrk)),
                               s(digraph_to_string(PropGr))]),

@@ -158,13 +158,13 @@ proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att), T1) :-
   (assumption(S) ->
     proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1),
     poss_print_case("1.(i)"),
-    (verbose -> format("s:    %s\n", [s(sentence_to_string(S))]) ; true)
+    (verbose -> format("%s s:    %s\n", [s(now), s(sentence_to_string(S))]) ; true)
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
     proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1, BodyForPrint),
     poss_print_case("1.(ii)"),
-    (verbose -> format("s:    %s\n", [s(sentence_to_string(S))]) ; true),
-    (verbose -> format("Selected body:  %s\n", [s(sentence_list_to_string(BodyForPrint))]) ; true)
+    (verbose -> format("%s s:    %s\n", [s(now), s(sentence_to_string(S))]) ; true),
+    (verbose -> format("%s Selected body:    %s\n", [s(now), s(sentence_list_to_string(BodyForPrint))]) ; true)
   ).
 
 opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1) :-
@@ -177,8 +177,9 @@ opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1) :-
     opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1),
     poss_print_case("2.(ii)")
   ),
-  (verbose -> _Claim-(Ss-_-_) = OppArg, format("u(G): %s\n", [s(sentence_list_to_string(Ss))]) ; true),
-  (verbose -> format("s:    %s\n", [s(sentence_to_string(S))]) ; true).
+  (verbose -> _Claim-(Ss-_-_) = OppArg,
+              format("%s u(G): %s\n", [s(now), s(sentence_list_to_string(Ss))]) ; true),
+  (verbose -> format("%s s:    %s\n", [s(now), s(sentence_to_string(S))]) ; true).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -408,8 +409,9 @@ rule_choice(Head, Body, PropInfo) :-
   % Note: The cut is not needed since the above predicates are det.
   % !,
   (verbose ->
-    _ = map(func(B) = 0 :- format("Potential body: %s\n", [s(sentence_list_to_string(B))]),
-            SortedRuleBodies)
+    format("%s Potential bodies: [", [s(now)]),
+    _ = map(func(B) = 0 :- format("%s ", [s(sentence_list_to_string(B))]), SortedRuleBodies),
+    puts("]\n")
   ;
     true),
   member(Body, SortedRuleBodies),
