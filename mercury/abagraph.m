@@ -4,21 +4,56 @@
 :- module abagraph.
 :- interface.
 
-:- import_module printing.
+:- import_module digraph.
+:- import_module list.
+% Import sentence from loading.
+:- import_module loading.
+:- import_module pair.
+:- import_module set.
+
+:- type graph_member == pair(sentence, list(sentence)).
+
+:- type pot_arg_graph == pair(pair(list(sentence),     % Unmarked
+                                   set(sentence)),     % Marked
+                                   digraph(sentence)). % Graph
+
+:- type focussed_pot_arg_graph == pair(sentence,       % Claim
+                                       pot_arg_graph). % Potential arg graph
+
+:- type opponent_arg_graph_set == pair(list(focussed_pot_arg_graph), % OppUnMrk
+                                       set(focussed_pot_arg_graph)). % OppMrk
+
+:- type attack == pair(sentence).
+
+:- type step_tuple
+   ---> step_tuple(pot_arg_graph,          % PROPONENT potential argument graph
+                   opponent_arg_graph_set, % Opponent argument graph set
+                   set(sentence),          % D (the proponent defences)
+                   set(sentence),          % C (the opponent culprits)
+                   set(attack)).           % Att (set of attacks, used only for printing)
+
+:- type opponent_step_tuple
+   ---> opponent_step_tuple(pot_arg_graph,          % PROPONENT potential argument graph
+                            set(sentence),          % D (the proponent defences)
+                            set(sentence),          % C (the opponent culprits)
+                            set(attack)).           % Att
+
+:- type derivation_result
+   ---> derivation_result(pair(set(sentence), digraph(sentence)), % PropMrk-PropG
+                          set(focussed_pot_arg_graph),            % OppMrk
+                          set(sentence),                          % D (the proponent defences)
+                          set(sentence),                          % C (the opponent culprits)
+                          set(attack)).                           % Att
 
 :- pred derive(sentence::in, derivation_result::out) is nondet.
 
 :- implementation.
 
-:- import_module digraph.
 :- import_module int.
-:- import_module list.
-:- import_module loading.
 :- import_module maybe.
 :- import_module options.
-:- import_module pair.
+:- import_module printing.
 :- import_module require.
-:- import_module set.
 :- import_module solutions.
 :- import_module string.
 

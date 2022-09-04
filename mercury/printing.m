@@ -4,55 +4,17 @@
 :- module printing.
 :- interface.
 
+:- import_module abagraph.
 :- import_module digraph.
 :- import_module list.
-:- import_module pair.
+:- import_module loading.
 :- import_module set.
 :- import_module string.
-
-:- type sentence
-   ---> fact(string)
-   ;    not(sentence).
-
-:- type graph_member == pair(sentence, list(sentence)).
-
-:- type pot_arg_graph == pair(pair(list(sentence),     % Unmarked
-                                   set(sentence)),     % Marked
-                                   digraph(sentence)). % Graph
-
-:- type focussed_pot_arg_graph == pair(sentence,       % Claim
-                                       pot_arg_graph). % Potential arg graph
-
-:- type opponent_arg_graph_set == pair(list(focussed_pot_arg_graph), % OppUnMrk
-                                       set(focussed_pot_arg_graph)). % OppMrk
-
-:- type attack == pair(sentence).
-
-:- type step_tuple
-   ---> step_tuple(pot_arg_graph,          % PROPONENT potential argument graph
-                   opponent_arg_graph_set, % Opponent argument graph set
-                   set(sentence),          % D (the proponent defences)
-                   set(sentence),          % C (the opponent culprits)
-                   set(attack)).           % Att (set of attacks, used only for printing)
-
-:- type opponent_step_tuple
-   ---> opponent_step_tuple(pot_arg_graph,          % PROPONENT potential argument graph
-                            set(sentence),          % D (the proponent defences)
-                            set(sentence),          % C (the opponent culprits)
-                            set(attack)).           % Att
-
-:- type derivation_result
-   ---> derivation_result(pair(set(sentence), digraph(sentence)), % PropMrk-PropG
-                          set(focussed_pot_arg_graph),            % OppMrk
-                          set(sentence),                          % D (the proponent defences)
-                          set(sentence),                          % C (the opponent culprits)
-                          set(attack)).                           % Att
 
 :- pred poss_print_case(string::in) is det.
 :- pred print_step(int::in, step_tuple::in) is det.
 :- pred print_result(sentence::in, derivation_result::in) is det.
 
-:- func sentence_to_string(sentence) = string is det.
 :- func sentence_list_to_string(list(sentence)) = string is det.
 :- func sentence_set_to_string(set(sentence)) = string is det.
 :- func digraph_to_list(digraph(sentence)) = list(graph_member) is det.
@@ -66,7 +28,7 @@
 :- implementation.
 
 :- import_module int.
-:- import_module loading.
+:- import_module pair.
 
 :- type node_info ---> node_info(sentence, int, int).
 
@@ -303,7 +265,7 @@ proponent_nodes(Proving, [S-Neighbors|Rest], N, Fd, [node_info(S, N, 0)|RestNode
     (A = Proving ->
       graph_colour("proponent_asm_toBeProved", Colour)
     ;
-      (A = fact("cmd(_,_),_") -> Colour = "#009999" ; graph_colour("proponent_asm", Colour))),
+      (is_event(A) -> Colour = "#009999" ; graph_colour("proponent_asm", Colour))),
     format(Fd, "[label=\"%s\",fillcolor=\"%s\",color=\"%s\",fontcolor=\"white\"];\n",
            [s(sentence_to_string(A)), s(Colour), s(Colour)]),
     N1 = N + 1,
@@ -478,9 +440,6 @@ body_edges([SFrom|Rest], STo, ClusterN, NodeInfo, Fd) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % PRINTING: HELPERS
-
-sentence_to_string(fact(C)) = format("%s", [s(C)]).
-sentence_to_string(not(S)) = format("not(%s)", [s(sentence_to_string(S))]).
 
 sentence_list_to_string(L) = format("[%s]", [s(join_list(",", map(sentence_to_string, L)))]).
 
