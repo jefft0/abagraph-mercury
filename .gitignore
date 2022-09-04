@@ -28,3 +28,4 @@
 # abagraph output files
 *.dot
 *.pdf
+decompiled_objects*.txt

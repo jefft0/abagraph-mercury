@@ -122,6 +122,7 @@
 :- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet.
 :- pred select(T::out, list(T)::in, list(T)::out) is nondet.
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
+:- func decompiled_path = string is det.
 
 % ("set some options" moved to options.m.)
 
@@ -135,6 +136,9 @@ derive(S, Result) :-
   %assert(proving(S)),
   initial_derivation_tuple(make_singleton_set(S), InitTuple),
   (verbose ->
+    % We will re-open and append below.
+    open(decompiled_path, "w", Fd),
+    close(Fd),
     print_step(0, InitTuple)
   ;
     true),
@@ -198,7 +202,12 @@ proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att), T1) :-
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
     proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1, BodyForPrint),
     poss_print_case("1.(ii)"),
-    (verbose -> format("%s s:    %s\n", [s(now), s(sentence_to_string(S))]) ; true),
+    (verbose ->
+      open(decompiled_path, "a", Fd),
+      write_sentence(S, Fd, Id),
+      close(Fd),
+      format("%s s%i:    %s\n", [s(now), i(Id), s(sentence_to_string(S))])
+    ; true),
     (verbose -> format("%s Selected body:    %s\n", [s(now), s(sentence_list_to_string(BodyForPrint))]) ; true)
   ).
 
@@ -630,3 +639,5 @@ select(X, [Head|Tail], Rest) :-
 select3_(Tail, Head, Head, Tail).
 select3_([Head2|Tail], Head, X, [Head|Rest]) :-
     select3_(Tail, Head2, X, Rest).
+
+decompiled_path = "decompiled_objects_aba.txt".
