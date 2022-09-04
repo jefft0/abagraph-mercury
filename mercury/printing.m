@@ -24,6 +24,14 @@
 :- pred puts(string::in) is det.
 % format(S, PolyTypes). Write string.format(S, PolyTypes) to stdout.
 :- pred format(string::in, list(poly_type)::in) is det.
+% open(Path, Mode, Fd).
+:- pred open(string::in, string::in, uint64::out) is det.
+% close(Fd).
+:- pred close(uint64::in) is det.
+% fputs(S, Fd). Write the string to the file at Fd without a newline.
+:- pred fputs(string::in, uint64::in) is det.
+% format(Fd, S, PolyTypes). Write string.format(S, PolyTypes) to the file at Fd.
+:- pred format(uint64::in, string::in, list(poly_type)::in) is det.
 
 :- implementation.
 
@@ -54,15 +62,6 @@
 :- pred body_edges(list(sentence)::in, sentence::in, int::in, list(node_info)::in, uint64::in) is semidet.
 :- pred attacks(list(attack)::in, list(node_info)::in, list(node_info)::in, uint64::in) is det.
 :- pred format_lines(list(string)::in, uint64::in).
-
-% open(Path, Mode, Fd).
-:- pred open(string::in, string::in, uint64::out) is det.
-% close(Fd).
-:- pred close(uint64::in) is det.
-% fputs(S, Fd). Write the string to the file at Fd without a newline.
-:- pred fputs(string::in, uint64::in) is det.
-% format(Fd, S, PolyTypes). Write string.format(S, PolyTypes) to the file at Fd.
-:- pred format(uint64::in, string::in, list(poly_type)::in) is det.
 
 :- import_module options.
 
