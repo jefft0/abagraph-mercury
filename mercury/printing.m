@@ -8,6 +8,7 @@
 :- import_module digraph.
 :- import_module list.
 :- import_module loading.
+:- import_module map.
 :- import_module set.
 :- import_module string.
 
@@ -32,6 +33,8 @@
 :- pred fputs(string::in, uint64::in) is det.
 % format(Fd, S, PolyTypes). Write string.format(S, PolyTypes) to the file at Fd.
 :- pred format(uint64::in, string::in, list(poly_type)::in) is det.
+% write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut). Use write_sentence to write the List. Return the list of Ids.
+:- pred write_sentence_list(list(sentence)::in, uint64::in, list(int)::out, map(sentence, int)::in, map(sentence, int)::out) is det.
 
 :- implementation.
 
@@ -493,3 +496,10 @@ fputs(S, (FILE*)Fd);
 ").
 
 format(Fd, S, PolyTypes) :- fputs(format(S, PolyTypes), Fd).
+
+write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut) :-
+  IdsList-IdsOut = foldl((
+    func(S, IdsListIn-IdsIn1) = IdsListOut-IdsOut1 :-
+      write_sentence(S, Fd, Id, IdsIn1, IdsOut1),
+      IdsListOut = append(IdsListIn, [Id])),
+    List, []-IdsIn).
