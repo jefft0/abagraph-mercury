@@ -50,6 +50,7 @@
 :- implementation.
 
 :- import_module int.
+:- import_module map.
 :- import_module maybe.
 :- import_module options.
 :- import_module printing.
@@ -74,7 +75,7 @@
           step_tuple::out) is semidet.
 :- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
-          step_tuple::out, list(sentence)::out) is nondet.
+          step_tuple::out, list(sentence)::out, map(sentence, int)::in, map(sentence, int)::out) is nondet.
 :- pred opponent_i(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is nondet.
 :- pred opponent_ia(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
@@ -100,7 +101,7 @@
 :- pred opponent_abagraph_choice(list(focussed_pot_arg_graph)::in, focussed_pot_arg_graph::out,
           list(focussed_pot_arg_graph)::out) is det.
 :- pred opponent_sentence_choice(focussed_pot_arg_graph::in, sentence::out, focussed_pot_arg_graph::out) is nondet.
-:- pred rule_choice(sentence::in, list(sentence)::out, prop_info::in) is nondet.
+:- pred rule_choice(sentence::in, list(sentence)::out, prop_info::in, map(sentence, int)::in, map(sentence, int)::out) is nondet.
 :- pred turn_choice(turn_choice::in, pot_arg_graph::in, opponent_arg_graph_set::in, turn::out) is det.
 :- pred sentence_choice(proponent_sentence_choice::in, list(sentence)::in, sentence::out,
           list(sentence)::out) is det.
@@ -196,19 +197,23 @@ proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att), T1) :-
   proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
   (assumption(S) ->
     proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1),
-    poss_print_case("1.(i)"),
-    (verbose -> format("%s s:    %s\n", [s(now), s(sentence_to_string(S))]) ; true)
-  ;
-    %TODO: Do we need to compute and explicitly check? non_assumption(S),
-    proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1, BodyForPrint),
-    poss_print_case("1.(ii)"),
     (verbose ->
       open(decompiled_path, "a", Fd),
-      write_sentence(S, Fd, Id),
+      write_sentence(S, Fd, Id, map.init, _),
       close(Fd),
-      format("%s s%i:    %s\n", [s(now), i(Id), s(sentence_to_string(S))])
-    ; true),
-    (verbose -> format("%s Selected body:    %s\n", [s(now), s(sentence_list_to_string(BodyForPrint))]) ; true)
+      format("%s Case 1.(i): s: %i debug_s: %s\n", [s(now), i(Id), s(sentence_to_string(S))])
+    ; true)
+  ;
+    %TODO: Do we need to compute and explicitly check? non_assumption(S),
+    proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1, BodyForPrint, map.init, Ids1),
+    (verbose ->
+      open(decompiled_path, "a", Fd),
+      write_sentence(S, Fd, Id, Ids1, Ids2),
+      write_sentence_list(BodyForPrint, Fd, IdsList, Ids2, Ids3),
+      close(Fd),
+      format("%s Case 1.(ii): s: %i body: [%s] debug_s: %s debug_body: %s\n",
+             [s(now), i(Id), s(join_list(" ", map(int_to_string, IdsList))), s(sentence_to_string(S)), s(sentence_list_to_string(BodyForPrint))])
+    ; true)
   ).
 
 opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1) :-
@@ -246,8 +251,8 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
   % TODO: Support GB. gb_acyclicity_check(G, A, [Contrary], G1).
 
 proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
-                 step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att), Body) :-
-  rule_choice(S, Body, prop_info(D, PropGr)),
+                 step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att), Body, IdsIn, IdsOut) :-
+  rule_choice(S, Body, prop_info(D, PropGr), IdsIn, IdsOut),
   \+ (member(X, Body), member(X, C)),
   update_argument_graph(S, Body, PropMrk-PropGr, NewUnMrk, NewUnMrkAs, PropMrk1-PropGr1),
   append_elements_nodup(NewUnMrk, PropUnMrkMinus, PropUnMrk1),
@@ -446,18 +451,24 @@ opponent_sentence_choice(Claim-(Ss-Marked-OGraph), Se, Claim-(Ssminus-Marked-OGr
 % proponent's derivations.
 % Omit "proponent" since it is not used.
 %rule_choice(Head, Body, proponent, PropInfo) :-
-rule_choice(Head, Body, PropInfo) :-
+rule_choice(Head, Body, PropInfo, IdsIn, IdsOut) :-
   solutions(pred(B::out) is nondet :- rule(Head, B), RuleBodies),
   get_proponent_rule_choice(PropRuleStrategy),
   sort_rule_pairs(PropRuleStrategy, PropInfo, RuleBodies, SortedRuleBodies),
   % Note: The cut is not needed since the above predicates are det.
   % !,
   (verbose ->
+    open(decompiled_path, "a", Fd),
     format("%s Potential bodies: [", [s(now)]),
-    _ = map(func(B) = 0 :- format("%s ", [s(sentence_list_to_string(B))]), SortedRuleBodies),
-    puts("]\n")
+    IdsOut = foldl((
+      func(B, IdsIn1) = IdsOut1 :-
+        write_sentence_list(B, Fd, IdsList, IdsIn1, IdsOut1),
+        format("[%s] ", [s(join_list(" ", map(int_to_string, IdsList)))])),
+      SortedRuleBodies, IdsIn),
+    puts("]\n"),
+    close(Fd)
   ;
-    true),
+    IdsOut = IdsIn),
   member(Body, SortedRuleBodies),
   rule(Head, Body).              % added to fix Fan's first bug
 
