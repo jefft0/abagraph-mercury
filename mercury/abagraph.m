@@ -66,10 +66,10 @@
    ---> prop_info(set(sentence), digraph(sentence)).
 
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
-:- pred derivation(step_tuple::in, int::in, derivation_result::out, int::out) is nondet.
-:- pred derivation_step(step_tuple::in, step_tuple::out) is nondet.
-:- pred proponent_step(step_tuple::in, step_tuple::out) is nondet.
-:- pred opponent_step(step_tuple::in, step_tuple::out) is nondet.
+:- pred derivation(step_tuple::in, int::in, derivation_result::out, int::out, map(sentence, int)::in, map(sentence, int)::out) is nondet.
+:- pred derivation_step(step_tuple::in, step_tuple::out, map(sentence, int)::in, map(sentence, int)::out) is nondet.
+:- pred proponent_step(step_tuple::in, step_tuple::out, map(sentence, int)::in, map(sentence, int)::out) is nondet.
+:- pred opponent_step(step_tuple::in, step_tuple::out, map(sentence, int)::in, map(sentence, int)::out) is nondet.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
           step_tuple::out) is semidet.
@@ -145,7 +145,7 @@ derive(S, Result) :-
     true),
   %retractall(sols(_)),
   %assert(sols(1)),
-  derivation(InitTuple, 1, Result, _),
+  derivation(InitTuple, 1, Result, _, map.init, _),
   print_result(S, Result).
   %incr_sols.
 
@@ -171,52 +171,55 @@ initial_derivation_tuple(
 %
 % DERIVATION CONTROL: basic control structure
 
-derivation(T, InN, Result, N) :-
+derivation(T, InN, Result, N, IdsIn, IdsOut) :-
   (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C, Att) ->
     Result = derivation_result(PropMrk-PropG, OppM, D, C, Att),
     ((option(show_solution, "true"), \+ verbose) -> PreviousN = N - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
-    N = InN
+    N = InN,
+    IdsOut = IdsIn
   ;
-    derivation_step(T, T1),
+    derivation_step(T, T1, IdsIn, Ids1),
     (verbose ->
       print_step(InN, T1)
     ;
       true),
     OutN = InN + 1,
-    derivation(T1, OutN, Result, N)).
+    derivation(T1, OutN, Result, N, Ids1, IdsOut)).
 
-derivation_step(step_tuple(P, O, D, C, Att), T1) :-
+derivation_step(step_tuple(P, O, D, C, Att), T1, IdsIn, IdsOut) :-
   (verbose -> puts("\n") ; true),
   choose_turn(P, O, Turn),
   (Turn = proponent ->
-    proponent_step(step_tuple(P, O, D, C, Att), T1)
+    proponent_step(step_tuple(P, O, D, C, Att), T1, IdsIn, IdsOut)
   ;
-    opponent_step(step_tuple(P, O, D, C, Att), T1)).
+    opponent_step(step_tuple(P, O, D, C, Att), T1, IdsIn, IdsOut)).
 
-proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att), T1) :-
+proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att), T1, IdsIn, IdsOut) :-
   proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
   (assumption(S) ->
     proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1),
     (verbose ->
       open(decompiled_path, "a", Fd),
-      write_sentence(S, Fd, Id, map.init, _),
+      write_sentence(S, Fd, Id, IdsIn, IdsOut),
       close(Fd),
       format("%s Case 1.(i): s: %i debug_s: %s\n", [s(now), i(Id), s(sentence_to_string(S))])
-    ; true)
+    ;
+      IdsOut = IdsIn)
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
-    proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1, BodyForPrint, map.init, Ids1),
+    proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1, BodyForPrint, IdsIn, Ids1),
     (verbose ->
       open(decompiled_path, "a", Fd),
       write_sentence(S, Fd, Id, Ids1, Ids2),
-      write_sentence_list(BodyForPrint, Fd, IdsList, Ids2, Ids3),
+      write_sentence_list(BodyForPrint, Fd, IdsList, Ids2, IdsOut),
       close(Fd),
       format("%s Case 1.(ii): s: %i body: [%s] debug_s: %s debug_body: %s\n",
              [s(now), i(Id), s(join_list(" ", map(int_to_string, IdsList))), s(sentence_to_string(S)), s(sentence_list_to_string(BodyForPrint))])
-    ; true)
+    ;
+      IdsOut = Ids1)
   ).
 
-opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1) :-
+opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1, IdsIn, IdsOut) :-
   opponent_abagraph_choice(OppUnMrk, OppArg, OppUnMrkMinus),
   opponent_sentence_choice(OppArg, S, OppArgMinus),
   (assumption(S) ->
@@ -224,11 +227,19 @@ opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1) :-
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
     opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1),
-    poss_print_case("2.(ii)")
-  ),
-  (verbose -> _Claim-(Ss-_-_) = OppArg,
-              format("%s u(G): %s\n", [s(now), s(sentence_list_to_string(Ss))]) ; true),
-  (verbose -> format("%s s:    %s\n", [s(now), s(sentence_to_string(S))]) ; true).
+    (verbose ->
+      format("%s Case 2.(ii): ", [s(now)])
+    ; true)),
+  (verbose ->
+    _Claim-(Ss-_-_) = OppArg,
+    open(decompiled_path, "a", Fd),
+    write_sentence(S, Fd, Id, IdsIn, Ids1),
+    write_sentence_list(Ss, Fd, IdsList, Ids1, IdsOut),
+    close(Fd),
+    format("s: %i u(G): [%s] debug_s: %s debug_u(G): [%s]\n",
+      [i(Id), s(join_list(" ", map(int_to_string, IdsList))), s(sentence_to_string(S)), s(sentence_list_to_string(Ss))])
+  ; 
+    IdsOut = IdsIn).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -266,13 +277,13 @@ opponent_i(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D,
     \+ member(A, D),
     (member(A, C) ->
       opponent_ib(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
-      poss_print_case("2.(ib)")
+      (verbose -> format("%s Case 2.(ib): ", [s(now)]) ; true)
     ;
       opponent_ic(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
-      poss_print_case("2.(ic)"))
+      (verbose -> format("%s Case 2.(ic): ", [s(now)]) ; true))
   ;
     opponent_ia(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
-    poss_print_case("2.(ia)")
+      (verbose -> format("%s Case 2.(ia): ", [s(now)]) ; true)
   ).
 
 opponent_ia(A, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
