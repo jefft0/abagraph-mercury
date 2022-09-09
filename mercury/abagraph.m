@@ -136,9 +136,6 @@ derive(S, Result) :-
   %assert(proving(S)),
   initial_derivation_tuple(make_singleton_set(S), InitTuple),
   (verbose ->
-    % We will re-open and append below.
-    open(decompiled_path, "w", Fd),
-    close(Fd),
     print_step(0, InitTuple)
   ;
     true),

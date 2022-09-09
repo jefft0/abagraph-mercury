@@ -18,8 +18,9 @@
 :- pred assumption(sentence::in) is semidet.
 :- pred rule(sentence::in, list(sentence)::out) is semidet.
 :- pred contrary(sentence::in, sentence::out) is semidet.
+:- func decompiled_path = string is det.
 :- func now = string is det.
-:- pred is_event(sentence::in) is semidet. 
+:- pred is_event(sentence::in) is semidet.
 :- func sentence_to_string(sentence) = string is det.
 % write_sentence(S, Fd, Id, IdsIn, IdsOut). If sentence S is in IdsIn, then return the Id.
 % Otherwise create a new Id, write the sentence to the file at Fd and IdsOut is IdsIn with the new S->Id mapping.
@@ -41,6 +42,8 @@ rule(not(fact("a")), [fact("b")]).
 rule(not(fact("b")), []).
 
 contrary(fact(A), not(fact(A))).
+
+decompiled_path = "".
 
 now = "0s:310ms:0us".
 
