@@ -35,6 +35,7 @@
 :- pred format(uint64::in, string::in, list(poly_type)::in) is det.
 % write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut). Use write_sentence to write the List. Return the list of Ids.
 :- pred write_sentence_list(list(sentence)::in, uint64::in, list(int)::out, map(sentence, int)::in, map(sentence, int)::out) is det.
+:- func decompiled_path = string is det.
 
 :- implementation.
 
@@ -503,3 +504,5 @@ write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut) :-
       write_sentence(S, Fd, Id, IdsIn1, IdsOut1),
       IdsListOut = append(IdsListIn, [Id])),
     List, []-IdsIn).
+
+decompiled_path = "decompiled_objects.txt".

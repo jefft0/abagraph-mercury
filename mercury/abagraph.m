@@ -123,7 +123,6 @@
 :- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet.
 :- pred select(T::out, list(T)::in, list(T)::out) is nondet.
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
-:- func decompiled_path = string is det.
 
 % ("set some options" moved to options.m.)
 
@@ -661,5 +660,3 @@ select(X, [Head|Tail], Rest) :-
 select3_(Tail, Head, Head, Tail).
 select3_([Head2|Tail], Head, X, [Head|Rest]) :-
     select3_(Tail, Head2, X, Rest).
-
-decompiled_path = "decompiled_objects_aba.txt".
