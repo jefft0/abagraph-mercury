@@ -25,15 +25,16 @@
 :- pred puts(string::in) is det.
 % format(S, PolyTypes). Write string.format(S, PolyTypes) to stdout.
 :- pred format(string::in, list(poly_type)::in) is det.
-% open(Path, Mode, Fd).
+% open(Path, Mode, Fd). If Path is empty, set Fd to 0 which is ignored by fputs, etc.
 :- pred open(string::in, string::in, uint64::out) is det.
-% close(Fd).
+% close(Fd). If Fd == 0 then do nothing.
 :- pred close(uint64::in) is det.
-% fputs(S, Fd). Write the string to the file at Fd without a newline.
+% fputs(S, Fd). Write the string to the file at Fd without a newline. If Fd == 0, do nothing.
 :- pred fputs(string::in, uint64::in) is det.
-% format(Fd, S, PolyTypes). Write string.format(S, PolyTypes) to the file at Fd.
+% format(Fd, S, PolyTypes). Write string.format(S, PolyTypes) to the file at Fd. If Fd == 0, do nothing.
 :- pred format(uint64::in, string::in, list(poly_type)::in) is det.
 % write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut). Use write_sentence to write the List. Return the list of Ids.
+% If Fd == 0, do nothing.
 :- pred write_sentence_list(list(sentence)::in, uint64::in, list(int)::out, map(sentence, int)::in, map(sentence, int)::out) is det.
 
 :- implementation.
@@ -478,21 +479,26 @@ format(S, PolyTypes) :- puts(format(S, PolyTypes)).
 open(Path::in, Mode::in, Fd::out),
 [promise_pure],
 "
-Fd = (unsigned long long)fopen(Path, Mode);
+if (Path[0] == 0)
+  Fd = 0;
+else
+  Fd = (unsigned long long)fopen(Path, Mode);
 ").
 
 :- pragma foreign_proc("C",
 close(Fd::in),
 [promise_pure],
 "
-fclose((FILE*)Fd);
+if (Fd != 0)
+  fclose((FILE*)Fd);
 ").
 
 :- pragma foreign_proc("C",
 fputs(S::in, Fd::in),
 [promise_pure],
 "
-fputs(S, (FILE*)Fd);
+if (Fd != 0)
+  fputs(S, (FILE*)Fd);
 ").
 
 format(Fd, S, PolyTypes) :- fputs(format(S, PolyTypes), Fd).
