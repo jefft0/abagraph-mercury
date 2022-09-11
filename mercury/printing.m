@@ -463,7 +463,7 @@ digraph_to_string(G) = Result :-
                  digraph_to_list(G)),
   Result = format("[%s]", [s(join_list(",", NodeList))]).
 
-focussed_pot_arg_graph_to_string(Claim-(UnMrk-Mrk-Graph)) =
+focussed_pot_arg_graph_to_string(Claim-_-(UnMrk-Mrk-Graph)) =
   format("%s-%s-%s-%s", [s(sentence_to_string(Claim)),
                          s(sentence_list_to_string(UnMrk)),
                          s(sentence_set_to_string(Mrk)),

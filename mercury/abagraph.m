@@ -17,8 +17,9 @@
                                    set(sentence)),     % Marked
                                    digraph(sentence)). % Graph
 
-:- type focussed_pot_arg_graph == pair(sentence,       % Claim
-                                       pot_arg_graph). % Potential arg graph
+:- type focussed_pot_arg_graph == pair(pair(sentence,       % Claim
+                                            int),           % GId graph ID
+                                            pot_arg_graph). % Potential arg graph
 
 :- type opponent_arg_graph_set == pair(list(focussed_pot_arg_graph), % OppUnMrk
                                        set(focussed_pot_arg_graph)). % OppMrk
@@ -86,7 +87,8 @@
 :- pred opponent_ic(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is semidet.
 :- pred opponent_ii(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
-          opponent_step_tuple::in, step_tuple::out) is det.
+          opponent_step_tuple::in, step_tuple::out, map(sentence, int)::in,
+          map(sentence, int)::out) is det.
 :- pred iterate_bodies(list(list(sentence))::in, sentence::in, focussed_pot_arg_graph::in,
                        pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::in, set(sentence)::in,
                        pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::out) is det.
@@ -156,7 +158,7 @@ derive(S, Result) :-
 initial_derivation_tuple(
     PropUnMrk,
     step_tuple(O_PropUnMrk-set.init-PropGr, % PropUnMrk-PropM-PropGr
-               []-set.init,                 % OppUnMrk-OppM (members of each are Claim-UnMrk-Mrk-Graph)
+               []-set.init,                 % OppUnMrk-OppM (members of each are Claim-GId-UnMrk-Mrk-Graph)
                % TODO: Support GB.
                D0,                          % D
                set.init,                    % C
@@ -217,19 +219,8 @@ opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1, IdsIn, IdsOut) :-
     opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1, IdsIn, IdsOut)
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
-    opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1),
-    poss_print_case("2.(ii)", S),
-    (verbose ->
-      _Claim-(Ss-_-_) = OppArg,
-      open(decompiled_path, "a", Fd),
-      write_sentence(S, Fd, Id, IdsIn, Ids1),
-      write_sentence_list(Ss, Fd, IdsList, Ids1, IdsOut),
-      close(Fd),
-      format_append(runtime_out_path, "%s Case 2.(ii): S: %i, u(G): [%s]\n  debug_S: %s debug_u(G): [%s]\n",
-        [s(now), i(Id), s(join_list(" ", map(int_to_string, IdsList))),
-         s(sentence_to_string(S)), s(sentence_list_to_string(Ss))])
-    ; 
-      IdsOut = IdsIn)).
+    opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1, IdsIn, IdsOut),
+    poss_print_case("2.(ii)", S)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -242,14 +233,14 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
               step_tuple(PropUnMrkMinus-PropMrk1-PropGr, OppUnMrk1-OppMrk, D, C, Att1),
               IdsIn, IdsOut) :-
   contrary(A, Contrary),
-  ((\+ (member(Member1, OppUnMrk), Member1 = Contrary-(_-_-_)),
-    \+ (member(Member2, OppMrk),   Member2 = Contrary-(_-_-_))) ->
+  ((\+ (member(Member1, OppUnMrk), Member1 = Contrary-_-(_-_-_)),
+    \+ (member(Member2, OppMrk),   Member2 = Contrary-_-(_-_-_))) ->
     add_vertex(Contrary, _, digraph.init, GContrary),
-    append_element_nodup(OppUnMrk, Contrary-([Contrary]-set.init-GContrary), OppUnMrk1),
-    NewContrary = "Y"
+    NewGId = length(OppUnMrk) + count(OppMrk) + 1,
+    append_element_nodup(OppUnMrk, Contrary-NewGId-([Contrary]-set.init-GContrary), OppUnMrk1)
   ;
     OppUnMrk1 = OppUnMrk,
-    NewContrary = "N"),
+    NewGId = 0),
   insert(A, PropMrk, PropMrk1),
   insert(Contrary-A, Att, Att1),
   % TODO: Support GB. gb_acyclicity_check(G, A, [Contrary], G1),
@@ -259,8 +250,8 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
     write_sentence(Contrary, Fd, ContraryId, Ids1, IdsOut),
     close(Fd),
     format_append(runtime_out_path,
-      "%s Case 1.(i): A: %i, Contrary %i new? %s\n  debug_A: %s\n  debug_Contrary: %s\n",
-      [s(now), i(Id), i(ContraryId), s(NewContrary),
+      "%s Case 1.(i): A: %i, Contrary %i, NewGId %i\n  debug_A: %s\n  debug_Contrary: %s\n",
+      [s(now), i(Id), i(ContraryId), i(NewGId),
        s(sentence_to_string(A)), s(sentence_to_string(Contrary))])
   ;
     IdsOut = IdsIn).
@@ -297,17 +288,17 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
 
 %%%%%%%%%% opponent
 
-opponent_i(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1, IdsIn, IdsOut) :-
+opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1, IdsIn, IdsOut) :-
   (
     \+ member(A, D),
     (member(A, C) ->
-      opponent_ib(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
+      opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
       poss_print_case("2.(ib)", A)
     ;
-      opponent_ic(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
+      opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
       poss_print_case("2.(ic)", A))
   ;
-    opponent_ia(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
+    opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
     poss_print_case("2.(ia)", A)
   ),
   (verbose ->
@@ -319,23 +310,23 @@ opponent_i(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D,
   ; 
     IdsOut = IdsIn).
 
-opponent_ia(A, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
+opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
             opponent_step_tuple(P, D, C, Att), step_tuple(P, OppUnMrkMinus1-OppMrk, D, C, Att)) :-
   (gb_derivation ->
     true
   ;
     \+ member(A, C)),    % also sound for gb? CHECK in general
   insert(A, Marked, Marked1),
-  append_element_nodup(OppUnMrkMinus, Claim-(UnMrkMinus-Marked1-Graph), OppUnMrkMinus1).
+  append_element_nodup(OppUnMrkMinus, Claim-GId-(UnMrkMinus-Marked1-Graph), OppUnMrkMinus1).
 
-opponent_ib(A, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
+opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
             opponent_step_tuple(P, D, C, Att), step_tuple(P, OppUnMrkMinus-OppMrk1, D, C, Att)) :-
  % TODO: Support GB. contrary(A, Contrary),
  % TODO: Support GB. gb_acyclicity_check(G, Claim, [Contrary], G1),
  insert(A, Marked, Marked1),
- insert(Claim-(UnMrkMinus-Marked1-Graph), OppMrk, OppMrk1).
+ insert(Claim-GId-(UnMrkMinus-Marked1-Graph), OppMrk, OppMrk1).
 
-opponent_ic(A, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
+opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
             opponent_step_tuple(PropUnMrk-PropMrk-PropGr, D, C, Att),
             step_tuple(PropUnMrk1-PropMrk-PropGr1, OppUnMrkMinus-OppMrk1, D1, C1, Att1)) :-
   contrary(A, Contrary),
@@ -351,37 +342,53 @@ opponent_ic(A, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
     D1 = D),
   insert(A, C, C1),
   insert(A, Marked, Marked1),
-  insert(Claim-(UnMrkMinus-Marked1-Graph), OppMrk, OppMrk1),
+  insert(Claim-GId-(UnMrkMinus-Marked1-Graph), OppMrk, OppMrk1),
   insert(Contrary-A, Att, Att1).
   % TODO: Support GB. gb_acyclicity_check(G, Claim, [Contrary], G1).
 
-opponent_ii(S, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att),
-            step_tuple(P, OppUnMrkMinus1-OppMrk1, D, C, Att)) :-
+opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att),
+            step_tuple(P, OppUnMrkMinus1-OppMrk1, D, C, Att), IdsIn, IdsOut) :-
   solutions((pred(Body::out) is nondet :- rule(S, Body)), Bodies),
   (Bodies = [] ->
     % JT: This case is not handled by iterate_bodies.
     OppUnMrkMinus1 = OppUnMrkMinus,
-    OppMrk1 = insert(OppMrk, Claim-(UnMrkMinus-Marked-Graph))
+    OppMrk1 = insert(OppMrk, Claim-GId-(UnMrkMinus-Marked-Graph)),
+    IdsOut = IdsIn
   ;
-    iterate_bodies(Bodies, S, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, C,
+    (verbose ->
+      open(decompiled_path, "a", Fd),
+      write_sentence(S, Fd, Id, IdsIn, IdsOut),
+      close(Fd),
+      format_append(runtime_out_path, "%s Case 2.(ii): S: %i\n  debug_S: %s\n",
+        [s(now), i(Id), s(sentence_to_string(S))])
+    ; 
+      IdsOut = IdsIn),
+    iterate_bodies(Bodies, S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, C,
                    OppUnMrkMinus1-OppMrk1)).
 
 iterate_bodies([], _, _, OppUnMrkMinus-OppMrk, _, OppUnMrkMinus-OppMrk).
-iterate_bodies([Body|RestBodies], S, Claim-(UnMrkMinus-Marked-Graph), InOppUnMrkMinus-InOppMrk, C,
+iterate_bodies([Body|RestBodies], S, Claim-GId-(UnMrkMinus-Marked-Graph), InOppUnMrkMinus-InOppMrk, C,
                OppUnMrkMinus1-OppMrk1) :-
   (update_argument_graph(S, Body, Marked-Graph, UnMarked, _UnMarkedAs, Marked1-Graph1) ->
     append_elements_nodup(UnMarked, UnMrkMinus, UnMrk1),
+    (GId = 0 ->
+      % We are on iteration >= 2 and need a new GId.
+      NewGId = length(InOppUnMrkMinus) + count(InOppMrk) + 1
+    ;
+      % The first iteration re-use the GId from the graph extracted by opponent_abagraph_choice.
+      NewGId = GId),
     ((\+ gb_derivation, member(A, Body), member(A, C)) ->
       OutOppUnMrkMinus = InOppUnMrkMinus,
-      insert(Claim-(UnMrk1-Marked1-Graph1), InOppMrk, OutOppMrk)
+      insert(Claim-NewGId-(UnMrk1-Marked1-Graph1), InOppMrk, OutOppMrk)
     ;
-      append_element_nodup(InOppUnMrkMinus, Claim-(UnMrk1-Marked1-Graph1), OutOppUnMrkMinus),
+      append_element_nodup(InOppUnMrkMinus, Claim-NewGId-(UnMrk1-Marked1-Graph1), OutOppUnMrkMinus),
       OutOppMrk = InOppMrk),
     % TODO: Support GB. OutG = InG,
-    iterate_bodies(RestBodies, S, Claim-(UnMrkMinus-Marked-Graph), OutOppUnMrkMinus-OutOppMrk, C,
+    % For further iterations, set GId to 0 so that we mint new IDs for added graphs.
+    iterate_bodies(RestBodies, S, Claim-0-(UnMrkMinus-Marked-Graph), OutOppUnMrkMinus-OutOppMrk, C,
                    OppUnMrkMinus1-OppMrk1)
   ;
-    iterate_bodies(RestBodies, S, Claim-(UnMrkMinus-Marked-Graph), InOppUnMrkMinus-InOppMrk, C,
+    iterate_bodies(RestBodies, S, Claim-GId-(UnMrkMinus-Marked-Graph), InOppUnMrkMinus-InOppMrk, C,
                    OppUnMrkMinus1-OppMrk1)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
