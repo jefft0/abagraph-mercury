@@ -33,6 +33,8 @@
 :- pred fputs(string::in, uint64::in) is det.
 % format(Fd, S, PolyTypes). Write string.format(S, PolyTypes) to the file at Fd. If Fd == 0, do nothing.
 :- pred format(uint64::in, string::in, list(poly_type)::in) is det.
+% format_append(Path, S, PolyTypes). Open the Path for append and write string.format(S, PolyTypes) to the file. If Path is empty, do nothing.
+:- pred format_append(string::in, string::in, list(poly_type)::in) is det.
 % write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut). Use write_sentence to write the List. Return the list of Ids.
 % If Fd == 0, do nothing.
 :- pred write_sentence_list(list(sentence)::in, uint64::in, list(int)::out, map(sentence, int)::in, map(sentence, int)::out) is det.
@@ -504,6 +506,13 @@ if (Fd != 0)
 
 format(Fd, S, PolyTypes) :- fputs(format(S, PolyTypes), Fd).
 
+format_append(Path, S, PolyTypes) :-
+  (Path \= "" ->
+    open(Path, "a", Fd),
+    fputs(format(S, PolyTypes), Fd),
+    close(Fd)
+  ; true).
+
 write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut) :-
   IdsList-IdsOut = foldl((
     func(S, IdsListIn-IdsIn1) = IdsListOut-IdsOut1 :-
@@ -513,4 +522,3 @@ write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut) :-
 
 write_sentence_set(Set, Fd, IdsList, IdsIn, IdsOut) :-
   write_sentence_list(to_sorted_list(Set), Fd, IdsList, IdsIn, IdsOut).
-
