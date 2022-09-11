@@ -72,10 +72,10 @@
 :- pred opponent_step(step_tuple::in, step_tuple::out, map(sentence, int)::in, map(sentence, int)::out) is nondet.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
-          step_tuple::out) is semidet.
+          step_tuple::out, map(sentence, int)::in, map(sentence, int)::out) is semidet.
 :- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
-          step_tuple::out, list(sentence)::out, map(sentence, int)::in, map(sentence, int)::out) is nondet.
+          step_tuple::out, map(sentence, int)::in, map(sentence, int)::out) is nondet.
 :- pred opponent_i(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is nondet.
 :- pred opponent_ia(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
@@ -135,13 +135,19 @@ derive(S, Result) :-
   %retractall(proving(_)),
   %assert(proving(S)),
   initial_derivation_tuple(make_singleton_set(S), InitTuple),
+  IdsIn = map.init,
   (verbose ->
+    open(decompiled_path, "a", Fd),
+    write_sentence(S, Fd, Id, IdsIn, Ids1),
+    close(Fd),
+    format_append(runtime_out_path, "%s Case init: S: %i\n  debug_S: %s\n",
+           [s(now), i(Id), s(sentence_to_string(S))]),
     print_step(0, InitTuple)
   ;
-    true),
+    Ids1 = IdsIn),
   %retractall(sols(_)),
   %assert(sols(1)),
-  derivation(InitTuple, 1, Result, _, map.init, _),
+  derivation(InitTuple, 1, Result, _, Ids1, _),
   print_result(S, Result).
   %incr_sols.
 
@@ -193,26 +199,12 @@ derivation_step(step_tuple(P, O, D, C, Att), T1, IdsIn, IdsOut) :-
 proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att), T1, IdsIn, IdsOut) :-
   proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
   (assumption(S) ->
-    proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1),
-    (verbose ->
-      open(decompiled_path, "a", Fd),
-      write_sentence(S, Fd, Id, IdsIn, IdsOut),
-      close(Fd),
-      format("%s Case 1.(i): s: %i debug_s: %s\n", [s(now), i(Id), s(sentence_to_string(S))])
-    ;
-      IdsOut = IdsIn)
+    proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1, IdsIn, IdsOut),
+    poss_print_case("1.(i)", S)
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
-    proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1, BodyForPrint, IdsIn, Ids1),
-    (verbose ->
-      open(decompiled_path, "a", Fd),
-      write_sentence(S, Fd, Id, Ids1, Ids2),
-      write_sentence_list(BodyForPrint, Fd, IdsList, Ids2, IdsOut),
-      close(Fd),
-      format("%s Case 1.(ii): s: %i body: [%s] debug_s: %s debug_body: %s\n",
-             [s(now), i(Id), s(join_list(" ", map(int_to_string, IdsList))), s(sentence_to_string(S)), s(sentence_list_to_string(BodyForPrint))])
-    ;
-      IdsOut = Ids1)
+    proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1, IdsIn, IdsOut),
+    poss_print_case("1.(ii)", S)
   ).
 
 opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1, IdsIn, IdsOut) :-
@@ -223,17 +215,16 @@ opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1, IdsIn, IdsOut) :-
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
     opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1),
-    (verbose ->
-      format("%s Case 2.(ii): ", [s(now)])
-    ; true)),
+    poss_print_case("2.(ii)", S)),
   (verbose ->
     _Claim-(Ss-_-_) = OppArg,
     open(decompiled_path, "a", Fd),
     write_sentence(S, Fd, Id, IdsIn, Ids1),
     write_sentence_list(Ss, Fd, IdsList, Ids1, IdsOut),
     close(Fd),
-    format("s: %i u(G): [%s] debug_s: %s debug_u(G): [%s]\n",
-      [i(Id), s(join_list(" ", map(int_to_string, IdsList))), s(sentence_to_string(S)), s(sentence_list_to_string(Ss))])
+    format_append(runtime_out_path, "S: %i, u(G): [%s]\n  debug_S: %s debug_u(G): [%s]\n",
+      [i(Id), s(join_list(" ", map(int_to_string, IdsList))), s(sentence_to_string(S)),
+       s(sentence_list_to_string(Ss))])
   ; 
     IdsOut = IdsIn).
 
@@ -245,7 +236,8 @@ opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1, IdsIn, IdsOut) :-
 %%%%%%%%%% proponent
 
 proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
-              step_tuple(PropUnMrkMinus-PropMrk1-PropGr, OppUnMrk1-OppMrk, D, C, Att1)) :-
+              step_tuple(PropUnMrkMinus-PropMrk1-PropGr, OppUnMrk1-OppMrk, D, C, Att1),
+              IdsIn, IdsOut) :-
   contrary(A, Contrary),
   ((\+ (member(Member1, OppUnMrk), Member1 = Contrary-(_-_-_)),
     \+ (member(Member2, OppMrk),   Member2 = Contrary-(_-_-_))) ->
@@ -254,17 +246,46 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
   ;
     OppUnMrk1 = OppUnMrk),
   insert(A, PropMrk, PropMrk1),
-  insert(Contrary-A, Att, Att1).
-  % TODO: Support GB. gb_acyclicity_check(G, A, [Contrary], G1).
+  insert(Contrary-A, Att, Att1),
+  % TODO: Support GB. gb_acyclicity_check(G, A, [Contrary], G1),
+  (verbose ->
+    open(decompiled_path, "a", Fd),
+    write_sentence(A, Fd, Id, IdsIn, IdsOut),
+    close(Fd),
+    format_append(runtime_out_path, "%s Case 1.(i): A: %i\n  debug_A: %s\n",
+      [s(now), i(Id), s(sentence_to_string(A))])
+  ;
+    IdsOut = IdsIn).
 
 proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
-                 step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att), Body, IdsIn, IdsOut) :-
-  rule_choice(S, Body, prop_info(D, PropGr), IdsIn, IdsOut),
+                 step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att), IdsIn, IdsOut) :-
+  rule_choice(S, Body, prop_info(D, PropGr), IdsIn, Ids1),
   \+ (member(X, Body), member(X, C)),
   update_argument_graph(S, Body, PropMrk-PropGr, NewUnMrk, NewUnMrkAs, PropMrk1-PropGr1),
   append_elements_nodup(NewUnMrk, PropUnMrkMinus, PropUnMrk1),
-  union(list_to_set(NewUnMrkAs), D, D1).
-  % TODO: Support GB. gb_acyclicity_check(G, S, Body, G1).
+  union(list_to_set(NewUnMrkAs), D, D1),
+  % TODO: Support GB. gb_acyclicity_check(G, S, Body, G1),
+  (verbose ->
+    NewUnMrkNonAs = difference(list_to_set(NewUnMrk), list_to_set(NewUnMrkAs)),
+    MrkBody = intersect(list_to_set(Body), PropMrk),
+    open(decompiled_path, "a", Fd),
+    write_sentence(S, Fd, Id, Ids1, Ids2),
+    write_sentence_list(NewUnMrkAs, Fd, NewUnMrkAsIds, Ids2, Ids3),
+    write_sentence_set(NewUnMrkNonAs, Fd, NewUnMrkNonAsIds, Ids3, Ids4),
+    write_sentence_set(MrkBody, Fd, MrkBodyIds, Ids4, IdsOut),
+    close(Fd),
+    format_append(runtime_out_path,
+      "%s Case 1.(ii): S: %i, NewUnMrkAs: [%s], NewUnMrkNonAs: [%s], MrkBody: [%s]\n  debug_S: %s\n  debug_NewUnMrkAs: %s\n  debug_NewUnMrkNonAs: %s\n  debug_MrkBody: %s\n",
+      [s(now), i(Id),
+       s(join_list(" ", map(int_to_string, NewUnMrkAsIds))),
+       s(join_list(" ", map(int_to_string, NewUnMrkNonAsIds))),
+       s(join_list(" ", map(int_to_string, MrkBodyIds))), 
+       s(sentence_to_string(S)),
+       s(sentence_list_to_string(NewUnMrkAs)),
+       s(sentence_set_to_string(NewUnMrkNonAs)),
+       s(sentence_set_to_string(MrkBody))])
+  ;
+    IdsOut = Ids1).
 
 %%%%%%%%%% opponent
 
@@ -273,13 +294,13 @@ opponent_i(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D,
     \+ member(A, D),
     (member(A, C) ->
       opponent_ib(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
-      (verbose -> format("%s Case 2.(ib): ", [s(now)]) ; true)
+      poss_print_case("2.(ib)", A)
     ;
       opponent_ic(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
-      (verbose -> format("%s Case 2.(ic): ", [s(now)]) ; true))
+      poss_print_case("2.(ic)", A))
   ;
     opponent_ia(A, Claim-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
-      (verbose -> format("%s Case 2.(ia): ", [s(now)]) ; true)
+    poss_print_case("2.(ia)", A)
   ).
 
 opponent_ia(A, Claim-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
@@ -466,13 +487,12 @@ rule_choice(Head, Body, PropInfo, IdsIn, IdsOut) :-
   % !,
   (verbose ->
     open(decompiled_path, "a", Fd),
-    format("%s Potential bodies: [", [s(now)]),
-    IdsOut = foldl((
-      func(B, IdsIn1) = IdsOut1 :-
+    IdsOut-BodiesText = foldl((
+      func(B, IdsIn1-TextIn) = IdsOut1-(TextIn ++ Text) :-
         write_sentence_list(B, Fd, IdsList, IdsIn1, IdsOut1),
-        format("[%s] ", [s(join_list(" ", map(int_to_string, IdsList)))])),
-      SortedRuleBodies, IdsIn),
-    puts("]\n"),
+        Text = format(" [%s]", [s(join_list(" ", map(int_to_string, IdsList)))])),
+      SortedRuleBodies, IdsIn-""),
+    format_append(runtime_out_path, "%s Potential bodies: [%s]\n", [s(now), s(BodiesText)]),
     close(Fd)
   ;
     IdsOut = IdsIn),
