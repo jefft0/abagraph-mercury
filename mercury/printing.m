@@ -36,6 +36,7 @@
 % write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut). Use write_sentence to write the List. Return the list of Ids.
 % If Fd == 0, do nothing.
 :- pred write_sentence_list(list(sentence)::in, uint64::in, list(int)::out, map(sentence, int)::in, map(sentence, int)::out) is det.
+:- pred write_sentence_set(set(sentence)::in, uint64::in, list(int)::out, map(sentence, int)::in, map(sentence, int)::out) is det.
 
 :- implementation.
 
@@ -509,3 +510,7 @@ write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut) :-
       write_sentence(S, Fd, Id, IdsIn1, IdsOut1),
       IdsListOut = append(IdsListIn, [Id])),
     List, []-IdsIn).
+
+write_sentence_set(Set, Fd, IdsList, IdsIn, IdsOut) :-
+  write_sentence_list(to_sorted_list(Set), Fd, IdsList, IdsIn, IdsOut).
+
