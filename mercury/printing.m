@@ -12,7 +12,7 @@
 :- import_module set.
 :- import_module string.
 
-:- pred poss_print_case(string::in) is det.
+:- pred poss_print_case(string::in, sentence::in) is det.
 :- pred print_step(int::in, step_tuple::in) is det.
 :- pred print_result(sentence::in, derivation_result::in) is det.
 
@@ -77,14 +77,14 @@
 %
 % PRINTING: DERIVATION STEPS
 
-poss_print_case(Case) :-
+poss_print_case(Case, S) :-
  (verbose ->
-   format("%s Case %s\n", [s(now), s(Case)])
+   format("\nCase %s: S: %s\n", [s(Case), s(sentence_to_string(S))])
  ;
    true).
 
 print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C, _Att)) :-
-  format("%s *** Step %d\n", [s(now), i(N)]),
+  format("*** Step %d\n", [i(N)]),
   format("P:    %s-%s-%s\n", [s(sentence_list_to_string(PropUnMrk)),
                               s(sentence_set_to_string(PropMrk)),
                               s(digraph_to_string(PropGr))]),
