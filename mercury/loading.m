@@ -19,6 +19,7 @@
 :- pred rule(sentence::in, list(sentence)::out) is semidet.
 :- pred contrary(sentence::in, sentence::out) is semidet.
 :- func decompiled_path = string is det.
+:- func runtime_out_path = string is det.
 :- func now = string is det.
 :- pred is_event(sentence::in) is semidet.
 :- func sentence_to_string(sentence) = string is det.
@@ -44,6 +45,7 @@ rule(not(fact("b")), []).
 contrary(fact(A), not(fact(A))).
 
 decompiled_path = "".
+runtime_out_path = "".
 
 now = "0s:310ms:0us".
 
