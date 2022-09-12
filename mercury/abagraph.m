@@ -67,19 +67,18 @@
    ---> prop_info(set(sentence), digraph(sentence)).
 
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
-:- pred derivation(step_tuple::in, int::in, derivation_result::out, int::out, map(sentence, int)::in, map(sentence, int)::out) is nondet.
-:- pred derivation_step(step_tuple::in, step_tuple::out, map(sentence, int)::in, map(sentence, int)::out) is nondet.
-:- pred proponent_step(step_tuple::in, step_tuple::out, map(sentence, int)::in, map(sentence, int)::out) is nondet.
-:- pred opponent_step(step_tuple::in, step_tuple::out, map(sentence, int)::in, map(sentence, int)::out) is nondet.
+:- pred derivation(step_tuple::in, int::in, derivation_result::out, int::out, id_map::in, id_map::out) is nondet.
+:- pred derivation_step(step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
+:- pred proponent_step(step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
+:- pred opponent_step(step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
-          step_tuple::out, map(sentence, int)::in, map(sentence, int)::out) is semidet.
+          step_tuple::out, id_map::in, id_map::out) is semidet.
 :- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
-          step_tuple::out, map(sentence, int)::in, map(sentence, int)::out) is nondet.
+          step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred opponent_i(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
-          opponent_step_tuple::in, step_tuple::out, map(sentence, int)::in,
-          map(sentence, int)::out) is nondet.
+          opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred opponent_ia(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is semidet.
 :- pred opponent_ib(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
@@ -87,12 +86,11 @@
 :- pred opponent_ic(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is semidet.
 :- pred opponent_ii(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
-          opponent_step_tuple::in, step_tuple::out, map(sentence, int)::in,
-          map(sentence, int)::out) is det.
+          opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is det.
 :- pred iterate_bodies(list(list(sentence))::in, sentence::in, focussed_pot_arg_graph::in,
           pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::in, set(sentence)::in,
-          pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::out, map(sentence, int)::in,
-          map(sentence, int)::out) is det.
+          pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::out, id_map::in,
+          id_map::out) is det.
 :- pred update_argument_graph(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out) is semidet.
 :- pred filter_marked(list(sentence)::in, set(sentence)::in, list(sentence)::out, list(sentence)::out) is det.
@@ -105,7 +103,7 @@
 :- pred opponent_abagraph_choice(list(focussed_pot_arg_graph)::in, focussed_pot_arg_graph::out,
           list(focussed_pot_arg_graph)::out) is det.
 :- pred opponent_sentence_choice(focussed_pot_arg_graph::in, sentence::out, focussed_pot_arg_graph::out) is nondet.
-:- pred rule_choice(sentence::in, list(sentence)::out, prop_info::in, map(sentence, int)::in, map(sentence, int)::out) is nondet.
+:- pred rule_choice(sentence::in, list(sentence)::out, prop_info::in, id_map::in, id_map::out) is nondet.
 :- pred turn_choice(turn_choice::in, pot_arg_graph::in, opponent_arg_graph_set::in, turn::out) is det.
 :- pred sentence_choice(proponent_sentence_choice::in, list(sentence)::in, sentence::out,
           list(sentence)::out) is det.
