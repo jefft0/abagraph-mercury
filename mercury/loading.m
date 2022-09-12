@@ -22,6 +22,7 @@
 :- func now = string is det.
 :- pred is_event(sentence::in) is semidet.
 :- func sentence_to_string(sentence) = string is det.
+% write_sentence(S, Fd, Id). Write sentence S to the file at Fd. Set Id to its ID.
 :- pred write_sentence(sentence::in, uint64::in, int::out) is det.
 
 :- implementation.

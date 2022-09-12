@@ -44,7 +44,6 @@
 % If Fd == 0, do nothing.
 :- pred write_sentence_list(list(sentence)::in, uint64::in, list(int)::out, id_map::in, id_map::out) is det.
 :- pred write_sentence_set(set(sentence)::in, uint64::in, list(int)::out, id_map::in, id_map::out) is det.
-:- pred next_int(int::out) is det.
 
 :- implementation.
 
@@ -537,13 +536,4 @@ fputs(S::in, Fd::in),
 "
 if (Fd != 0)
   fputs(S, (FILE*)Fd);
-").
-
-:- pragma no_inline(next_int/1).
-:- pragma foreign_proc("C",
-next_int(Int::out),
-[promise_pure],
-"
-static long long int integer = 300;
-Int = ++integer;
 ").
