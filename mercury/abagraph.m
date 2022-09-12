@@ -90,8 +90,9 @@
           opponent_step_tuple::in, step_tuple::out, map(sentence, int)::in,
           map(sentence, int)::out) is det.
 :- pred iterate_bodies(list(list(sentence))::in, sentence::in, focussed_pot_arg_graph::in,
-                       pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::in, set(sentence)::in,
-                       pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::out) is det.
+          pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::in, set(sentence)::in,
+          pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::out, map(sentence, int)::in,
+          map(sentence, int)::out) is det.
 :- pred update_argument_graph(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out) is semidet.
 :- pred filter_marked(list(sentence)::in, set(sentence)::in, list(sentence)::out, list(sentence)::out) is det.
@@ -305,8 +306,8 @@ opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P
     open(decompiled_path, "a", Fd),
     write_sentence(A, Fd, Id, IdsIn, IdsOut),
     close(Fd),
-    format_append(runtime_out_path, "%s Case 2.(i?): A: %i\n  debug_A: %s\n",
-      [s(now), i(Id), s(sentence_to_string(A))])
+    format_append(runtime_out_path, "%s Case 2.(i?): A: %i, GId %i\n  debug_A: %s\n",
+      [s(now), i(Id), i(GId), s(sentence_to_string(A))])
   ; 
     IdsOut = IdsIn).
 
@@ -357,19 +358,19 @@ opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, oppone
   ;
     (verbose ->
       open(decompiled_path, "a", Fd),
-      write_sentence(S, Fd, Id, IdsIn, IdsOut),
+      write_sentence(S, Fd, Id, IdsIn, Ids1),
       close(Fd),
       format_append(runtime_out_path, "%s Case 2.(ii): S: %i\n  debug_S: %s\n",
         [s(now), i(Id), s(sentence_to_string(S))])
     ; 
-      IdsOut = IdsIn),
+      Ids1 = IdsIn),
     iterate_bodies(Bodies, S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, C,
-                   OppUnMrkMinus1-OppMrk1)).
+                   OppUnMrkMinus1-OppMrk1, Ids1, IdsOut)).
 
-iterate_bodies([], _, _, OppUnMrkMinus-OppMrk, _, OppUnMrkMinus-OppMrk).
+iterate_bodies([], _, _, OppUnMrkMinus-OppMrk, _, OppUnMrkMinus-OppMrk, Ids, Ids).
 iterate_bodies([Body|RestBodies], S, Claim-GId-(UnMrkMinus-Marked-Graph), InOppUnMrkMinus-InOppMrk, C,
-               OppUnMrkMinus1-OppMrk1) :-
-  (update_argument_graph(S, Body, Marked-Graph, UnMarked, _UnMarkedAs, Marked1-Graph1) ->
+               OppUnMrkMinus1-OppMrk1, IdsIn, IdsOut) :-
+  (update_argument_graph(S, Body, Marked-Graph, UnMarked, UnMarkedAs, Marked1-Graph1) ->
     append_elements_nodup(UnMarked, UnMrkMinus, UnMrk1),
     (GId = 0 ->
       % We are on iteration >= 2 and need a new GId.
@@ -384,12 +385,34 @@ iterate_bodies([Body|RestBodies], S, Claim-GId-(UnMrkMinus-Marked-Graph), InOppU
       append_element_nodup(InOppUnMrkMinus, Claim-NewGId-(UnMrk1-Marked1-Graph1), OutOppUnMrkMinus),
       OutOppMrk = InOppMrk),
     % TODO: Support GB. OutG = InG,
+    (verbose ->
+      UnMarkedNonAs = difference(list_to_set(UnMarked), list_to_set(UnMarkedAs)),
+      MarkedBody = intersect(list_to_set(Body), Marked),
+      open(decompiled_path, "a", Fd),
+      write_sentence(S, Fd, Id, IdsIn, Ids1),
+      write_sentence_list(UnMarkedAs, Fd, UnMarkedAsIds, Ids1, Ids2),
+      write_sentence_set(UnMarkedNonAs, Fd, UnMarkedNonAsIds, Ids2, Ids3),
+      write_sentence_set(MarkedBody, Fd, MarkedBodyIds, Ids3, Ids4),
+      close(Fd),
+      format_append(runtime_out_path,
+        "%s Case 2.(ii): S: %i, GId %i, UnMarkedAs: [%s], UnMarkedNonAs: [%s], MarkedBody: [%s]\n  debug_S: %s\n  debug_UnMarkedAs: %s\n  debug_UnMarkedNonAs: %s\n  debug_MarkedBody: %s\n",
+        [s(now), i(Id), i(NewGId),
+         s(join_list(" ", map(int_to_string, UnMarkedAsIds))),
+         s(join_list(" ", map(int_to_string, UnMarkedNonAsIds))),
+         s(join_list(" ", map(int_to_string, MarkedBodyIds))), 
+         s(sentence_to_string(S)),
+         s(sentence_list_to_string(UnMarkedAs)),
+         s(sentence_set_to_string(UnMarkedNonAs)),
+         s(sentence_set_to_string(MarkedBody))])
+    ;
+      Ids4 = IdsIn),
+
     % For further iterations, set GId to 0 so that we mint new IDs for added graphs.
     iterate_bodies(RestBodies, S, Claim-0-(UnMrkMinus-Marked-Graph), OutOppUnMrkMinus-OutOppMrk, C,
-                   OppUnMrkMinus1-OppMrk1)
+                   OppUnMrkMinus1-OppMrk1, Ids4, IdsOut)
   ;
     iterate_bodies(RestBodies, S, Claim-GId-(UnMrkMinus-Marked-Graph), InOppUnMrkMinus-InOppMrk, C,
-                   OppUnMrkMinus1-OppMrk1)).
+                   OppUnMrkMinus1-OppMrk1, IdsIn, IdsOut)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
