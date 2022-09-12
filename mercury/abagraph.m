@@ -84,7 +84,7 @@
 :- pred opponent_ib(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is det.
 :- pred opponent_ic(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
-          opponent_step_tuple::in, step_tuple::out) is semidet.
+          opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is semidet.
 :- pred opponent_ii(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is det.
 :- pred iterate_bodies(list(list(sentence))::in, sentence::in, focussed_pot_arg_graph::in,
@@ -246,7 +246,12 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
   (verbose ->
     open(decompiled_path, "a", Fd),
     write_sentence(A, 0, Fd, Id, IdsIn, Ids1),
-    write_sentence(Contrary, NewGId, Fd, ContraryId, Ids1, IdsOut),
+    (NewGId > 0 ->
+      write_sentence(Contrary, NewGId, Fd, ContraryId, Ids1, IdsOut)
+    ;
+      % TODO: Get the Contrary graph ID from OppUnMrk or OppMrk.
+      ContraryId = 0,
+      IdsOut = Ids1),
     close(Fd),
     format_append(runtime_out_path,
       "%s Case 1.(i): A: %i, Contrary %i, NewGId %i\n  debug_A: %s\n  debug_Contrary: %s\n",
@@ -292,22 +297,29 @@ opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P
     \+ member(A, D),
     (member(A, C) ->
       opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
-      poss_print_case("2.(ib)", A)
+      poss_print_case("2.(ib)", A),
+      (verbose ->
+        open(decompiled_path, "a", Fd),
+        write_sentence(A, GId, Fd, Id, IdsIn, IdsOut),
+        close(Fd),
+        format_append(runtime_out_path, "%s Case 2.(ib): A: %i, GId %i\n  debug_A: %s\n",
+          [s(now), i(Id), i(GId), s(sentence_to_string(A))])
+      ; 
+        IdsOut = IdsIn)
     ;
-      opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
+      opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1, IdsIn, IdsOut),
       poss_print_case("2.(ic)", A))
   ;
     opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
-    poss_print_case("2.(ia)", A)
-  ),
-  (verbose ->
-    open(decompiled_path, "a", Fd),
-    write_sentence(A, GId, Fd, Id, IdsIn, IdsOut),
-    close(Fd),
-    format_append(runtime_out_path, "%s Case 2.(i?): A: %i, GId %i\n  debug_A: %s\n",
-      [s(now), i(Id), i(GId), s(sentence_to_string(A))])
-  ; 
-    IdsOut = IdsIn).
+    poss_print_case("2.(ia)", A),
+    (verbose ->
+      open(decompiled_path, "a", Fd),
+      write_sentence(A, GId, Fd, Id, IdsIn, IdsOut),
+      close(Fd),
+      format_append(runtime_out_path, "%s Case 2.(ia): A: %i, GId %i\n  debug_A: %s\n",
+        [s(now), i(Id), i(GId), s(sentence_to_string(A))])
+    ; 
+      IdsOut = IdsIn)).
 
 opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
             opponent_step_tuple(P, D, C, Att), step_tuple(P, OppUnMrkMinus1-OppMrk, D, C, Att)) :-
@@ -327,14 +339,34 @@ opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
 
 opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
             opponent_step_tuple(PropUnMrk-PropMrk-PropGr, D, C, Att),
-            step_tuple(PropUnMrk1-PropMrk-PropGr1, OppUnMrkMinus-OppMrk1, D1, C1, Att1)) :-
+            step_tuple(PropUnMrk1-PropMrk-PropGr1, OppUnMrkMinus-OppMrk1, D1, C1, Att1),
+            IdsIn, IdsOut) :-
   contrary(A, Contrary),
   (search_key(PropGr, Contrary, _) ->
     PropUnMrk = PropUnMrk1,
-    PropGr = PropGr1
+    PropGr = PropGr1,
+    (verbose ->
+      open(decompiled_path, "a", Fd),
+      write_sentence(A, GId, Fd, Id, IdsIn, IdsOut),
+      close(Fd),
+      format_append(runtime_out_path, "%s Case 2.(ic): A: %i, GId %i\n  debug_A: %s\n",
+        [s(now), i(Id), i(GId), s(sentence_to_string(A))])
+    ; 
+      IdsOut = IdsIn)
   ;
     append_element_nodup(PropUnMrk, Contrary, PropUnMrk1),
-    add_vertex(Contrary, _, PropGr, PropGr1)),
+    add_vertex(Contrary, _, PropGr, PropGr1),
+    (verbose ->
+      open(decompiled_path, "a", Fd),
+      write_sentence(A, GId, Fd, Id, IdsIn, Ids1),
+      write_sentence(Contrary, 0, Fd, ContraryId, Ids1, IdsOut),
+      close(Fd),
+      format_append(runtime_out_path,
+        "%s Case 2.(ic): A: %i, GId %i, Contrary %i\n  debug_A: %s\n  debug_Contrary: %s\n",
+        [s(now), i(Id), i(GId), i(ContraryId), s(sentence_to_string(A)),
+         s(sentence_to_string(Contrary))])
+    ; 
+      IdsOut = IdsIn)),
   (assumption(Contrary) ->
     insert(Contrary, D, D1)
   ;
