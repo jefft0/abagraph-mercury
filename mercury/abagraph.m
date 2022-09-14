@@ -345,28 +345,22 @@ opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
   (search_key(PropGr, Contrary, _) ->
     PropUnMrk = PropUnMrk1,
     PropGr = PropGr1,
-    (verbose ->
-      open(decompiled_path, "a", Fd),
-      write_sentence(A, GId, Fd, Id, IdsIn, IdsOut),
-      close(Fd),
-      format_append(runtime_out_path, "%s Case 2.(ic): A: %i, GId %i\n  debug_A: %s\n",
-        [s(now), i(Id), i(GId), s(sentence_to_string(A))])
-    ; 
-      IdsOut = IdsIn)
+    IsNewContrary = "N"
   ;
     append_element_nodup(PropUnMrk, Contrary, PropUnMrk1),
     add_vertex(Contrary, _, PropGr, PropGr1),
-    (verbose ->
-      open(decompiled_path, "a", Fd),
-      write_sentence(A, GId, Fd, Id, IdsIn, Ids1),
-      write_sentence(Contrary, 0, Fd, ContraryId, Ids1, IdsOut),
-      close(Fd),
-      format_append(runtime_out_path,
-        "%s Case 2.(ic): A: %i, GId %i, Contrary %i\n  debug_A: %s\n  debug_Contrary: %s\n",
-        [s(now), i(Id), i(GId), i(ContraryId), s(sentence_to_string(A)),
-         s(sentence_to_string(Contrary))])
-    ; 
-      IdsOut = IdsIn)),
+    IsNewContrary = "Y"),
+  (verbose ->
+    open(decompiled_path, "a", Fd),
+    write_sentence(A, GId, Fd, Id, IdsIn, Ids1),
+    write_sentence(Contrary, 0, Fd, ContraryId, Ids1, IdsOut),
+    close(Fd),
+    format_append(runtime_out_path,
+      "%s Case 2.(ic): A: %i, GId %i, Contrary %i new? %s\n  debug_A: %s\n  debug_Contrary: %s\n",
+      [s(now), i(Id), i(GId), i(ContraryId), s(IsNewContrary),
+       s(sentence_to_string(A)), s(sentence_to_string(Contrary))])
+  ; 
+    IdsOut = IdsIn),
   (assumption(Contrary) ->
     insert(Contrary, D, D1)
   ;
