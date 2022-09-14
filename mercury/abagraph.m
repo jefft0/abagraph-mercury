@@ -380,20 +380,21 @@ opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
 opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att),
             step_tuple(P, OppUnMrkMinus1-OppMrk1, D, C, Att), IdsIn, IdsOut) :-
   solutions((pred(Body::out) is nondet :- rule(S, Body)), Bodies),
+  (verbose ->
+    open(decompiled_path, "a", Fd),
+    write_sentence(S, GId, Fd, Id, IdsIn, Ids1),
+    close(Fd),
+    % This makes S marked. iterate_bodies will output further changes.
+    format_append(runtime_out_path, "%s Case 2.(ii): S: %i\n  debug_S: %s\n",
+      [s(now), i(Id), s(sentence_to_string(S))])
+  ; 
+    Ids1 = IdsIn),
   (Bodies = [] ->
     % JT: This case is not handled by iterate_bodies.
     OppUnMrkMinus1 = OppUnMrkMinus,
     OppMrk1 = insert(OppMrk, Claim-GId-(UnMrkMinus-Marked-Graph)),
-    IdsOut = IdsIn
+    IdsOut = Ids1
   ;
-    (verbose ->
-      open(decompiled_path, "a", Fd),
-      write_sentence(S, GId, Fd, Id, IdsIn, Ids1),
-      close(Fd),
-      format_append(runtime_out_path, "%s Case 2.(ii): S: %i\n  debug_S: %s\n",
-        [s(now), i(Id), s(sentence_to_string(S))])
-    ; 
-      Ids1 = IdsIn),
     iterate_bodies(Bodies, S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, C,
                    OppUnMrkMinus1-OppMrk1, Ids1, IdsOut)).
 
