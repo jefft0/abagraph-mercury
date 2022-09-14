@@ -78,7 +78,7 @@
           opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
           step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred opponent_i(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
-          opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
+          opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is semidet.
 :- pred opponent_ia(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is semidet.
 :- pred opponent_ib(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
@@ -293,8 +293,7 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
 %%%%%%%%%% opponent
 
 opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1, IdsIn, IdsOut) :-
-  (
-    \+ member(A, D),
+  (\+ member(A, D) ->
     (member(A, C) ->
       opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
       poss_print_case("2.(ib)", A),
