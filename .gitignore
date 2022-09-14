@@ -26,6 +26,6 @@
 *.o
 
 # abagraph output files
-*.dot
-*.pdf
-decompiled_objects*.txt
+mercury/*.dot
+mercury/*.pdf
+contrib/abagraph/temp
