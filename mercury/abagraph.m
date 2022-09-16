@@ -8,6 +8,7 @@
 :- import_module list.
 % Import sentence from loading.
 :- import_module loading.
+:- import_module map.
 :- import_module pair.
 :- import_module set.
 
@@ -30,13 +31,13 @@
    ---> step_tuple(pot_arg_graph,          % PROPONENT potential argument graph
                    opponent_arg_graph_set, % Opponent argument graph set
                    set(sentence),          % D (the proponent defences)
-                   set(sentence),          % C (the opponent culprits)
+                   pair(set(sentence), map(sentence, int)), % C = Culprits-CulpritIds (the opponent culprits plus Ids (only for printing))
                    set(attack)).           % Att (set of attacks, used only for printing)
 
 :- type opponent_step_tuple
    ---> opponent_step_tuple(pot_arg_graph,          % PROPONENT potential argument graph
                             set(sentence),          % D (the proponent defences)
-                            set(sentence),          % C (the opponent culprits)
+                            pair(set(sentence), map(sentence, int)), % C = Culprits-CulpritIds (the opponent culprits plus Ids (only for printing))
                             set(attack)).           % Att
 
 :- type derivation_result
@@ -51,7 +52,6 @@
 :- implementation.
 
 :- import_module int.
-:- import_module map.
 :- import_module maybe.
 :- import_module options.
 :- import_module printing.
@@ -72,11 +72,11 @@
 :- pred proponent_step(step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred opponent_step(step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
-          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
-          step_tuple::out, id_map::in, id_map::out) is semidet.
+          opponent_arg_graph_set::in, set(sentence)::in, pair(set(sentence), map(sentence, int))::in,
+          set(attack)::in, step_tuple::out, id_map::in, id_map::out) is semidet.
 :- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
-          opponent_arg_graph_set::in, set(sentence)::in, set(sentence)::in, set(attack)::in,
-          step_tuple::out, id_map::in, id_map::out) is nondet.
+          opponent_arg_graph_set::in, set(sentence)::in, pair(set(sentence), map(sentence, int))::in,
+          set(attack)::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred opponent_i(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is semidet.
 :- pred opponent_ia(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
@@ -88,9 +88,10 @@
 :- pred opponent_ii(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is det.
 :- pred iterate_bodies(list(list(sentence))::in, sentence::in, focussed_pot_arg_graph::in,
-          pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::in, set(sentence)::in,
-          pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::out, id_map::in,
-          id_map::out) is det.
+          pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::in,
+          pair(set(sentence), map(sentence, int))::in,
+          pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::out,
+          id_map::in, id_map::out) is det.
 :- pred update_argument_graph(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out) is semidet.
 :- pred filter_marked(list(sentence)::in, set(sentence)::in, list(sentence)::out, list(sentence)::out) is det.
@@ -160,7 +161,7 @@ initial_derivation_tuple(
                []-set.init,                 % OppUnMrk-OppM (members of each are Claim-GId-UnMrk-Mrk-Graph)
                % TODO: Support GB.
                D0,                          % D
-               set.init,                    % C
+               set.init-map.init,           % C
                set.init)) :-                % Att
   to_sorted_list(PropUnMrk, O_PropUnMrk),
   % Instead of findall, use the set filter.
@@ -177,7 +178,7 @@ initial_derivation_tuple(
 % DERIVATION CONTROL: basic control structure
 
 derivation(T, InN, Result, N, IdsIn, IdsOut) :-
-  (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C, Att) ->
+  (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att) ->
     Result = derivation_result(PropMrk-PropG, OppM, D, C, Att),
     ((option(show_solution, "true"), \+ verbose) -> PreviousN = N - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
     N = InN,
@@ -263,7 +264,7 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
 proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
                  step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att), IdsIn, IdsOut) :-
   rule_choice(S, Body, prop_info(D, PropGr), IdsIn, Ids1),
-  \+ (member(X, Body), member(X, C)),
+  \+ (member(X, Body), member(X, fst(C))),
   update_argument_graph(S, Body, PropMrk-PropGr, NewUnMrk, NewUnMrkAs, PropMrk1-PropGr1),
   append_elements_nodup(NewUnMrk, PropUnMrkMinus, PropUnMrk1),
   union(list_to_set(NewUnMrkAs), D, D1),
@@ -294,15 +295,17 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
 
 opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1, IdsIn, IdsOut) :-
   (\+ member(A, D) ->
-    (member(A, C) ->
+    (member(A, fst(C)) ->
       opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
       poss_print_case("2.(ib)", A),
       (verbose ->
         open(decompiled_path, "a", Fd),
         write_sentence(A, GId, Fd, Id, IdsIn, IdsOut),
         close(Fd),
-        format_append(runtime_out_path, "%s Case 2.(ib): A: %i, GId %i\n  debug_A: %s\n",
-          [s(now), i(Id), i(GId), s(sentence_to_string(A))])
+        % Get the ID of the original culprit. (This is why we pass around C as a pair with the Ids.)
+        (FoundId = search(snd(C), A) -> CulpritId = FoundId ; CulpritId = 0),
+        format_append(runtime_out_path, "%s Case 2.(ib): A: %i, GId %i, Culprit %i\n  debug_A: %s\n",
+          [s(now), i(Id), i(GId), i(CulpritId), s(sentence_to_string(A))])
       ; 
         IdsOut = IdsIn)
     ;
@@ -325,7 +328,7 @@ opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
   (gb_derivation ->
     true
   ;
-    \+ member(A, C)),    % also sound for gb? CHECK in general
+    \+ member(A, fst(C))),    % also sound for gb? CHECK in general
   insert(A, Marked, Marked1),
   append_element_nodup(OppUnMrkMinus, Claim-GId-(UnMrkMinus-Marked1-Graph), OppUnMrkMinus1).
 
@@ -359,12 +362,13 @@ opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
       [s(now), i(Id), i(GId), i(ContraryId), s(IsNewContrary),
        s(sentence_to_string(A)), s(sentence_to_string(Contrary))])
   ; 
+    Id = 0,
     IdsOut = IdsIn),
   (assumption(Contrary) ->
     insert(Contrary, D, D1)
   ;
     D1 = D),
-  insert(A, C, C1),
+  C1 = insert(fst(C), A)-set(snd(C), A, Id),
   insert(A, Marked, Marked1),
   insert(Claim-GId-(UnMrkMinus-Marked1-Graph), OppMrk, OppMrk1),
   insert(Contrary-A, Att, Att1).
@@ -402,7 +406,7 @@ iterate_bodies([Body|RestBodies], S, Claim-GId-(UnMrkMinus-Marked-Graph), InOppU
     ;
       % The first iteration re-use the GId from the graph extracted by opponent_abagraph_choice.
       NewGId = GId),
-    ((\+ gb_derivation, member(A, Body), member(A, C)) ->
+    ((\+ gb_derivation, member(A, Body), member(A, fst(C))) ->
       OutOppUnMrkMinus = InOppUnMrkMinus,
       insert(Claim-NewGId-(UnMrk1-Marked1-Graph1), InOppMrk, OutOppMrk)
     ;
