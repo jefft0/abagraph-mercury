@@ -265,30 +265,34 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
                  step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att), IdsIn, IdsOut) :-
   rule_choice(S, Body, prop_info(D, PropGr), IdsIn, Ids1),
   \+ (member(X, Body), member(X, fst(C))),
-  update_argument_graph(S, Body, PropMrk-PropGr, NewUnMrk, NewUnMrkAs, PropMrk1-PropGr1),
-  append_elements_nodup(NewUnMrk, PropUnMrkMinus, PropUnMrk1),
-  union(list_to_set(NewUnMrkAs), D, D1),
+  update_argument_graph(S, Body, PropMrk-PropGr, BodyUnMrk, BodyUnMrkAs, PropMrk1-PropGr1),
+  append_elements_nodup(BodyUnMrk, PropUnMrkMinus, PropUnMrk1),
+  union(list_to_set(BodyUnMrkAs), D, D1),
   % TODO: Support GB. gb_acyclicity_check(G, S, Body, G1),
   (verbose ->
-    UnMarkedBodyAs = NewUnMrkAs,
-    UnMarkedBodyNonAs = difference(list_to_set(NewUnMrk), list_to_set(UnMarkedBodyAs)),
     MarkedBody = intersect(list_to_set(Body), PropMrk),
+    UnMarkedBodyAs = list_to_set(BodyUnMrkAs),
+    UnMarkedBodyNonAs = difference(list_to_set(BodyUnMrk), UnMarkedBodyAs),
+    divide_by_set(list_to_set(PropUnMrkMinus), UnMarkedBodyAs, ExistingUnMarkedAs, NewUnMarkedAs),
+    divide_by_set(list_to_set(PropUnMrkMinus), UnMarkedBodyNonAs, ExistingUnMarkedNonAs, NewUnMarkedNonAs),
+    ExistingBody = union(union(MarkedBody, ExistingUnMarkedAs), ExistingUnMarkedNonAs),
+
     open(decompiled_path, "a", Fd),
     write_sentence(S, 0, Fd, Id, Ids1, Ids2),
-    write_sentence_list(UnMarkedBodyAs, 0, Fd, UnMarkedBodyAsIds, Ids2, Ids3),
-    write_sentence_set(UnMarkedBodyNonAs, 0, Fd, UnMarkedBodyNonAsIds, Ids3, Ids4),
-    write_sentence_set(MarkedBody, 0, Fd, MarkedBodyIds, Ids4, IdsOut),
+    write_sentence_set(NewUnMarkedAs, 0, Fd, NewUnMarkedAsIds, Ids2, Ids3),
+    write_sentence_set(NewUnMarkedNonAs, 0, Fd, NewUnMarkedNonAsIds, Ids3, Ids4),
+    write_sentence_set(ExistingBody, 0, Fd, ExistingBodyIds, Ids4, IdsOut),
     close(Fd),
     format_append(runtime_out_path,
-      "%s Case 1.(ii): S: %i, UnMarkedBodyAs: [%s], UnMarkedBodyNonAs: [%s], MarkedBody: [%s]\n  debug_S: %s\n  debug_UnMarkedBodyAs: %s\n  debug_UnMarkedBodyNonAs: %s\n  debug_MarkedBody: %s\n",
+      "%s Case 1.(ii): S: %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  debug_S: %s\n  debug_NewUnMarkedAs: %s\n  debug_NewUnMarkedNonAs: %s\n  debug_ExistingBody: %s\n",
       [s(now), i(Id),
-       s(join_list(" ", map(int_to_string, UnMarkedBodyAsIds))),
-       s(join_list(" ", map(int_to_string, UnMarkedBodyNonAsIds))),
-       s(join_list(" ", map(int_to_string, MarkedBodyIds))), 
+       s(join_list(" ", map(int_to_string, NewUnMarkedAsIds))),
+       s(join_list(" ", map(int_to_string, NewUnMarkedNonAsIds))),
+       s(join_list(" ", map(int_to_string, ExistingBodyIds))), 
        s(sentence_to_string(S)),
-       s(sentence_list_to_string(UnMarkedBodyAs)),
-       s(sentence_set_to_string(UnMarkedBodyNonAs)),
-       s(sentence_set_to_string(MarkedBody))])
+       s(sentence_set_to_string(NewUnMarkedAs)),
+       s(sentence_set_to_string(NewUnMarkedNonAs)),
+       s(sentence_set_to_string(ExistingBody))])
   ;
     IdsOut = Ids1).
 
@@ -383,8 +387,8 @@ opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, oppone
     write_sentence(S, GId, Fd, Id, IdsIn, Ids1),
     close(Fd),
     % This makes S marked. iterate_bodies will output further changes.
-    format_append(runtime_out_path, "%s Case 2.(ii): S: %i\n  debug_S: %s\n",
-      [s(now), i(Id), s(sentence_to_string(S))])
+    format_append(runtime_out_path, "%s Case 2.(ii): S: %i, GId %i\n  debug_S: %s\n",
+      [s(now), i(Id), i(GId), s(sentence_to_string(S))])
   ; 
     Ids1 = IdsIn),
   (Bodies = [] ->
@@ -415,25 +419,29 @@ iterate_bodies([Body|RestBodies], S, Claim-GId-(UnMrkMinus-Marked-Graph), InOppU
       OutOppMrk = InOppMrk),
     % TODO: Support GB. OutG = InG,
     (verbose ->
-      UnMarkedBodyAs = UnMarkedAs,
-      UnMarkedBodyNonAs = difference(list_to_set(UnMarked), list_to_set(UnMarkedBodyAs)),
       MarkedBody = intersect(list_to_set(Body), Marked),
+      UnMarkedBodyAs = list_to_set(UnMarkedAs),
+      UnMarkedBodyNonAs = difference(list_to_set(UnMarked), UnMarkedBodyAs),
+      divide_by_set(list_to_set(UnMrkMinus), UnMarkedBodyAs, ExistingUnMarkedAs, NewUnMarkedAs),
+      divide_by_set(list_to_set(UnMrkMinus), UnMarkedBodyNonAs, ExistingUnMarkedNonAs, NewUnMarkedNonAs),
+      ExistingBody = union(union(MarkedBody, ExistingUnMarkedAs), ExistingUnMarkedNonAs),
+
       open(decompiled_path, "a", Fd),
       write_sentence(S, NewGId, Fd, Id, IdsIn, Ids1),
-      write_sentence_list(UnMarkedBodyAs, NewGId, Fd, UnMarkedBodyAsIds, Ids1, Ids2),
-      write_sentence_set(UnMarkedBodyNonAs, NewGId, Fd, UnMarkedBodyNonAsIds, Ids2, Ids3),
-      write_sentence_set(MarkedBody, NewGId, Fd, MarkedBodyIds, Ids3, Ids4),
+      write_sentence_set(NewUnMarkedAs, NewGId, Fd, NewUnMarkedAsIds, Ids1, Ids2),
+      write_sentence_set(NewUnMarkedNonAs, NewGId, Fd, NewUnMarkedNonAsIds, Ids2, Ids3),
+      write_sentence_set(ExistingBody, NewGId, Fd, ExistingBodyIds, Ids3, Ids4),
       close(Fd),
       format_append(runtime_out_path,
-        "%s Case 2.(ii): S: %i, GId %i, UnMarkedBodyAs: [%s], UnMarkedBodyNonAs: [%s], MarkedBody: [%s]\n  debug_S: %s\n  debug_UnMarkedBodyAs: %s\n  debug_UnMarkedBodyNonAs: %s\n  debug_MarkedBody: %s\n",
+        "%s Case 2.(ii): S: %i, GId %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  debug_S: %s\n  debug_NewUnMarkedAs: %s\n  debug_NewUnMarkedNonAs: %s\n  debug_ExistingBody: %s\n",
         [s(now), i(Id), i(NewGId),
-         s(join_list(" ", map(int_to_string, UnMarkedBodyAsIds))),
-         s(join_list(" ", map(int_to_string, UnMarkedBodyNonAsIds))),
-         s(join_list(" ", map(int_to_string, MarkedBodyIds))), 
+         s(join_list(" ", map(int_to_string, NewUnMarkedAsIds))),
+         s(join_list(" ", map(int_to_string, NewUnMarkedNonAsIds))),
+         s(join_list(" ", map(int_to_string, ExistingBodyIds))), 
          s(sentence_to_string(S)),
-         s(sentence_list_to_string(UnMarkedBodyAs)),
-         s(sentence_set_to_string(UnMarkedBodyNonAs)),
-         s(sentence_set_to_string(MarkedBody))])
+         s(sentence_set_to_string(NewUnMarkedAs)),
+         s(sentence_set_to_string(NewUnMarkedNonAs)),
+         s(sentence_set_to_string(ExistingBody))])
     ;
       Ids4 = IdsIn),
 
