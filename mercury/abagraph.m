@@ -187,6 +187,9 @@ derivation(T, InN, Result, N, IdsIn, IdsOut) :-
     derivation_step(T, T1, IdsIn, Ids1),
     (verbose ->
       print_step(InN, T1),
+      open(decompiled_path, "a", Fd),
+      format(Fd, "; ^^^ Step %d\n\n", [i(InN)]),
+      close(Fd),
       format_append(runtime_out_path, "*** Step %d\n\n", [i(InN)])
     ;
       true),
