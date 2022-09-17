@@ -51,6 +51,7 @@
 
 :- implementation.
 
+:- import_module bool.
 :- import_module int.
 :- import_module maybe.
 :- import_module options.
@@ -386,23 +387,21 @@ opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
 opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att),
             step_tuple(P, OppUnMrkMinus1-OppMrk1, D, C, Att), IdsIn, IdsOut) :-
   solutions((pred(Body::out) is nondet :- rule(S, Body)), Bodies),
-  (verbose ->
-    open(decompiled_path, "a", Fd),
-    write_sentence(S, GId, Fd, Id, IdsIn, Ids1),
-    close(Fd),
-    % This makes S marked. iterate_bodies will output further changes.
-    format_append(runtime_out_path, "%s Step %i: Case 2.(ii): S: %i, GId %i\n  debug_S: %s\n",
-      [s(now), i(fst(IdsIn)), i(Id), i(GId), s(sentence_to_string(S))])
-  ; 
-    Ids1 = IdsIn),
   (Bodies = [] ->
     % JT: This case is not handled by iterate_bodies.
     OppUnMrkMinus1 = OppUnMrkMinus,
     OppMrk1 = insert(OppMrk, Claim-GId-(UnMrkMinus-Marked-Graph)),
-    IdsOut = Ids1
+    (verbose ->
+      open(decompiled_path, "a", Fd),
+      write_sentence(S, GId, Fd, Id, IdsIn, IdsOut),
+      close(Fd),
+      format_append(runtime_out_path, "%s Step %i: Case 2.(ii): S: %i, GId %i, mark graph? Y\n  debug_S: %s\n",
+        [s(now), i(fst(IdsIn)), i(Id), i(GId), s(sentence_to_string(S))])
+    ; 
+      IdsOut = IdsIn)
   ;
     iterate_bodies(Bodies, S-GId, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, C,
-                   OppUnMrkMinus1-OppMrk1, Ids1, IdsOut)).
+                   OppUnMrkMinus1-OppMrk1, IdsIn, IdsOut)).
 
 % SGId is the graph ID that S came from.
 iterate_bodies([], _, _, OppUnMrkMinus-OppMrk, _, OppUnMrkMinus-OppMrk, Ids, Ids).
@@ -424,11 +423,20 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
     NewGId = GId,
     Ids1 = IdsIn),
   ((\+ gb_derivation, member(A, Body), member(A, fst(C))) ->
-    OutOppUnMrkMinus = InOppUnMrkMinus,
-    insert(Claim-NewGId-(UnMrk1-Marked1-Graph1), InOppMrk, OutOppMrk)
+    (NewGId = GId ->
+      % Move the opponent graph to marked.
+      OutOppUnMrkMinus = InOppUnMrkMinus,
+      insert(Claim-NewGId-(UnMrk1-Marked1-Graph1), InOppMrk, OutOppMrk),
+      MarkS = yes, MarkGraph = "Y"
+    ;
+      % On iteration >= 2, we don't want to create a new graph and immediately mark it.
+      OutOppUnMrkMinus = InOppUnMrkMinus,
+      OutOppMrk = InOppMrk,
+      MarkS = no, MarkGraph = "N")
   ;
     append_element_nodup(InOppUnMrkMinus, Claim-NewGId-(UnMrk1-Marked1-Graph1), OutOppUnMrkMinus),
-    OutOppMrk = InOppMrk),
+    OutOppMrk = InOppMrk,
+    (NewGId = GId -> MarkS = yes, MarkGraph = "N" ; MarkS = no, MarkGraph = "N")),
   % TODO: Support GB. OutG = InG,
   (verbose ->
     MarkedBody = intersect(list_to_set(Body), Marked),
@@ -444,6 +452,10 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
     write_sentence_set(NewUnMarkedNonAs, NewGId, Fd, NewUnMarkedNonAsIds, Ids3, Ids4),
     write_sentence_set(ExistingBody, NewGId, Fd, ExistingBodyIds, Ids4, Ids5),
     close(Fd),
+    (MarkS = yes ->
+      format_append(runtime_out_path, "%s Step %i: Case 2.(ii): S: %i, GId %i, mark graph? %s\n  debug_S: %s\n",
+        [s(now), i(fst(IdsIn)), i(Id), i(SGId), s(MarkGraph), s(sentence_to_string(S))])
+    ; true),
     format_append(runtime_out_path,
       "%s Step %i: Case 2.(ii): S: %i, NewGId %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  debug_S: %s\n  debug_NewUnMarkedAs: %s\n  debug_NewUnMarkedNonAs: %s\n  debug_ExistingBody: %s\n",
       [s(now), i(fst(IdsIn)), i(Id), i(NewGId),
