@@ -9,11 +9,13 @@
 :- import_module list.
 :- import_module loading.
 :- import_module map.
+:- import_module pair.
 :- import_module set.
 :- import_module string.
 
-% Map of GId -> (Map of Sentence -> SentenceId) for write_sentence/5.
-:- type id_map == map(int, map(sentence, int)).
+% N-Map where N is the step number (for runtime_out) and map is 
+% GId -> (Map of Sentence -> SentenceId) for write_sentence/5.
+:- type id_map == pair(int, map(int, map(sentence, int))).
 
 :- pred poss_print_case(string::in, sentence::in) is det.
 :- pred print_step(int::in, step_tuple::in) is det.
@@ -55,7 +57,6 @@
 :- implementation.
 
 :- import_module int.
-:- import_module pair.
 :- import_module uint64.
 
 :- type node_info ---> node_info(sentence, int, int).
@@ -491,7 +492,7 @@ format_append(Path, S, PolyTypes) :-
     close(Fd)
   ; true).
 
-write_sentence(S, GId, Fd, Id, IdsIn, IdsOut) :-
+write_sentence(S, GId, Fd, Id, N-IdsIn, N-IdsOut) :-
   (Fd = det_from_int(0) ->
     Id = 0,
     IdsOut = IdsIn
