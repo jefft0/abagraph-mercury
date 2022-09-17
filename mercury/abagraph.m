@@ -93,7 +93,7 @@
           pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::out,
           id_map::in, id_map::out) is det.
 :- pred update_argument_graph(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
-          list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out) is semidet.
+          list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out) is det.
 :- pred filter_marked(list(sentence)::in, set(sentence)::in, list(sentence)::out, list(sentence)::out) is det.
 :- pred acyclic(digraph(sentence)::in) is semidet.
 :- pred graph_union(digraph(sentence)::in, digraph(sentence)::in, digraph(sentence)::out) is det.
@@ -403,54 +403,51 @@ opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, oppone
 iterate_bodies([], _, _, OppUnMrkMinus-OppMrk, _, OppUnMrkMinus-OppMrk, Ids, Ids).
 iterate_bodies([Body|RestBodies], S, Claim-GId-(UnMrkMinus-Marked-Graph), InOppUnMrkMinus-InOppMrk, C,
                OppUnMrkMinus1-OppMrk1, IdsIn, IdsOut) :-
-  (update_argument_graph(S, Body, Marked-Graph, UnMarked, UnMarkedAs, Marked1-Graph1) ->
-    append_elements_nodup(UnMarked, UnMrkMinus, UnMrk1),
-    (GId = 0 ->
-      % We are on iteration >= 2 and need a new GId.
-      NewGId = length(InOppUnMrkMinus) + count(InOppMrk) + 1
-    ;
-      % The first iteration re-use the GId from the graph extracted by opponent_abagraph_choice.
-      NewGId = GId),
-    ((\+ gb_derivation, member(A, Body), member(A, fst(C))) ->
-      OutOppUnMrkMinus = InOppUnMrkMinus,
-      insert(Claim-NewGId-(UnMrk1-Marked1-Graph1), InOppMrk, OutOppMrk)
-    ;
-      append_element_nodup(InOppUnMrkMinus, Claim-NewGId-(UnMrk1-Marked1-Graph1), OutOppUnMrkMinus),
-      OutOppMrk = InOppMrk),
-    % TODO: Support GB. OutG = InG,
-    (verbose ->
-      MarkedBody = intersect(list_to_set(Body), Marked),
-      UnMarkedBodyAs = list_to_set(UnMarkedAs),
-      UnMarkedBodyNonAs = difference(list_to_set(UnMarked), UnMarkedBodyAs),
-      divide_by_set(list_to_set(UnMrkMinus), UnMarkedBodyAs, ExistingUnMarkedAs, NewUnMarkedAs),
-      divide_by_set(list_to_set(UnMrkMinus), UnMarkedBodyNonAs, ExistingUnMarkedNonAs, NewUnMarkedNonAs),
-      ExistingBody = union(union(MarkedBody, ExistingUnMarkedAs), ExistingUnMarkedNonAs),
-
-      open(decompiled_path, "a", Fd),
-      write_sentence(S, NewGId, Fd, Id, IdsIn, Ids1),
-      write_sentence_set(NewUnMarkedAs, NewGId, Fd, NewUnMarkedAsIds, Ids1, Ids2),
-      write_sentence_set(NewUnMarkedNonAs, NewGId, Fd, NewUnMarkedNonAsIds, Ids2, Ids3),
-      write_sentence_set(ExistingBody, NewGId, Fd, ExistingBodyIds, Ids3, Ids4),
-      close(Fd),
-      format_append(runtime_out_path,
-        "%s Case 2.(ii): S: %i, GId %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  debug_S: %s\n  debug_NewUnMarkedAs: %s\n  debug_NewUnMarkedNonAs: %s\n  debug_ExistingBody: %s\n",
-        [s(now), i(Id), i(NewGId),
-         s(join_list(" ", map(int_to_string, NewUnMarkedAsIds))),
-         s(join_list(" ", map(int_to_string, NewUnMarkedNonAsIds))),
-         s(join_list(" ", map(int_to_string, ExistingBodyIds))), 
-         s(sentence_to_string(S)),
-         s(sentence_set_to_string(NewUnMarkedAs)),
-         s(sentence_set_to_string(NewUnMarkedNonAs)),
-         s(sentence_set_to_string(ExistingBody))])
-    ;
-      Ids4 = IdsIn),
-
-    % For further iterations, set GId to 0 so that we mint new IDs for added graphs.
-    iterate_bodies(RestBodies, S, Claim-0-(UnMrkMinus-Marked-Graph), OutOppUnMrkMinus-OutOppMrk, C,
-                   OppUnMrkMinus1-OppMrk1, Ids4, IdsOut)
+  update_argument_graph(S, Body, Marked-Graph, UnMarked, UnMarkedAs, Marked1-Graph1),
+  append_elements_nodup(UnMarked, UnMrkMinus, UnMrk1),
+  (GId = 0 ->
+    % We are on iteration >= 2 and need a new GId.
+    NewGId = length(InOppUnMrkMinus) + count(InOppMrk) + 1
   ;
-    iterate_bodies(RestBodies, S, Claim-GId-(UnMrkMinus-Marked-Graph), InOppUnMrkMinus-InOppMrk, C,
-                   OppUnMrkMinus1-OppMrk1, IdsIn, IdsOut)).
+    % The first iteration re-use the GId from the graph extracted by opponent_abagraph_choice.
+    NewGId = GId),
+  ((\+ gb_derivation, member(A, Body), member(A, fst(C))) ->
+    OutOppUnMrkMinus = InOppUnMrkMinus,
+    insert(Claim-NewGId-(UnMrk1-Marked1-Graph1), InOppMrk, OutOppMrk)
+  ;
+    append_element_nodup(InOppUnMrkMinus, Claim-NewGId-(UnMrk1-Marked1-Graph1), OutOppUnMrkMinus),
+    OutOppMrk = InOppMrk),
+  % TODO: Support GB. OutG = InG,
+  (verbose ->
+    MarkedBody = intersect(list_to_set(Body), Marked),
+    UnMarkedBodyAs = list_to_set(UnMarkedAs),
+    UnMarkedBodyNonAs = difference(list_to_set(UnMarked), UnMarkedBodyAs),
+    divide_by_set(list_to_set(UnMrkMinus), UnMarkedBodyAs, ExistingUnMarkedAs, NewUnMarkedAs),
+    divide_by_set(list_to_set(UnMrkMinus), UnMarkedBodyNonAs, ExistingUnMarkedNonAs, NewUnMarkedNonAs),
+    ExistingBody = union(union(MarkedBody, ExistingUnMarkedAs), ExistingUnMarkedNonAs),
+
+    open(decompiled_path, "a", Fd),
+    write_sentence(S, NewGId, Fd, Id, IdsIn, Ids1),
+    write_sentence_set(NewUnMarkedAs, NewGId, Fd, NewUnMarkedAsIds, Ids1, Ids2),
+    write_sentence_set(NewUnMarkedNonAs, NewGId, Fd, NewUnMarkedNonAsIds, Ids2, Ids3),
+    write_sentence_set(ExistingBody, NewGId, Fd, ExistingBodyIds, Ids3, Ids4),
+    close(Fd),
+    format_append(runtime_out_path,
+      "%s Case 2.(ii): S: %i, GId %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  debug_S: %s\n  debug_NewUnMarkedAs: %s\n  debug_NewUnMarkedNonAs: %s\n  debug_ExistingBody: %s\n",
+      [s(now), i(Id), i(NewGId),
+       s(join_list(" ", map(int_to_string, NewUnMarkedAsIds))),
+       s(join_list(" ", map(int_to_string, NewUnMarkedNonAsIds))),
+       s(join_list(" ", map(int_to_string, ExistingBodyIds))), 
+       s(sentence_to_string(S)),
+       s(sentence_set_to_string(NewUnMarkedAs)),
+       s(sentence_set_to_string(NewUnMarkedNonAs)),
+       s(sentence_set_to_string(ExistingBody))])
+  ;
+    Ids4 = IdsIn),
+
+  % For further iterations, set GId to 0 so that we mint new IDs for added graphs.
+  iterate_bodies(RestBodies, S, Claim-0-(UnMrkMinus-Marked-Graph), OutOppUnMrkMinus-OutOppMrk, C,
+                 OppUnMrkMinus1-OppMrk1, Ids4, IdsOut).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -477,7 +474,7 @@ update_argument_graph(S, Body, Marked-Graph, UnMarked, UnMarkedAs, Marked1-Graph
                                GOut = GIn),
                            O_Body, digraph.init),
   graph_union(GraphMinus1, BodyUnMarkedGraph, Graph1),
-  acyclic(Graph1).
+  (acyclic(Graph1) -> true ; unexpected($file, $pred, "Graph1 not acyclic")).
 
 % filter_marked(Body, AlreadyProved, Unproved, UnprovedAs)
 filter_marked([], _, [], []).
