@@ -109,7 +109,7 @@ print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C, _Att)) 
   format("D:    [", []),
   print_step_list(to_sorted_list(D)),
   format("C:    [", []),
-  print_step_list(to_sorted_list(C)).
+  print_step_list(to_sorted_list(fst(C))).
 
 print_step_list([]) :-
   format("]\n", []).
