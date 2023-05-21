@@ -189,7 +189,7 @@ proponent_nodes([A-[]|Rest], N, Fd, [(A,N,0)|RestNodes]) :-
  (
   proving(A)
   -> graph_colour(proponent_asm_toBeProved, Colour)
-  ;  graph_colour(proponent_asm, Colour)
+  ;  (assumption(A) -> graph_colour(proponent_asm, Colour) ; graph_colour(proponent_nonAsm, Colour))
  ),
  format(Fd, '[label="~w",fillcolor="~w",color="~w",fontcolor="white"];~n', [A,Colour,Colour]),
  N1 is N + 1,
