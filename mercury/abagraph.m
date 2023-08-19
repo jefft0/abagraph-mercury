@@ -261,9 +261,11 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
       ContraryId = 0,
       IdsOut = Ids1),
     close(Fd),
+    (solutions((pred(X::out) is nondet :- rule(Contrary, X)), []) -> % Debug: We only need to check for one solution.
+      HasBody = "N" ; HasBody = "Y"),
     format_append(runtime_out_path,
-      "%s Step %i: Case 1.(i): A: %i, Contrary %i, NewGId %i\n  debug_A: %s\n  debug_Contrary: %s\n",
-      [s(now), i(fst(IdsIn)), i(Id), i(ContraryId), i(NewGId),
+      "%s Step %i: Case 1.(i): A: %i, Contrary %i has body? %s, NewGId %i\n  debug_A: %s\n  debug_Contrary: %s\n",
+      [s(now), i(fst(IdsIn)), i(Id), i(ContraryId), s(HasBody), i(NewGId),
        s(sentence_to_string(A)), s(sentence_to_string(Contrary))])
   ;
     IdsOut = IdsIn).
