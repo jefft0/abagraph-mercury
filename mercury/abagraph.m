@@ -154,7 +154,10 @@ derive(S, Result) :-
   %retractall(sols(_)),
   %assert(sols(1)),
   derivation(InitTuple, Result, 1-snd(Ids1), _),
-  print_result(S, Result).
+  print_result(S, Result),
+  open(runtime_out_path, "a", Fd2),
+  format(Fd2, "%s ABA solution found\n", [s(now)]),
+  close(Fd2).
   %incr_sols.
 
 initial_derivation_tuple(
