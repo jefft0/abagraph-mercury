@@ -596,8 +596,8 @@ rule_choice(Head, Body, PropInfo, IdsIn, IdsOut) :-
         write_sentence_list(B, 0, Fd, IdsList, IdsIn1, IdsOut1),
         Text = format(" [%s]", [s(join_list(" ", map(int_to_string, IdsList)))])),
       SortedRuleBodies, IdsIn-""),
-    format_append(runtime_out_path, "%s Step %i: Potential bodies: [%s]\n", 
-      [s(now), i(fst(IdsIn)), s(BodiesText)]),
+    format_append(runtime_out_path, "%s Step %i: Head %s Potential bodies: [%s]\n", 
+      [s(now), i(fst(IdsIn)), s(sentence_to_string(Head)), s(BodiesText)]),
     close(Fd)
   ;
     IdsOut = IdsIn),
