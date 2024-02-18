@@ -5,8 +5,11 @@
 
 :- type variable(T) ---> var(int).
 
-:- type constraint
+:- type s_constraint
    ---> '='(string).
+
+:- type constraint
+   ---> s(s_constraint).
 
 :- type constraints == map(int, constraint).
 
@@ -25,15 +28,17 @@ init = map.init.
 % a description string (only if verbose).
 % If there is a binding for V, confirm the constraint and set Desc to "",
 % else if the constraint is not confirmed then fail.
-unify(V, '='(Val), Bs, BsOut, Desc) :-
-  (search(Bs, V, '='(BoundVal)) ->
+unify(V, C, Bs, BsOut, Desc) :-
+  (search(Bs, V, s('='(BoundVal))) ->
+    C = s('='(Val)),
     Val = BoundVal,
     BsOut = Bs,
     Desc = ""
   ;
     % Add the binding.
-    BsOut = insert(Bs, V, '='(Val)),
+    BsOut = insert(Bs, V, C),
     (verbose ->
+      C = s('='(Val)),
       Desc = format("(var %i) = %s", [i(V), s(Val)])
     ; 
       Desc = "")).
