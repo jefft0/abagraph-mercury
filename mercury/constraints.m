@@ -35,7 +35,7 @@
 :- import_module options.
 :- import_module string.
 
-%:- pred f_val(constraints::in, f_constraint::in, set(int)::in, set(int)::out, maybe(float)::out) is semidet.
+:- pred f_new_value(int::in, float::in, constraints::in, constraints::out, set(string)::out) is det.
 
 init = map.init.
 
@@ -47,9 +47,10 @@ unify(V, f('='(Val)), Bs, BsOut, Descs) :-
     Descs = set.init
   ;
     % Add the binding.
-    BsOut = insert(Bs, V, f('='(Val))),
+    BsOut1 = insert(Bs, V, f('='(Val))),
+    f_new_value(V, Val, BsOut1, BsOut, Descs1),
     (verbose ->
-      Descs = make_singleton_set(format("(var %i) = %f", [i(V), f(Val)]))
+      Descs = insert(Descs1, format("(var %i) = %f", [i(V), f(Val)]))
     ; 
       Descs = set.init)).
 unify(V, f(var(X) - var(Y)), Bs, BsOut, Descs) :-
@@ -68,6 +69,7 @@ unify(V, f(var(X) - var(Y)), Bs, BsOut, Descs) :-
     % Add the binding.
     (Evaluated = yes(Val) ->
       BsOut = insert(Bs, V, f('='(Val))),
+      % TODO: Call f_new_value.
       (verbose ->
         Descs = make_singleton_set(format("(var %i) = %f", [i(V), f(Val)]))
       ; 
@@ -88,4 +90,18 @@ unify(V, s('='(Val)), Bs, BsOut, Descs) :-
     ; 
       Descs = set.init)).
 
-%f_val(Bs, '='(Val), Checked, Checked, yes(Val)).
+f_new_value(V, Val, Bs, BsOut, Descs) :-
+  % TODO: foldl to check all.
+  OtherV = 10,
+  (search(Bs, OtherV, f(var(X) - var(V))), search(Bs, X, f('='(XVal))) ->
+    % Replace the expression with a value.
+    (unify(OtherV, f('='(XVal - Val)), delete(Bs, OtherV), BsOut1, Descs1) ->
+      BsOut = BsOut1,
+      Descs = Descs1
+    ;
+      % This shouldn't happen.
+      BsOut = Bs,
+      Descs = set.init)
+  ;
+    BsOut = Bs,
+    Descs = set.init).
