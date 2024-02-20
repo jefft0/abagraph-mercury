@@ -33,75 +33,77 @@
 :- import_module list.
 :- import_module maybe.
 :- import_module options.
+:- import_module pair.
 :- import_module string.
 
 :- pred f_new_value(int::in, float::in, constraints::in, constraints::out, set(string)::out) is det.
 
 init = map.init.
 
-unify(V, f('='(Val)), Bs, BsOut, Descs) :-
-  (search(Bs, V, C) ->
+unify(V, f('='(Val)), CS, CSOut, Descs) :-
+  (search(CS, V, C) ->
     C = f('='(BoundVal)),
     Val = BoundVal,
-    BsOut = Bs,
+    CSOut = CS,
     Descs = set.init
   ;
     % Add the binding.
-    BsOut1 = insert(Bs, V, f('='(Val))),
-    f_new_value(V, Val, BsOut1, BsOut, Descs1),
+    CSOut1 = insert(CS, V, f('='(Val))),
+    f_new_value(V, Val, CSOut1, CSOut, Descs1),
     (verbose ->
       Descs = insert(Descs1, format("(var %i) = %f", [i(V), f(Val)]))
     ; 
       Descs = set.init)).
-unify(V, f(var(X) - var(Y)), Bs, BsOut, Descs) :-
-  (search(Bs, X, f('='(XVal))), search(Bs, Y, f('='(YVal))) ->
+unify(V, f(var(X) - var(Y)), CS, CSOut, Descs) :-
+  (search(CS, X, f('='(XVal))), search(CS, Y, f('='(YVal))) ->
     Evaluated = yes(XVal - YVal)
   ;
     Evaluated = no),
 
-  (search(Bs, V, C) ->
+  (search(CS, V, C) ->
     C = f('='(BoundVal)),
     Evaluated = yes(Val),
     Val = BoundVal,
-    BsOut = Bs,
+    CSOut = CS,
     Descs = set.init
   ;
     % Add the binding.
     (Evaluated = yes(Val) ->
-      BsOut = insert(Bs, V, f('='(Val))),
+      CSOut = insert(CS, V, f('='(Val))),
       % TODO: Call f_new_value.
       (verbose ->
         Descs = make_singleton_set(format("(var %i) = %f", [i(V), f(Val)]))
       ; 
         Descs = set.init)
     ;
-      BsOut = insert(Bs, V, f(var(X) - var(Y))),
+      CSOut = insert(CS, V, f(var(X) - var(Y))),
       Descs = set.init)).
-unify(V, s('='(Val)), Bs, BsOut, Descs) :-
-  (search(Bs, V, s('='(BoundVal))) ->
+unify(V, s('='(Val)), CS, CSOut, Descs) :-
+  (search(CS, V, s('='(BoundVal))) ->
     Val = BoundVal,
-    BsOut = Bs,
+    CSOut = CS,
     Descs = set.init
   ;
     % Add the binding.
-    BsOut = insert(Bs, V, s('='(Val))),
+    CSOut = insert(CS, V, s('='(Val))),
     (verbose ->
       Descs = make_singleton_set(format("(var %i) = %s", [i(V), s(Val)]))
     ; 
       Descs = set.init)).
 
-f_new_value(V, Val, Bs, BsOut, Descs) :-
-  % TODO: foldl to check all.
-  OtherV = 10,
-  (search(Bs, OtherV, f(var(X) - var(V))), search(Bs, X, f('='(XVal))) ->
-    % Replace the expression with a value.
-    (unify(OtherV, f('='(XVal - Val)), delete(Bs, OtherV), BsOut1, Descs1) ->
-      BsOut = BsOut1,
-      Descs = Descs1
-    ;
-      % This shouldn't happen.
-      BsOut = Bs,
-      Descs = set.init)
-  ;
-    BsOut = Bs,
-    Descs = set.init).
+f_new_value(V, Val, CS, CSOut, Descs) :-
+  CSOut-Descs = foldl(
+    (func(OtherV, C, CSIn-DescsIn) = CS1-Descs1 :-
+      (C = f(var(X) - var(V)), search(CSIn, X, f('='(XVal))) ->
+        (unify(OtherV, f('='(XVal - Val)), delete(CSIn, OtherV), CS2, Descs2) ->
+          CS1 = CS2,
+          Descs1 = union(DescsIn, Descs2)
+        ;
+          % This shouldn't happen.
+          CS1 = CSIn,
+          Descs1 = DescsIn)        
+      ;
+        % TODO: Check other expressions.
+        CS1 = CSIn,
+        Descs1 = DescsIn)),
+    CS, CS-set.init).
