@@ -4,6 +4,7 @@
 :- module abagraph.
 :- interface.
 
+:- import_module constraints.
 :- import_module digraph.
 :- import_module list.
 % Import sentence from loading.
@@ -32,20 +33,23 @@
                    opponent_arg_graph_set, % Opponent argument graph set
                    set(sentence),          % D (the proponent defences)
                    pair(set(sentence), map(sentence, int)), % C = Culprits-CulpritIds (the opponent culprits plus Ids (only for printing))
-                   set(attack)).           % Att (set of attacks, used only for printing)
+                   set(attack),            % Att (set of attacks, used only for printing)
+                   constraints).           % Constraint store
 
 :- type opponent_step_tuple
    ---> opponent_step_tuple(pot_arg_graph,          % PROPONENT potential argument graph
                             set(sentence),          % D (the proponent defences)
                             pair(set(sentence), map(sentence, int)), % C = Culprits-CulpritIds (the opponent culprits plus Ids (only for printing))
-                            set(attack)).           % Att
+                            set(attack),            % Att
+                            constraints).           % CS
 
 :- type derivation_result
    ---> derivation_result(pair(set(sentence), digraph(sentence)), % PropMrk-PropG
                           set(focussed_pot_arg_graph),            % OppMrk
                           set(sentence),                          % D (the proponent defences)
                           set(sentence),                          % C (the opponent culprits)
-                          set(attack)).                           % Att
+                          set(attack),                            % Att
+                          constraints).                           % CS
 
 :- pred derive(sentence::in, derivation_result::out) is nondet.
 
@@ -74,10 +78,10 @@
 :- pred opponent_step(step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, pair(set(sentence), map(sentence, int))::in,
-          set(attack)::in, step_tuple::out, id_map::in, id_map::out) is semidet.
+          set(attack)::in, constraints::in, step_tuple::out, id_map::in, id_map::out) is semidet.
 :- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, pair(set(sentence), map(sentence, int))::in,
-          set(attack)::in, step_tuple::out, id_map::in, id_map::out) is nondet.
+          set(attack)::in, constraints::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred opponent_i(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is semidet.
 :- pred opponent_ia(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
@@ -127,6 +131,8 @@
 :- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet.
 :- pred select(T::out, list(T)::in, list(T)::out) is nondet.
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
+:- pred constraint(sentence::in) is semidet.
+:- pred unify(sentence::in, constraints::in, constraints::out, set(string)::out) is semidet.
 
 % ("set some options" moved to options.m.)
 
@@ -167,7 +173,8 @@ initial_derivation_tuple(
                % TODO: Support GB.
                D0,                          % D
                set.init-map.init,           % C
-               set.init)) :-                % Att
+               set.init,                    % Att
+               constraints.init)) :-        % CS
   to_sorted_list(PropUnMrk, O_PropUnMrk),
   % Instead of findall, use the set filter.
   %findall(A, (member(A, O_PropUnMrk),
@@ -185,8 +192,8 @@ initial_derivation_tuple(
 % derivation(T, InN, Result, N, IdsIn, IdsOut) :-
 % Move the step number into Ids
 derivation(T, Result, InN-IdsIn, N-IdsOut) :-
-  (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att) ->
-    Result = derivation_result(PropMrk-PropG, OppM, D, C, Att),
+  (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
+    Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
     ((option(show_solution, "true"), \+ verbose) -> PreviousN = N - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
     N = InN,
     IdsOut = IdsIn
@@ -197,38 +204,62 @@ derivation(T, Result, InN-IdsIn, N-IdsOut) :-
       open(decompiled_path, "a", Fd),
       format(Fd, "; ^^^ Step %d\n\n", [i(InN)]),
       close(Fd)
-    ;
-      true),
+    ; true),
     OutN = InN + 1,
     derivation(T1, Result, OutN-Ids1, N-IdsOut)).
 
-derivation_step(step_tuple(P, O, D, C, Att), T1, IdsIn, IdsOut) :-
+derivation_step(step_tuple(P, O, D, C, Att, CS), T1, IdsIn, IdsOut) :-
   (verbose -> puts("\n") ; true),
   choose_turn(P, O, Turn),
   (Turn = proponent ->
-    proponent_step(step_tuple(P, O, D, C, Att), T1, IdsIn, IdsOut)
+    proponent_step(step_tuple(P, O, D, C, Att, CS), T1, IdsIn, IdsOut)
   ;
-    opponent_step(step_tuple(P, O, D, C, Att), T1, IdsIn, IdsOut)).
+    opponent_step(step_tuple(P, O, D, C, Att, CS), T1, IdsIn, IdsOut)).
 
-proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att), T1, IdsIn, IdsOut) :-
+proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), T1, IdsIn, IdsOut) :-
   proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
   (assumption(S) ->
-    proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1, IdsIn, IdsOut),
+    proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, T1, IdsIn, IdsOut),
     poss_print_case("1.(i)", S)
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
-    proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, T1, IdsIn, IdsOut),
+    (constraint(S) ->
+      unify(S, CS, CSOut, Descs),
+      % Debug: Since Body is [], these are probably no-ops.
+      update_argument_graph(S, [], PropMrk-PropGr, _, _, PropMrk1-PropGr1),
+      PropUnMrk1 = PropUnMrkMinus,
+      union(list_to_set([]), D, D1),
+      T1 = step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att, CSOut),
+      IdsOut = IdsIn,
+
+      _ = foldl(func(Desc, _) = 0 :- format_append(runtime_out_path, "%s Step %i: Case 1.(iii): %s\n", 
+                 [s(now), i(fst(IdsIn)), s(Desc)]),
+            Descs, 0)
+    ;
+      proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, T1, IdsIn, IdsOut)),
     poss_print_case("1.(ii)", S)
   ).
 
-opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1, IdsIn, IdsOut) :-
+opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), T1, IdsIn, IdsOut) :-
   opponent_abagraph_choice(OppUnMrk, OppArg, OppUnMrkMinus),
   opponent_sentence_choice(OppArg, S, OppArgMinus),
   (assumption(S) ->
-    opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1, IdsIn, IdsOut)
+    opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), T1, IdsIn, IdsOut)
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
-    opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att), T1, IdsIn, IdsOut),
+    (constraint(S) ->
+      unify(S, CS, CSOut, Descs),
+      % Debug: Since Body is [], these are probably no-ops.
+      OppArgMinus = Claim-GId-(UnMrkMinus-Marked-Graph),
+      iterate_bodies([], S-GId, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, C,
+        OppUnMrkMinus1-OppMrk1, IdsIn, IdsOut),
+      T1 = step_tuple(P, OppUnMrkMinus1-OppMrk1, D, C, Att, CSOut),
+
+      _ = foldl(func(Desc, _) = 0 :- format_append(runtime_out_path, "%s Step %i: Case 1.(iii): %s\n", 
+                 [s(now), i(fst(IdsIn)), s(Desc)]),
+            Descs, 0)
+    ;
+      opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), T1, IdsIn, IdsOut)),
     poss_print_case("2.(ii)", S)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -238,8 +269,8 @@ opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att), T1, IdsIn, IdsOut) :-
 
 %%%%%%%%%% proponent
 
-proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
-              step_tuple(PropUnMrkMinus-PropMrk1-PropGr, OppUnMrk1-OppMrk, D, C, Att1),
+proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att, CS,
+              step_tuple(PropUnMrkMinus-PropMrk1-PropGr, OppUnMrk1-OppMrk, D, C, Att1, CS),
               IdsIn, IdsOut) :-
   contrary(A, Contrary),
   ((\+ (member(Member1, OppUnMrk), Member1 = Contrary-_-(_-_-_)),
@@ -273,8 +304,8 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att,
   ;
     IdsOut = IdsIn).
 
-proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
-                 step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att), IdsIn, IdsOut) :-
+proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS,
+                 step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att, CS), IdsIn, IdsOut) :-
   rule_choice(S, Body, prop_info(D, PropGr), IdsIn, Ids1),
   \+ (member(X, Body), member(X, fst(C))),
   update_argument_graph(S, Body, PropMrk-PropGr, BodyUnMrk, BodyUnMrkAs, PropMrk1-PropGr1),
@@ -310,10 +341,10 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att,
 
 %%%%%%%%%% opponent
 
-opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1, IdsIn, IdsOut) :-
+opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS), T1, IdsIn, IdsOut) :-
   (\+ member(A, D) ->
     (member(A, fst(C)) ->
-      opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
+      opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS), T1),
       poss_print_case("2.(ib)", A),
       (verbose ->
         open(decompiled_path, "a", Fd),
@@ -326,10 +357,10 @@ opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P
       ; 
         IdsOut = IdsIn)
     ;
-      opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1, IdsIn, IdsOut),
+      opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS), T1, IdsIn, IdsOut),
       poss_print_case("2.(ic)", A))
   ;
-    opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att), T1),
+    opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS), T1),
     poss_print_case("2.(ia)", A),
     (verbose ->
       open(decompiled_path, "a", Fd),
@@ -341,7 +372,7 @@ opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P
       IdsOut = IdsIn)).
 
 opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
-            opponent_step_tuple(P, D, C, Att), step_tuple(P, OppUnMrkMinus1-OppMrk, D, C, Att)) :-
+            opponent_step_tuple(P, D, C, Att, CS), step_tuple(P, OppUnMrkMinus1-OppMrk, D, C, Att, CS)) :-
   (gb_derivation ->
     true
   ;
@@ -350,15 +381,15 @@ opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
   append_element_nodup(OppUnMrkMinus, Claim-GId-(UnMrkMinus-Marked1-Graph), OppUnMrkMinus1).
 
 opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
-            opponent_step_tuple(P, D, C, Att), step_tuple(P, OppUnMrkMinus-OppMrk1, D, C, Att)) :-
+            opponent_step_tuple(P, D, C, Att, CS), step_tuple(P, OppUnMrkMinus-OppMrk1, D, C, Att, CS)) :-
  % TODO: Support GB. contrary(A, Contrary),
  % TODO: Support GB. gb_acyclicity_check(G, Claim, [Contrary], G1),
  insert(A, Marked, Marked1),
  insert(Claim-GId-(UnMrkMinus-Marked1-Graph), OppMrk, OppMrk1).
 
 opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
-            opponent_step_tuple(PropUnMrk-PropMrk-PropGr, D, C, Att),
-            step_tuple(PropUnMrk1-PropMrk-PropGr1, OppUnMrkMinus-OppMrk1, D1, C1, Att1),
+            opponent_step_tuple(PropUnMrk-PropMrk-PropGr, D, C, Att, CS),
+            step_tuple(PropUnMrk1-PropMrk-PropGr1, OppUnMrkMinus-OppMrk1, D1, C1, Att1, CS),
             IdsIn, IdsOut) :-
   contrary(A, Contrary),
   (search_key(PropGr, Contrary, _) ->
@@ -391,8 +422,8 @@ opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
   insert(Contrary-A, Att, Att1).
   % TODO: Support GB. gb_acyclicity_check(G, Claim, [Contrary], G1).
 
-opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att),
-            step_tuple(P, OppUnMrkMinus1-OppMrk1, D, C, Att), IdsIn, IdsOut) :-
+opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS),
+            step_tuple(P, OppUnMrkMinus1-OppMrk1, D, C, Att, CS), IdsIn, IdsOut) :-
   solutions((pred(Body::out) is nondet :- rule(S, Body)), Bodies),
   iterate_bodies(Bodies, S-GId, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, C,
                  OppUnMrkMinus1-OppMrk1, IdsIn, IdsOut).
@@ -491,8 +522,8 @@ update_argument_graph(S, Body, Marked-Graph, UnMarked, UnMarkedAs, Marked1-Graph
                              ;
                                GOut = GIn),
                            O_Body, digraph.init),
-  graph_union(GraphMinus1, BodyUnMarkedGraph, Graph1),
-  (acyclic(Graph1) -> true ; unexpected($file, $pred, "Graph1 not acyclic")).
+  graph_union(GraphMinus1, BodyUnMarkedGraph, Graph1).
+  %TODO: Check acyclic under constraints (acyclic(Graph1) -> true ; unexpected($file, $pred, "Graph1 not acyclic")).
 
 % filter_marked(Body, AlreadyProved, Unproved, UnprovedAs)
 filter_marked([], _, [], []).
@@ -782,3 +813,9 @@ select(X, [Head|Tail], Rest) :-
 select3_(Tail, Head, Head, Tail).
 select3_([Head2|Tail], Head, X, [Head|Rest]) :-
     select3_(Tail, Head2, X, Rest).
+
+constraint(S) :- (S = s(_) ; S = f(_)).
+
+unify(f(var(V) = C), CS, CSOut, Descs) :- unify(V, f(C), CS, CSOut, Descs).
+unify(f(var(V) := Val), CS, CSOut, Descs) :- unify(V, f('='(Val)), CS, CSOut, Descs).
+unify(s(var(V) := Val), CS, CSOut, Descs) :- unify(V, s('='(Val)), CS, CSOut, Descs).
