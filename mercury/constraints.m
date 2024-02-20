@@ -95,7 +95,17 @@ f_new_value(V, Val, CS, CSOut, Descs) :-
   CSOut-Descs = foldl(
     (func(OtherV, C, CSIn-DescsIn) = CS1-Descs1 :-
       (C = f(var(X) - var(V)), search(CSIn, X, f('='(XVal))) ->
+        % Replace OtherV with evaluated value.
         (unify(OtherV, f('='(XVal - Val)), delete(CSIn, OtherV), CS2, Descs2) ->
+          CS1 = CS2,
+          Descs1 = union(DescsIn, Descs2)
+        ;
+          % This shouldn't happen.
+          CS1 = CSIn,
+          Descs1 = DescsIn)        
+      ;(C = f(var(V) - var(Y)), search(CSIn, Y, f('='(YVal))) ->
+        % Replace OtherV with evaluated value.
+        (unify(OtherV, f('='(Val - YVal)), delete(CSIn, OtherV), CS2, Descs2) ->
           CS1 = CS2,
           Descs1 = union(DescsIn, Descs2)
         ;
@@ -105,5 +115,5 @@ f_new_value(V, Val, CS, CSOut, Descs) :-
       ;
         % TODO: Check other expressions.
         CS1 = CSIn,
-        Descs1 = DescsIn)),
+        Descs1 = DescsIn))),
     CS, CS-set.init).
