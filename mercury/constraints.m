@@ -134,34 +134,27 @@ unify(V, s('='(Val)), CS, CSOut, Descs) :-
 f_new_value(V, Val, CS, CSOut, Descs) :-
   CSOut-Descs = foldl(
     (func(OtherV, C, CSIn-DescsIn) = CS1-Descs1 :-
+      % Try to get the value of OtherV.
       (C = f(var(V) + Y1) ->
-        (unify(OtherV, f('='(Val + Y1)), delete(CSIn, OtherV), CS2, Descs2) ->
+        OtherVal = yes(Val + Y1)
+      ;(C = f(var(X) - var(V)), search(CSIn, X, f('='(XVal))) ->
+        OtherVal = yes(XVal - Val)
+      ;(C = f(var(V) - var(Y)), search(CSIn, Y, f('='(YVal))) ->
+        OtherVal = yes(Val - YVal)
+      ;
+        % TODO: Check other expressions.
+        OtherVal = no))),
+
+      (OtherVal = yes(F) ->
+        % Replace OtherV with evaluated value.
+        (unify(OtherV, f('='(F)), delete(CSIn, OtherV), CS2, Descs2) ->
           CS1 = CS2,
           Descs1 = union(DescsIn, Descs2)
         ;
           % This shouldn't happen.
           CS1 = CSIn,
           Descs1 = DescsIn)
-      ;(C = f(var(X) - var(V)), search(CSIn, X, f('='(XVal))) ->
-        % Replace OtherV with evaluated value.
-        (unify(OtherV, f('='(XVal - Val)), delete(CSIn, OtherV), CS2, Descs2) ->
-          CS1 = CS2,
-          Descs1 = union(DescsIn, Descs2)
-        ;
-          % This shouldn't happen.
-          CS1 = CSIn,
-          Descs1 = DescsIn)        
-      ;(C = f(var(V) - var(Y)), search(CSIn, Y, f('='(YVal))) ->
-        % Replace OtherV with evaluated value.
-        (unify(OtherV, f('='(Val - YVal)), delete(CSIn, OtherV), CS2, Descs2) ->
-          CS1 = CS2,
-          Descs1 = union(DescsIn, Descs2)
-        ;
-          % This shouldn't happen.
-          CS1 = CSIn,
-          Descs1 = DescsIn)        
       ;
-        % TODO: Check other expressions.
         CS1 = CSIn,
-        Descs1 = DescsIn)))),
+        Descs1 = DescsIn)),
     CS, CS-set.init).
