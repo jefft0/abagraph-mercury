@@ -505,17 +505,17 @@ write_sentence(S, GId, Fd, Id, N-IdsIn, N-IdsOut) :-
       ;
         % Make a new Id, write to Fd, add to SMap.
         write_sentence(S, Fd, Id),
-        IdsOut = set(IdsIn, GId, set(SMap, S, Id)))
+        (Id = 0 -> IdsOut = IdsIn ; IdsOut = set(IdsIn, GId, set(SMap, S, Id))))
     ;
       % No entry for the GId.
       write_sentence(S, Fd, Id),
-      IdsOut = set(IdsIn, GId, set(map.init, S, Id)))).
+      (Id = 0 -> IdsOut = IdsIn ; IdsOut = set(IdsIn, GId, set(map.init, S, Id))))).
 
 write_sentence_list(List, GId, Fd, IdsList, IdsIn, IdsOut) :-
   IdsList-IdsOut = foldl((
     func(S, IdsListIn-IdsIn1) = IdsListOut-IdsOut1 :-
       write_sentence(S, GId, Fd, Id, IdsIn1, IdsOut1),
-      IdsListOut = append(IdsListIn, [Id])),
+      (Id = 0 -> IdsListOut = IdsListIn ; IdsListOut = append(IdsListIn, [Id]))),
     List, []-IdsIn).
 
 write_sentence_set(Set, GId, Fd, IdsList, IdsIn, IdsOut) :-
