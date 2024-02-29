@@ -8,7 +8,7 @@
 
 :- type f_constraint
    ---> '='(float)
-   ;    '+'(variable(float), variable(float))
+   ;    '+'(variable(float), float)
    ;    '-'(variable(float), variable(float)).
 
 :- type i_constraint
@@ -57,6 +57,30 @@ unify(V, f('='(Val)), CS, CSOut, Descs) :-
     (verbose ->
       Descs = insert(Descs1, format("(var %i) = %f", [i(V), f(Val)]))
     ; 
+      Descs = set.init)).
+unify(V, f(var(X) + Y), CS, CSOut, Descs) :-
+  (search(CS, X, f('='(XVal))) ->
+    Evaluated = yes(XVal + Y)
+  ;
+    Evaluated = no),
+
+  (search(CS, V, C) ->
+    C = f('='(BoundVal)),
+    Evaluated = yes(Val),
+    Val = BoundVal,
+    CSOut = CS,
+    Descs = set.init
+  ;
+    % Add the binding.
+    (Evaluated = yes(Val) ->
+      CSOut = insert(CS, V, f('='(Val))),
+      % TODO: Call f_new_value.
+      (verbose ->
+        Descs = make_singleton_set(format("(var %i) = %f", [i(V), f(Val)]))
+      ; 
+        Descs = set.init)
+    ;
+      CSOut = insert(CS, V, f(var(X) + Y)),
       Descs = set.init)).
 unify(V, f(var(X) - var(Y)), CS, CSOut, Descs) :-
   (search(CS, X, f('='(XVal))), search(CS, Y, f('='(YVal))) ->
@@ -110,7 +134,15 @@ unify(V, s('='(Val)), CS, CSOut, Descs) :-
 f_new_value(V, Val, CS, CSOut, Descs) :-
   CSOut-Descs = foldl(
     (func(OtherV, C, CSIn-DescsIn) = CS1-Descs1 :-
-      (C = f(var(X) - var(V)), search(CSIn, X, f('='(XVal))) ->
+      (C = f(var(V) + Y1) ->
+        (unify(OtherV, f('='(Val + Y1)), delete(CSIn, OtherV), CS2, Descs2) ->
+          CS1 = CS2,
+          Descs1 = union(DescsIn, Descs2)
+        ;
+          % This shouldn't happen.
+          CS1 = CSIn,
+          Descs1 = DescsIn)
+      ;(C = f(var(X) - var(V)), search(CSIn, X, f('='(XVal))) ->
         % Replace OtherV with evaluated value.
         (unify(OtherV, f('='(XVal - Val)), delete(CSIn, OtherV), CS2, Descs2) ->
           CS1 = CS2,
@@ -131,5 +163,5 @@ f_new_value(V, Val, CS, CSOut, Descs) :-
       ;
         % TODO: Check other expressions.
         CS1 = CSIn,
-        Descs1 = DescsIn))),
+        Descs1 = DescsIn)))),
     CS, CS-set.init).
