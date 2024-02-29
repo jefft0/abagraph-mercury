@@ -11,11 +11,15 @@
    ;    '+'(variable(float), variable(float))
    ;    '-'(variable(float), variable(float)).
 
+:- type i_constraint
+   ---> '='(int).
+
 :- type s_constraint
    ---> '='(string).
 
 :- type constraint
    ---> f(f_constraint)
+   ;    i(i_constraint)
    ;    s(s_constraint).
 
 :- type constraints == map(int, constraint).
@@ -77,6 +81,18 @@ unify(V, f(var(X) - var(Y)), CS, CSOut, Descs) :-
         Descs = set.init)
     ;
       CSOut = insert(CS, V, f(var(X) - var(Y))),
+      Descs = set.init)).
+unify(V, i('='(Val)), CS, CSOut, Descs) :-
+  (search(CS, V, i('='(BoundVal))) ->
+    Val = BoundVal,
+    CSOut = CS,
+    Descs = set.init
+  ;
+    % Add the binding.
+    CSOut = insert(CS, V, i('='(Val))),
+    (verbose ->
+      Descs = make_singleton_set(format("(var %i) = %i", [i(V), i(Val)]))
+    ; 
       Descs = set.init)).
 unify(V, s('='(Val)), CS, CSOut, Descs) :-
   (search(CS, V, s('='(BoundVal))) ->
