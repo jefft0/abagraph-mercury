@@ -816,7 +816,9 @@ select3_([Head2|Tail], Head, X, [Head|Rest]) :-
 
 constraint(S) :- (S = f(_) ; S = i(_) ; S = s(_)).
 
-unify(f(var(V) = C), CS, CSOut, Descs) :- unify(V, f(C), CS, CSOut, Descs).
 unify(f(var(V) := Val), CS, CSOut, Descs) :- unify(V, f('='(Val)), CS, CSOut, Descs).
+unify(f(var(V) = C), CS, CSOut, Descs) :- unify(V, f(C), CS, CSOut, Descs).
 unify(i(var(V) := Val), CS, CSOut, Descs) :- unify(V, i('='(Val)), CS, CSOut, Descs).
+unify(i(var(V) =< Val), CS, CSOut, Descs) :- unify(V, i('=<'(Val)), CS, CSOut, Descs).
+unify(i(var(V) = C), CS, CSOut, Descs) :- unify(V, i(C), CS, CSOut, Descs).
 unify(s(var(V) := Val), CS, CSOut, Descs) :- unify(V, s('='(Val)), CS, CSOut, Descs).
