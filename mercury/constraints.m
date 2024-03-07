@@ -160,7 +160,7 @@ unify(V, i('=<'(Val)), CS, CSOut, Descs) :-
 %      Descs = make_singleton_set(format("(var %i) <= %i", [i(V), i(Val)]))
 %    ; 
 %      Descs = set.init)).
-  CSOut = CS, Descs = make_singleton_set(format("(var %i) = %i", [i(V), i(Val)])).
+  CSOut = CS, Descs = make_singleton_set(format("(var %i) <= %i", [i(V), i(Val)])).
 unify(V, s('='(Val)), CS, CSOut, Descs) :-
   (search(CS, V, s('='(BoundVal))) ->
     Val = BoundVal,
