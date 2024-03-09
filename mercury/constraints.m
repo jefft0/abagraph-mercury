@@ -68,8 +68,8 @@ f_unify(V, ':='(Val), FCs, FCsOut, Descs) :-
     Descs = set.init
   ;
     % Add the binding.
-    FCsOut1 = insert(FCs, V, ':='(Val)),
-    f_new_value(V, Val, FCsOut1, FCsOut, Descs1),
+    FCs1 = insert(FCs, V, ':='(Val)),
+    f_new_value(V, Val, FCs1, FCsOut, Descs1),
     (verbose ->
       Descs = insert(Descs1, format("(var %i) = %f", [i(V), f(Val)]))
     ; 
@@ -129,8 +129,8 @@ i_unify(V, ':='(Val), ICs, ICsOut, Descs) :-
     Descs = set.init
   ;
     % Add the binding.
-    ICsOut1 = insert(ICs, V, ':='(Val)),
-    i_new_value(V, Val, ICsOut1, ICsOut, Descs1),
+    ICs1 = insert(ICs, V, ':='(Val)),
+    i_new_value(V, Val, ICs1, ICsOut, Descs1),
     (verbose ->
       Descs = insert(Descs1, format("(var %i) = %i", [i(V), i(Val)]))
     ; 
@@ -186,15 +186,15 @@ s_unify(V, ':='(Val), SCs, SCsOut, Descs) :-
     ; 
       Descs = set.init)).
 
-f_new_value(V, Val, CMap, CMapOut, Descs) :-
-  CMapOut-Descs = foldl(
-    (func(OtherV, C, CMapIn-DescsIn) = CMap1-Descs1 :-
+f_new_value(V, Val, FCs, FCsOut, Descs) :-
+  FCsOut-Descs = foldl(
+    (func(OtherV, C, FCsIn-DescsIn) = FCs1-Descs1 :-
       % Try to get the value of OtherV.
       (C = var(V) + Y1 ->
         OtherVal = yes(Val + Y1)
-      ;(C = var(X) - var(V), search(CMapIn, X, ':='(XVal)) ->
+      ;(C = var(X) - var(V), search(FCsIn, X, ':='(XVal)) ->
         OtherVal = yes(XVal - Val)
-      ;(C = var(V) - var(Y), search(CMapIn, Y, ':='(YVal)) ->
+      ;(C = var(V) - var(Y), search(FCsIn, Y, ':='(YVal)) ->
         OtherVal = yes(Val - YVal)
       ;
         % TODO: Check other expressions.
@@ -202,21 +202,21 @@ f_new_value(V, Val, CMap, CMapOut, Descs) :-
 
       (OtherVal = yes(F) ->
         % Replace OtherV with evaluated value.
-        (f_unify(OtherV, ':='(F), delete(CMapIn, OtherV), CMap2, Descs2) ->
-          CMap1 = CMap2,
+        (f_unify(OtherV, ':='(F), delete(FCsIn, OtherV), FCs2, Descs2) ->
+          FCs1 = FCs2,
           Descs1 = union(DescsIn, Descs2)
         ;
           % This shouldn't happen.
-          CMap1 = CMapIn,
+          FCs1 = FCsIn,
           Descs1 = DescsIn)
       ;
-        CMap1 = CMapIn,
+        FCs1 = FCsIn,
         Descs1 = DescsIn)),
-    CMap, CMap-set.init).
+    FCs, FCs-set.init).
 
-i_new_value(V, Val, CMap, CMapOut, Descs) :-
-  CMapOut-Descs = foldl(
-    (func(OtherV, C, CMapIn-DescsIn) = CMap1-Descs1 :-
+i_new_value(V, Val, ICs, ICsOut, Descs) :-
+  ICsOut-Descs = foldl(
+    (func(OtherV, C, ICsIn-DescsIn) = ICs1-Descs1 :-
       % Try to get the value of OtherV.
       (C = var(V) + Y1 ->
         OtherVal = yes(Val + Y1)
@@ -226,14 +226,14 @@ i_new_value(V, Val, CMap, CMapOut, Descs) :-
 
       (OtherVal = yes(I) ->
         % Replace OtherV with evaluated value.
-        (i_unify(OtherV, ':='(I), delete(CMapIn, OtherV), CMap2, Descs2) ->
-          CMap1 = CMap2,
+        (i_unify(OtherV, ':='(I), delete(ICsIn, OtherV), ICs2, Descs2) ->
+          ICs1 = ICs2,
           Descs1 = union(DescsIn, Descs2)
         ;
           % This shouldn't happen.
-          CMap1 = CMapIn,
+          ICs1 = ICsIn,
           Descs1 = DescsIn)
       ;
-        CMap1 = CMapIn,
+        ICs1 = ICsIn,
         Descs1 = DescsIn)),
-    CMap, CMap-set.init).
+    ICs, ICs-set.init).
