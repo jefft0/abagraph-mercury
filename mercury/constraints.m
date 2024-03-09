@@ -48,141 +48,141 @@
 
 init = map.init.
 
-unify(V, f(':='(Val)), CS, CSOut, Descs) :-
-  (search(CS, V, C) ->
+unify(V, f(':='(Val)), CMap, CMapOut, Descs) :-
+  (search(CMap, V, C) ->
     C = f(':='(BoundVal)),
     Val = BoundVal,
-    CSOut = CS,
+    CMapOut = CMap,
     Descs = set.init
   ;
     % Add the binding.
-    CSOut1 = insert(CS, V, f(':='(Val))),
-    f_new_value(V, Val, CSOut1, CSOut, Descs1),
+    CMapOut1 = insert(CMap, V, f(':='(Val))),
+    f_new_value(V, Val, CMapOut1, CMapOut, Descs1),
     (verbose ->
       Descs = insert(Descs1, format("(var %i) = %f", [i(V), f(Val)]))
     ; 
       Descs = set.init)).
-unify(V, f(var(X) + Y), CS, CSOut, Descs) :-
-  (search(CS, X, f(':='(XVal))) ->
+unify(V, f(var(X) + Y), CMap, CMapOut, Descs) :-
+  (search(CMap, X, f(':='(XVal))) ->
     Evaluated = yes(XVal + Y)
   ;
     Evaluated = no),
 
-  (search(CS, V, C) ->
+  (search(CMap, V, C) ->
     C = f(':='(BoundVal)),
     Evaluated = yes(Val),
     Val = BoundVal,
-    CSOut = CS,
+    CMapOut = CMap,
     Descs = set.init
   ;
     % Add the binding.
     (Evaluated = yes(Val) ->
-      CSOut = insert(CS, V, f(':='(Val))),
+      CMapOut = insert(CMap, V, f(':='(Val))),
       % TODO: Call f_new_value.
       (verbose ->
         Descs = make_singleton_set(format("(var %i) = %f", [i(V), f(Val)]))
       ; 
         Descs = set.init)
     ;
-      CSOut = insert(CS, V, f(var(X) + Y)),
+      CMapOut = insert(CMap, V, f(var(X) + Y)),
       Descs = set.init)).
-unify(V, f(var(X) - var(Y)), CS, CSOut, Descs) :-
-  (search(CS, X, f(':='(XVal))), search(CS, Y, f(':='(YVal))) ->
+unify(V, f(var(X) - var(Y)), CMap, CMapOut, Descs) :-
+  (search(CMap, X, f(':='(XVal))), search(CMap, Y, f(':='(YVal))) ->
     Evaluated = yes(XVal - YVal)
   ;
     Evaluated = no),
 
-  (search(CS, V, C) ->
+  (search(CMap, V, C) ->
     C = f(':='(BoundVal)),
     Evaluated = yes(Val),
     Val = BoundVal,
-    CSOut = CS,
+    CMapOut = CMap,
     Descs = set.init
   ;
     % Add the binding.
     (Evaluated = yes(Val) ->
-      CSOut = insert(CS, V, f(':='(Val))),
+      CMapOut = insert(CMap, V, f(':='(Val))),
       % TODO: Call f_new_value.
       (verbose ->
         Descs = make_singleton_set(format("(var %i) = %f", [i(V), f(Val)]))
       ; 
         Descs = set.init)
     ;
-      CSOut = insert(CS, V, f(var(X) - var(Y))),
+      CMapOut = insert(CMap, V, f(var(X) - var(Y))),
       Descs = set.init)).
-unify(V, i(':='(Val)), CS, CSOut, Descs) :-
-  (search(CS, V, i(':='(BoundVal))) ->
+unify(V, i(':='(Val)), CMap, CMapOut, Descs) :-
+  (search(CMap, V, i(':='(BoundVal))) ->
     Val = BoundVal,
-    CSOut = CS,
+    CMapOut = CMap,
     Descs = set.init
   ;
     % Add the binding.
-    CSOut1 = insert(CS, V, i(':='(Val))),
-    i_new_value(V, Val, CSOut1, CSOut, Descs1),
+    CMapOut1 = insert(CMap, V, i(':='(Val))),
+    i_new_value(V, Val, CMapOut1, CMapOut, Descs1),
     (verbose ->
       Descs = insert(Descs1, format("(var %i) = %i", [i(V), i(Val)]))
     ; 
       Descs = set.init)).
-unify(V, i(var(X) + Y), CS, CSOut, Descs) :-
-  (search(CS, X, i(':='(XVal))) ->
+unify(V, i(var(X) + Y), CMap, CMapOut, Descs) :-
+  (search(CMap, X, i(':='(XVal))) ->
     Evaluated = yes(XVal + Y)
   ;
     Evaluated = no),
 
-  (search(CS, V, C) ->
+  (search(CMap, V, C) ->
     C = i(':='(BoundVal)),
     Evaluated = yes(Val),
     Val = BoundVal,
-    CSOut = CS,
+    CMapOut = CMap,
     Descs = set.init
   ;
     % Add the binding.
     (Evaluated = yes(Val) ->
-      CSOut = insert(CS, V, i(':='(Val))),
+      CMapOut = insert(CMap, V, i(':='(Val))),
       % TODO: Call i_new_value.
       (verbose ->
         Descs = make_singleton_set(format("(var %i) = %i", [i(V), i(Val)]))
       ; 
         Descs = set.init)
     ;
-      CSOut = insert(CS, V, i(var(X) + Y)),
+      CMapOut = insert(CMap, V, i(var(X) + Y)),
       Descs = set.init)).
-unify(V, i('=<'(Val)), CS, CSOut, Descs) :-
-%  (search(CS, V, i(':='(BoundVal))) ->
+unify(V, i('=<'(Val)), CMap, CMapOut, Descs) :-
+%  (search(CMap, V, i(':='(BoundVal))) ->
 %    BoundVal =< Val,
-%    CSOut = CS,
+%    CMapOut = CMap,
 %    Descs = set.init
 %  ;
 %    % TODO: Check for another constraint.
 %    % Add the binding.
-%    CSOut = insert(CS, V, i('=<'(Val))),
+%    CMapOut = insert(CMap, V, i('=<'(Val))),
 %    (verbose ->
 %      Descs = make_singleton_set(format("(var %i) <= %i", [i(V), i(Val)]))
 %    ; 
 %      Descs = set.init)).
-  CSOut = CS, Descs = make_singleton_set(format("(var %i) <= %i", [i(V), i(Val)])).
-unify(V, s(':='(Val)), CS, CSOut, Descs) :-
-  (search(CS, V, s(':='(BoundVal))) ->
+  CMapOut = CMap, Descs = make_singleton_set(format("(var %i) <= %i", [i(V), i(Val)])).
+unify(V, s(':='(Val)), CMap, CMapOut, Descs) :-
+  (search(CMap, V, s(':='(BoundVal))) ->
     Val = BoundVal,
-    CSOut = CS,
+    CMapOut = CMap,
     Descs = set.init
   ;
     % Add the binding.
-    CSOut = insert(CS, V, s(':='(Val))),
+    CMapOut = insert(CMap, V, s(':='(Val))),
     (verbose ->
       Descs = make_singleton_set(format("(var %i) = %s", [i(V), s(Val)]))
     ; 
       Descs = set.init)).
 
-f_new_value(V, Val, CS, CSOut, Descs) :-
-  CSOut-Descs = foldl(
-    (func(OtherV, C, CSIn-DescsIn) = CS1-Descs1 :-
+f_new_value(V, Val, CMap, CMapOut, Descs) :-
+  CMapOut-Descs = foldl(
+    (func(OtherV, C, CMapIn-DescsIn) = CMap1-Descs1 :-
       % Try to get the value of OtherV.
       (C = f(var(V) + Y1) ->
         OtherVal = yes(Val + Y1)
-      ;(C = f(var(X) - var(V)), search(CSIn, X, f(':='(XVal))) ->
+      ;(C = f(var(X) - var(V)), search(CMapIn, X, f(':='(XVal))) ->
         OtherVal = yes(XVal - Val)
-      ;(C = f(var(V) - var(Y)), search(CSIn, Y, f(':='(YVal))) ->
+      ;(C = f(var(V) - var(Y)), search(CMapIn, Y, f(':='(YVal))) ->
         OtherVal = yes(Val - YVal)
       ;
         % TODO: Check other expressions.
@@ -190,21 +190,21 @@ f_new_value(V, Val, CS, CSOut, Descs) :-
 
       (OtherVal = yes(F) ->
         % Replace OtherV with evaluated value.
-        (unify(OtherV, f(':='(F)), delete(CSIn, OtherV), CS2, Descs2) ->
-          CS1 = CS2,
+        (unify(OtherV, f(':='(F)), delete(CMapIn, OtherV), CMap2, Descs2) ->
+          CMap1 = CMap2,
           Descs1 = union(DescsIn, Descs2)
         ;
           % This shouldn't happen.
-          CS1 = CSIn,
+          CMap1 = CMapIn,
           Descs1 = DescsIn)
       ;
-        CS1 = CSIn,
+        CMap1 = CMapIn,
         Descs1 = DescsIn)),
-    CS, CS-set.init).
+    CMap, CMap-set.init).
 
-i_new_value(V, Val, CS, CSOut, Descs) :-
-  CSOut-Descs = foldl(
-    (func(OtherV, C, CSIn-DescsIn) = CS1-Descs1 :-
+i_new_value(V, Val, CMap, CMapOut, Descs) :-
+  CMapOut-Descs = foldl(
+    (func(OtherV, C, CMapIn-DescsIn) = CMap1-Descs1 :-
       % Try to get the value of OtherV.
       (C = i(var(V) + Y1) ->
         OtherVal = yes(Val + Y1)
@@ -214,14 +214,14 @@ i_new_value(V, Val, CS, CSOut, Descs) :-
 
       (OtherVal = yes(I) ->
         % Replace OtherV with evaluated value.
-        (unify(OtherV, i(':='(I)), delete(CSIn, OtherV), CS2, Descs2) ->
-          CS1 = CS2,
+        (unify(OtherV, i(':='(I)), delete(CMapIn, OtherV), CMap2, Descs2) ->
+          CMap1 = CMap2,
           Descs1 = union(DescsIn, Descs2)
         ;
           % This shouldn't happen.
-          CS1 = CSIn,
+          CMap1 = CMapIn,
           Descs1 = DescsIn)
       ;
-        CS1 = CSIn,
+        CMap1 = CMapIn,
         Descs1 = DescsIn)),
-    CS, CS-set.init).
+    CMap, CMap-set.init).
