@@ -793,7 +793,7 @@ count_nonD_nonJsP([S|Rest], D, P_Graph, N, NB) :-
 
 %
 
-% First the first member in L where Pred(X) and set Lminus to L without it.
+% Find the first member in L where Pred(X) and set Lminus to L without it.
 % Fail if can't find any Pred(X).
 find_first(Pred, L, First, Lminus) :-
   % The accumulator state is MaybeFirst-LWithoutFirst
