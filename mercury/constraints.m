@@ -73,8 +73,8 @@ f_unify(V, ':='(Val), Cs, CsOut, Descs) :-
     CsOut = Cs,
     Descs = set.init
   ;
-    % Add the binding.
-    Cs1 = insert(Cs, V, ':='(Val)),
+    % Set the binding as the only constraint.
+    Cs1 = set(Cs, V, ':='(Val)),
     f_new_value(V, Val, Cs1, CsOut, Descs1),
     (verbose ->
       Descs = insert(Descs1, format("(var %i) = %f", [i(V), f(Val)]))
@@ -95,7 +95,8 @@ f_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
   ;
     % Add the binding.
     (Evaluated = yes(Val) ->
-      CsOut = insert(Cs, V, ':='(Val)),
+      % Set the binding as the only constraint.
+      CsOut = set(Cs, V, ':='(Val)),
       % TODO: Call f_new_value.
       (verbose ->
         Descs = make_singleton_set(format("(var %i) = %f", [i(V), f(Val)]))
@@ -119,7 +120,8 @@ f_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
   ;
     % Add the binding.
     (Evaluated = yes(Val) ->
-      CsOut = insert(Cs, V, ':='(Val)),
+      % Set the binding as the only constraint.
+      CsOut = set(Cs, V, ':='(Val)),
       % TODO: Call f_new_value.
       (verbose ->
         Descs = make_singleton_set(format("(var %i) = %f", [i(V), f(Val)]))
@@ -149,8 +151,8 @@ i_unify(V, ':='(Val), Cs, CsOut, Descs) :-
     CsOut = Cs,
     Descs = set.init
   ;
-    % Add the binding.
-    Cs1 = insert(Cs, V, ':='(Val)),
+    % Set the binding as the only constraint.
+    Cs1 = set(Cs, V, ':='(Val)),
     i_new_value(V, Val, Cs1, CsOut, Descs1),
     (verbose ->
       Descs = insert(Descs1, format("(var %i) = %i", [i(V), i(Val)]))
@@ -171,7 +173,8 @@ i_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
   ;
     % Add the binding.
     (Evaluated = yes(Val) ->
-      CsOut = insert(Cs, V, ':='(Val)),
+      % Set the binding as the only constraint.
+      CsOut = set(Cs, V, ':='(Val)),
       % TODO: Call i_new_value.
       (verbose ->
         Descs = make_singleton_set(format("(var %i) = %i", [i(V), i(Val)]))
@@ -195,7 +198,8 @@ i_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
   ;
     % Add the binding.
     (Evaluated = yes(Val) ->
-      CsOut = insert(Cs, V, ':='(Val)),
+      % Set the binding as the only constraint.
+      CsOut = set(Cs, V, ':='(Val)),
       % TODO: Call f_new_value.
       (verbose ->
         Descs = make_singleton_set(format("(var %i) = %i", [i(V), i(Val)]))
@@ -224,8 +228,8 @@ s_unify(V, ':='(Val), Cs, CsOut, Descs) :-
     CsOut = Cs,
     Descs = set.init
   ;
-    % Add the binding.
-    CsOut = insert(Cs, V, ':='(Val)),
+    % Set the binding as the only constraint.
+    CsOut = set(Cs, V, ':='(Val)),
     (verbose ->
       Descs = make_singleton_set(format("(var %i) = %s", [i(V), s(Val)]))
     ; 
