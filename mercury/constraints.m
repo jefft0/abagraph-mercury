@@ -66,209 +66,226 @@ unify(V, f(FC), constraints(FCs, ICs, SCs), constraints(FCsOut, ICs, SCs), Descs
 unify(V, i(IC), constraints(FCs, ICs, SCs), constraints(FCs, ICsOut, SCs), Descs) :- i_unify(V, IC, ICs, ICsOut, Descs).
 unify(V, s(SC), constraints(FCs, ICs, SCs), constraints(FCs, ICs, SCsOut), Descs) :- s_unify(V, SC, SCs, SCsOut, Descs).
 
-f_unify(V, ':='(Val), FCs, FCsOut, Descs) :-
-  (search(FCs, V, C) ->
+f_unify(V, ':='(Val), Cs, CsOut, Descs) :-
+  (search(Cs, V, C) ->
     C = ':='(BoundVal),
     Val = BoundVal,
-    FCsOut = FCs,
+    CsOut = Cs,
     Descs = set.init
   ;
     % Add the binding.
-    FCs1 = insert(FCs, V, ':='(Val)),
-    f_new_value(V, Val, FCs1, FCsOut, Descs1),
+    Cs1 = insert(Cs, V, ':='(Val)),
+    f_new_value(V, Val, Cs1, CsOut, Descs1),
     (verbose ->
       Descs = insert(Descs1, format("(var %i) = %f", [i(V), f(Val)]))
     ; 
       Descs = set.init)).
-f_unify(V, var(X) + Y, FCs, FCsOut, Descs) :-
-  (search(FCs, X, ':='(XVal)) ->
+f_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
+  (search(Cs, X, ':='(XVal)) ->
     Evaluated = yes(XVal + Y)
   ;
     Evaluated = no),
 
-  (search(FCs, V, C) ->
+  (search(Cs, V, C) ->
     C = ':='(BoundVal),
     Evaluated = yes(Val),
     Val = BoundVal,
-    FCsOut = FCs,
+    CsOut = Cs,
     Descs = set.init
   ;
     % Add the binding.
     (Evaluated = yes(Val) ->
-      FCsOut = insert(FCs, V, ':='(Val)),
+      CsOut = insert(Cs, V, ':='(Val)),
       % TODO: Call f_new_value.
       (verbose ->
         Descs = make_singleton_set(format("(var %i) = %f", [i(V), f(Val)]))
       ; 
         Descs = set.init)
     ;
-      FCsOut = insert(FCs, V, var(X) + Y),
+      CsOut = insert(Cs, V, var(X) + Y),
       Descs = set.init)).
-f_unify(V, var(X) -- var(Y), FCs, FCsOut, Descs) :-
-  (search(FCs, X, ':='(XVal)), search(FCs, Y, ':='(YVal)) ->
+f_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
+  (search(Cs, X, ':='(XVal)), search(Cs, Y, ':='(YVal)) ->
     Evaluated = yes(XVal - YVal)
   ;
     Evaluated = no),
 
-  (search(FCs, V, C) ->
+  (search(Cs, V, C) ->
     C = ':='(BoundVal),
     Evaluated = yes(Val),
     Val = BoundVal,
-    FCsOut = FCs,
+    CsOut = Cs,
     Descs = set.init
   ;
     % Add the binding.
     (Evaluated = yes(Val) ->
-      FCsOut = insert(FCs, V, ':='(Val)),
+      CsOut = insert(Cs, V, ':='(Val)),
       % TODO: Call f_new_value.
       (verbose ->
         Descs = make_singleton_set(format("(var %i) = %f", [i(V), f(Val)]))
       ; 
         Descs = set.init)
     ;
-      FCsOut = insert(FCs, V, var(X) -- var(Y)),
+      CsOut = insert(Cs, V, var(X) -- var(Y)),
       Descs = set.init)).
-f_unify(V, '=<'(Val), ICs, ICsOut, Descs) :-
-  ICsOut = ICs, Descs = make_singleton_set(format("(var %i) <= %f", [i(V), f(Val)])).
-i_unify(V, ':='(Val), ICs, ICsOut, Descs) :-
-  (search(ICs, V, ':='(BoundVal)) ->
+f_unify(V, '=<'(Val), Cs, CsOut, Descs) :-
+%  (search(Cs, V, ':='(BoundVal)) ->
+%    BoundVal =< Val,
+%    CsOut = Cs,
+%    Descs = set.init
+%  ;
+%    % TODO: Check for another constraint.
+%    % Add the binding.
+%    CsOut = insert(Cs, V, '=<'(Val)),
+%    (verbose ->
+%      Descs = make_singleton_set(format("(var %i) <= %i", [i(V), i(Val)]))
+%    ; 
+%      Descs = set.init)).
+  CsOut = Cs, Descs = make_singleton_set(format("(var %i) <= %f", [i(V), f(Val)])).
+i_unify(V, ':='(Val), Cs, CsOut, Descs) :-
+  (search(Cs, V, C) ->
+    C = ':='(BoundVal),
     Val = BoundVal,
-    ICsOut = ICs,
+    CsOut = Cs,
     Descs = set.init
   ;
     % Add the binding.
-    ICs1 = insert(ICs, V, ':='(Val)),
-    i_new_value(V, Val, ICs1, ICsOut, Descs1),
+    Cs1 = insert(Cs, V, ':='(Val)),
+    i_new_value(V, Val, Cs1, CsOut, Descs1),
     (verbose ->
       Descs = insert(Descs1, format("(var %i) = %i", [i(V), i(Val)]))
     ; 
       Descs = set.init)).
-i_unify(V, var(X) + Y, ICs, ICsOut, Descs) :-
-  (search(ICs, X, ':='(XVal)) ->
+i_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
+  (search(Cs, X, ':='(XVal)) ->
     Evaluated = yes(XVal + Y)
   ;
     Evaluated = no),
 
-  (search(ICs, V, C) ->
+  (search(Cs, V, C) ->
     C = ':='(BoundVal),
     Evaluated = yes(Val),
     Val = BoundVal,
-    ICsOut = ICs,
+    CsOut = Cs,
     Descs = set.init
   ;
     % Add the binding.
     (Evaluated = yes(Val) ->
-      ICsOut = insert(ICs, V, ':='(Val)),
+      CsOut = insert(Cs, V, ':='(Val)),
       % TODO: Call i_new_value.
       (verbose ->
         Descs = make_singleton_set(format("(var %i) = %i", [i(V), i(Val)]))
       ; 
         Descs = set.init)
     ;
-      ICsOut = insert(ICs, V, var(X) + Y),
+      CsOut = insert(Cs, V, var(X) + Y),
       Descs = set.init)).
-i_unify(V, var(X) -- var(Y), ICs, ICsOut, Descs) :-
-  (search(ICs, X, ':='(XVal)), search(ICs, Y, ':='(YVal)) ->
+i_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
+  (search(Cs, X, ':='(XVal)), search(Cs, Y, ':='(YVal)) ->
     Evaluated = yes(XVal - YVal)
   ;
     Evaluated = no),
 
-  (search(ICs, V, C) ->
+  (search(Cs, V, C) ->
     C = ':='(BoundVal),
     Evaluated = yes(Val),
     Val = BoundVal,
-    ICsOut = ICs,
+    CsOut = Cs,
     Descs = set.init
   ;
     % Add the binding.
     (Evaluated = yes(Val) ->
-      ICsOut = insert(ICs, V, ':='(Val)),
+      CsOut = insert(Cs, V, ':='(Val)),
       % TODO: Call f_new_value.
       (verbose ->
         Descs = make_singleton_set(format("(var %i) = %i", [i(V), i(Val)]))
       ; 
         Descs = set.init)
     ;
-      ICsOut = insert(ICs, V, var(X) -- var(Y)),
+      CsOut = insert(Cs, V, var(X) -- var(Y)),
       Descs = set.init)).
-i_unify(V, '=<'(Val), ICs, ICsOut, Descs) :-
-%  (search(ICs, V, ':='(BoundVal)) ->
+i_unify(V, '=<'(Val), Cs, CsOut, Descs) :-
+%  (search(Cs, V, ':='(BoundVal)) ->
 %    BoundVal =< Val,
-%    ICsOut = ICs,
+%    CsOut = Cs,
 %    Descs = set.init
 %  ;
 %    % TODO: Check for another constraint.
 %    % Add the binding.
-%    ICsOut = insert(ICs, V, '=<'(Val)),
+%    CsOut = insert(Cs, V, '=<'(Val)),
 %    (verbose ->
 %      Descs = make_singleton_set(format("(var %i) <= %i", [i(V), i(Val)]))
 %    ; 
 %      Descs = set.init)).
-  ICsOut = ICs, Descs = make_singleton_set(format("(var %i) <= %i", [i(V), i(Val)])).
-s_unify(V, ':='(Val), SCs, SCsOut, Descs) :-
-  (search(SCs, V, ':='(BoundVal)) ->
+  CsOut = Cs, Descs = make_singleton_set(format("(var %i) <= %i", [i(V), i(Val)])).
+s_unify(V, ':='(Val), Cs, CsOut, Descs) :-
+  (search(Cs, V, ':='(BoundVal)) ->
     Val = BoundVal,
-    SCsOut = SCs,
+    CsOut = Cs,
     Descs = set.init
   ;
     % Add the binding.
-    SCsOut = insert(SCs, V, ':='(Val)),
+    CsOut = insert(Cs, V, ':='(Val)),
     (verbose ->
       Descs = make_singleton_set(format("(var %i) = %s", [i(V), s(Val)]))
     ; 
       Descs = set.init)).
 
-f_new_value(V, Val, FCs, FCsOut, Descs) :-
-  FCsOut-Descs = foldl(
-    (func(OtherV, C, FCsIn-DescsIn) = FCs1-Descs1 :-
+f_new_value(V, Val, Cs, CsOut, Descs) :-
+  CsOut-Descs = foldl(
+    (func(OtherV, OtherC, CsIn-DescsIn) = Cs1-Descs1 :-
       % Try to get the value of OtherV.
-      (C = var(V) + Y1 ->
+      (OtherC = var(V) + Y1 ->
         OtherVal = yes(Val + Y1)
-      ;(C = var(X) -- var(V), search(FCsIn, X, ':='(XVal)) ->
+      ;(OtherC = var(X) -- var(V), search(CsIn, X, ':='(XVal)) ->
         OtherVal = yes(XVal - Val)
-      ;(C = var(V) -- var(Y), search(FCsIn, Y, ':='(YVal)) ->
+      ;(OtherC = var(V) -- var(Y), search(CsIn, Y, ':='(YVal)) ->
         OtherVal = yes(Val - YVal)
       ;
         % TODO: Check other expressions.
         OtherVal = no))),
 
-      (OtherVal = yes(F) ->
+      (OtherVal = yes(NewVal) ->
         % Replace OtherV with evaluated value.
-        (f_unify(OtherV, ':='(F), delete(FCsIn, OtherV), FCs2, Descs2) ->
-          FCs1 = FCs2,
+        (f_unify(OtherV, ':='(NewVal), delete(CsIn, OtherV), Cs2, Descs2) ->
+          Cs1 = Cs2,
           Descs1 = union(DescsIn, Descs2)
         ;
           % This shouldn't happen.
-          FCs1 = FCsIn,
+          Cs1 = CsIn,
           Descs1 = DescsIn)
       ;
-        FCs1 = FCsIn,
+        Cs1 = CsIn,
         Descs1 = DescsIn)),
-    FCs, FCs-set.init).
+    Cs, Cs-set.init).
 
-i_new_value(V, Val, ICs, ICsOut, Descs) :-
-  ICsOut-Descs = foldl(
-    (func(OtherV, C, ICsIn-DescsIn) = ICs1-Descs1 :-
+i_new_value(V, Val, Cs, CsOut, Descs) :-
+  CsOut-Descs = foldl(
+    (func(OtherV, OtherC, CsIn-DescsIn) = Cs1-Descs1 :-
       % Try to get the value of OtherV.
-      (C = var(V) + Y1 ->
+      (OtherC = var(V) + Y1 ->
         OtherVal = yes(Val + Y1)
+      ;(OtherC = var(X) -- var(V), search(CsIn, X, ':='(XVal)) ->
+        OtherVal = yes(XVal - Val)
+      ;(OtherC = var(V) -- var(Y), search(CsIn, Y, ':='(YVal)) ->
+        OtherVal = yes(Val - YVal)
       ;
         % TODO: Check other expressions.
-        OtherVal = no),
+        OtherVal = no))),
 
-      (OtherVal = yes(I) ->
+      (OtherVal = yes(NewVal) ->
         % Replace OtherV with evaluated value.
-        (i_unify(OtherV, ':='(I), delete(ICsIn, OtherV), ICs2, Descs2) ->
-          ICs1 = ICs2,
+        (i_unify(OtherV, ':='(NewVal), delete(CsIn, OtherV), Cs2, Descs2) ->
+          Cs1 = Cs2,
           Descs1 = union(DescsIn, Descs2)
         ;
           % This shouldn't happen.
-          ICs1 = ICsIn,
+          Cs1 = CsIn,
           Descs1 = DescsIn)
       ;
-        ICs1 = ICsIn,
+        Cs1 = CsIn,
         Descs1 = DescsIn)),
-    ICs, ICs-set.init).
+    Cs, Cs-set.init).
 
 f_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %f)", [i(V), f(Val)]).
 f_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %f)", [i(V), i(X1), f(X2)]).
