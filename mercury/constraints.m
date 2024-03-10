@@ -4,16 +4,16 @@
 :- import_module map.
 :- import_module set.
 
-:- type variable(T) ---> var(int).
+:- type var(T) ---> var(int).
 
 :- type f_constraint
    ---> ':='(float)
-   ;    '+'(variable(float), float)
-   ;    '-'(variable(float), variable(float)).
+   ;    '+'(var(float), float)
+   ;    '-'(var(float), var(float)).
 
 :- type i_constraint
    ---> ':='(int)
-   ;    '+'(variable(int), int)
+   ;    '+'(var(int), int)
    ;    '=<'(int).
 
 :- type s_constraint
