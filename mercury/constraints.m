@@ -30,13 +30,13 @@
 % (We don't put the ':=' constraint in cs.)
 :- type f_constraints
    ---> val(float)
-   ;    cs(f_constraint).
+   ;    cs(set(f_constraint)).
 :- type i_constraints
    ---> val(int)
-   ;    cs(i_constraint).
+   ;    cs(set(i_constraint)).
 :- type s_constraints
    ---> val(string)
-   ;    cs(s_constraint).
+   ;    cs(set(s_constraint)).
 
 :- type constraints ---> constraints(map(int, f_constraints), map(int, i_constraints), map(int, s_constraints)).
 
@@ -55,6 +55,7 @@
 
 :- implementation.
 
+:- import_module bool.
 :- import_module float.
 :- import_module int.
 :- import_module list.
@@ -66,6 +67,8 @@
 :- pred f_unify(int::in, f_constraint::in, map(int, f_constraints)::in, map(int, f_constraints)::out, set(string)::out) is semidet.
 :- pred i_unify(int::in, i_constraint::in, map(int, i_constraints)::in, map(int, i_constraints)::out, set(string)::out) is semidet.
 :- pred s_unify(int::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is semidet.
+:- pred f_add_constraint(int::in, f_constraint::in, map(int, f_constraints)::in, map(int, f_constraints)::out, bool::out) is det.
+:- pred i_add_constraint(int::in, i_constraint::in, map(int, i_constraints)::in, map(int, i_constraints)::out, bool::out) is det.
 :- pred f_set_binding(int::in, float::in, map(int, f_constraints)::in, map(int, f_constraints)::out, set(string)::out) is det.
 :- pred i_set_binding(int::in, int::in, map(int, i_constraints)::in, map(int, i_constraints)::out, set(string)::out) is det.
 :- pred s_set_binding(int::in, string::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is det.
@@ -80,50 +83,54 @@ unify(V, i(IC), constraints(FCs, ICs, SCs), constraints(FCs, ICsOut, SCs), Descs
 unify(V, s(SC), constraints(FCs, ICs, SCs), constraints(FCs, ICs, SCsOut), Descs) :- s_unify(V, SC, SCs, SCsOut, Descs).
 
 f_unify(V, ':='(Val), Cs, CsOut, Descs) :-
-  (search(Cs, V, C) ->
-    C = val(BoundVal),
+  (search(Cs, V, val(BoundVal)) ->
     Val = BoundVal,
     CsOut = Cs,
     Descs = set.init
   ;
+    % TODO: Check boolean constraints.
     f_set_binding(V, Val, Cs, CsOut, Descs)).
 f_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
   (search(Cs, X, val(XVal)) ->
-    Evaluated = yes(XVal + Y)
+    % We already know the value. Treat this like assignment.
+    f_unify(V, ':='(XVal + Y), Cs, CsOut, Descs)
   ;
-    Evaluated = no),
+    f_add_constraint(V, var(X) + Y, Cs, CsOut1, AddTransformed),
+    (AddTransformed = yes ->
+      f_unify(X, var(V) + (-Y), CsOut1, CsOut2, Descs1),
 
-  (search(Cs, V, C) ->
-    C = val(BoundVal),
-    Evaluated = yes(Val),
-    Val = BoundVal,
-    CsOut = Cs,
-    Descs = set.init
-  ;
-    % Add the binding.
-    (Evaluated = yes(Val) ->
-      f_set_binding(V, Val, Cs, CsOut, Descs)
+      % Add or tighten boolean constraints.
+      (search(CsOut2, X, cs(XCSet)) ->
+        foldl(
+          (pred(XC::in, CsIn-DescsIn::in, CsOut3-Descs3::out) is semidet :-
+            (XC = '=<'(XVal) ->
+              % We have var(V) = var(X) + Y and also var(X) =< XVal, so add
+              % var(V) =< XVal + Y.
+              f_unify(V, '=<'(XVal + Y), CsIn, CsOut3, Descs2),
+              Descs3 = union(DescsIn, Descs2)
+            ;
+              CsOut3 = CsIn,
+              Descs3 = DescsIn)),
+          XCSet, CsOut2-Descs1, CsOut-Descs)
+      ;
+        CsOut = CsOut2,
+        Descs = Descs1)
     ;
-      CsOut = set(Cs, V, cs(var(X) + Y)),
+      CsOut = CsOut1,
       Descs = set.init)).
 f_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
   (search(Cs, X, val(XVal)), search(Cs, Y, val(YVal)) ->
-    Evaluated = yes(XVal - YVal)
+    % We already know the value. Treat this like assignment.
+    f_unify(V, ':='(XVal - YVal), Cs, CsOut, Descs)
   ;
-    Evaluated = no),
-
-  (search(Cs, V, C) ->
-    C = val(BoundVal),
-    Evaluated = yes(Val),
-    Val = BoundVal,
-    CsOut = Cs,
-    Descs = set.init
-  ;
-    % Add the binding.
-    (Evaluated = yes(Val) ->
-      f_set_binding(V, Val, Cs, CsOut, Descs)
+    f_add_constraint(V, var(X) -- var(Y), Cs, CsOut1, AddTransformed),
+    (AddTransformed = yes ->
+      f_unify(Y, var(X) -- var(V), CsOut1, CsOut2, Descs1),
+      % TODO: f_unify(X, var(V) ++ var(Y), CsOut2, CsOut, Descs2),
+      CsOut = CsOut2, Descs2 = set.init,
+      Descs = union(Descs1, Descs2)
     ;
-      CsOut = set(Cs, V, cs(var(X) -- var(Y))),
+      CsOut = CsOut1,
       Descs = set.init)).
 f_unify(V, '=<'(Val), Cs, CsOut, Descs) :-
 %  (search(Cs, V, ':='(BoundVal)) ->
@@ -138,52 +145,61 @@ f_unify(V, '=<'(Val), Cs, CsOut, Descs) :-
 %      Descs = make_singleton_set(format("(var %i) <= %i", [i(V), i(Val)]))
 %    ; 
 %      Descs = set.init)).
-  CsOut = Cs, Descs = make_singleton_set(format("(var %i) <= %f", [i(V), f(Val)])).
+  (search(Cs, V, cs(CSet)) ->  % Debug
+    CsOut = set(Cs, V, cs(insert(CSet, '=<'(Val))))
+  ;
+    CsOut = set(Cs, V, cs(make_singleton_set('=<'(Val))))  
+  ),
+  Descs = make_singleton_set(format("(var %i) <= %f", [i(V), f(Val)])).
 i_unify(V, ':='(Val), Cs, CsOut, Descs) :-
-  (search(Cs, V, C) ->
-    C = val(BoundVal),
+  (search(Cs, V, val(BoundVal)) ->
     Val = BoundVal,
     CsOut = Cs,
     Descs = set.init
   ;
+    % TODO: Check boolean constraints.
     i_set_binding(V, Val, Cs, CsOut, Descs)).
 i_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
   (search(Cs, X, val(XVal)) ->
-    Evaluated = yes(XVal + Y)
+    % We already know the value. Treat this like assignment.
+    i_unify(V, ':='(XVal + Y), Cs, CsOut, Descs)
   ;
-    Evaluated = no),
+    i_add_constraint(V, var(X) + Y, Cs, CsOut1, AddTransformed),
+    (AddTransformed = yes ->
+      i_unify(X, var(V) + (-Y), CsOut1, CsOut2, Descs1),
 
-  (search(Cs, V, C) ->
-    C = val(BoundVal),
-    Evaluated = yes(Val),
-    Val = BoundVal,
-    CsOut = Cs,
-    Descs = set.init
-  ;
-    % Add the binding.
-    (Evaluated = yes(Val) ->
-      i_set_binding(V, Val, Cs, CsOut, Descs)
+      % Add or tighten boolean constraints.
+      (search(CsOut2, X, cs(XCSet)) ->
+        foldl(
+          (pred(XC::in, CsIn-DescsIn::in, CsOut3-Descs3::out) is semidet :-
+            (XC = '=<'(XVal) ->
+              % We have var(V) = var(X) + Y and also var(X) =< XVal, so add
+              % var(V) =< XVal + Y.
+              i_unify(V, '=<'(XVal + Y), CsIn, CsOut3, Descs2),
+              Descs3 = union(DescsIn, Descs2)
+            ;
+              CsOut3 = CsIn,
+              Descs3 = DescsIn)),
+          XCSet, CsOut2-Descs1, CsOut-Descs)
+      ;
+        CsOut = CsOut2,
+        Descs = Descs1)
     ;
-      CsOut = set(Cs, V, cs(var(X) + Y)),
+      CsOut = CsOut1,
       Descs = set.init)).
 i_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
   (search(Cs, X, val(XVal)), search(Cs, Y, val(YVal)) ->
-    Evaluated = yes(XVal - YVal)
+    % We already know the value. Treat this like assignment.
+    i_unify(V, ':='(XVal - YVal), Cs, CsOut, Descs)
   ;
-    Evaluated = no),
-
-  (search(Cs, V, C) ->
-    C = val(BoundVal),
-    Evaluated = yes(Val),
-    Val = BoundVal,
-    CsOut = Cs,
-    Descs = set.init
-  ;
-    % Add the binding.
-    (Evaluated = yes(Val) ->
-      i_set_binding(V, Val, Cs, CsOut, Descs)
+    i_add_constraint(V, var(X) -- var(Y), Cs, CsOut1, AddTransformed),
+    (AddTransformed = yes ->
+      i_unify(Y, var(X) -- var(V), CsOut1, CsOut2, Descs1),
+      % TODO: i_unify(X, var(V) ++ var(Y), CsOut2, CsOut, Descs2),
+      CsOut = CsOut2, Descs2 = set.init,
+      Descs = union(Descs1, Descs2)
     ;
-      CsOut = set(Cs, V, cs(var(X) -- var(Y))),
+      CsOut = CsOut1,
       Descs = set.init)).
 i_unify(V, '=<'(Val), Cs, CsOut, Descs) :-
 %  (search(Cs, V, ':='(BoundVal)) ->
@@ -198,7 +214,12 @@ i_unify(V, '=<'(Val), Cs, CsOut, Descs) :-
 %      Descs = make_singleton_set(format("(var %i) <= %i", [i(V), i(Val)]))
 %    ; 
 %      Descs = set.init)).
-  CsOut = Cs, Descs = make_singleton_set(format("(var %i) <= %i", [i(V), i(Val)])).
+  (search(Cs, V, cs(CSet)) ->  % Debug
+    CsOut = set(Cs, V, cs(insert(CSet, '=<'(Val))))
+  ;
+    CsOut = set(Cs, V, cs(make_singleton_set('=<'(Val))))  
+  ),
+  Descs = make_singleton_set(format("(var %i) <= %i", [i(V), i(Val)])).
 s_unify(V, ':='(Val), Cs, CsOut, Descs) :-
   (search(Cs, V, val(BoundVal)) ->
     Val = BoundVal,
@@ -206,6 +227,48 @@ s_unify(V, ':='(Val), Cs, CsOut, Descs) :-
     Descs = set.init
   ;
     s_set_binding(V, Val, Cs, CsOut, Descs)).
+
+% If the constraints for V already has C, then set AddTransformed no and do nothing.
+% If the constraints for V already has a val, then set AddTransformed yes and do nothing.
+% Otherwise, set AddTransformed yes and add C to the constraints for V.
+% If AddTransformed is yes, then you should add the transformed constraint(s) to the other variable(s).
+f_add_constraint(V, C, Cs, CsOut, AddTransformed) :-
+  (search(Cs, V, ValOrCSet) ->
+    (ValOrCSet = cs(CSet1) ->
+      (member(C, CSet1) ->
+        % We already added the constraint. Do nothing. This also prevents loops.
+        CsOut = Cs,
+        AddTransformed = no
+      ;
+        CsOut = set(Cs, V, cs(insert(CSet1, C))),
+        AddTransformed = yes)
+    ;
+      % This is already var(X).
+      CsOut = Cs,
+      AddTransformed = yes)
+  ;
+    % New variable.
+    CsOut = set(Cs, V, cs(make_singleton_set(C))),
+    AddTransformed = yes).
+
+i_add_constraint(V, C, Cs, CsOut, AddTransformed) :-
+  (search(Cs, V, ValOrCSet) ->
+    (ValOrCSet = cs(CSet1) ->
+      (member(C, CSet1) ->
+        % We already added the constraint. Do nothing. This also prevents loops.
+        CsOut = Cs,
+        AddTransformed = no
+      ;
+        CsOut = set(Cs, V, cs(insert(CSet1, C))),
+        AddTransformed = yes)
+    ;
+      % This is already var(X).
+      CsOut = Cs,
+      AddTransformed = yes)
+  ;
+    % New variable.
+    CsOut = set(Cs, V, cs(make_singleton_set(C))),
+    AddTransformed = yes).
 
 f_set_binding(V, Val, Cs, CsOut, Descs) :-
   % Set the binding as the only constraint.
@@ -236,16 +299,24 @@ s_set_binding(V, Val, Cs, CsOut, Descs) :-
 f_new_value(V, Val, Cs, CsOut, Descs) :-
   CsOut-Descs = foldl(
     (func(OtherV, CsIn-DescsIn) = Cs1-Descs1 :-
-      % Try to get the value of OtherV.
-      (search(CsIn, OtherV, cs(OtherC)) ->
-        (OtherC = var(V) + Y1 ->
-          OtherVal = yes(Val + Y1)
-        ;(OtherC = var(X) -- var(V), search(CsIn, X, val(XVal)) ->
-          OtherVal = yes(XVal - Val)
-        ;(OtherC = var(V) -- var(Y), search(CsIn, Y, val(YVal)) ->
-          OtherVal = yes(Val - YVal)
-        ;
-          OtherVal = no)))
+      (search(CsIn, OtherV, cs(CSet)) ->
+        % Try to set OtherVal to the value of OtherV by evaluating a constraint in CSet.
+        OtherVal = foldl(
+          (func(OtherC, OtherValIn) = OtherValOut :-
+            (OtherValIn = yes(_) ->
+              % Already got a result.
+              OtherValOut = OtherValIn
+            ;
+              % TODO: If we set OtherValOut from OtherC, remove it from CSet.
+              (OtherC = var(V) + Y1 ->
+                OtherValOut = yes(Val + Y1)
+              ;(OtherC = var(X) -- var(V), search(CsIn, X, val(XVal)) ->
+                OtherValOut = yes(XVal - Val)
+              ;(OtherC = var(V) -- var(Y), search(CsIn, Y, val(YVal)) ->
+                OtherValOut = yes(Val - YVal)
+              ;
+                OtherValOut = no))))),
+          CSet, no)
       ;
         OtherVal = no),
 
@@ -267,16 +338,24 @@ f_new_value(V, Val, Cs, CsOut, Descs) :-
 i_new_value(V, Val, Cs, CsOut, Descs) :-
   CsOut-Descs = foldl(
     (func(OtherV, CsIn-DescsIn) = Cs1-Descs1 :-
-      % Try to get the value of OtherV.
-      (search(CsIn, OtherV, cs(OtherC)) ->
-        (OtherC = var(V) + Y1 ->
-          OtherVal = yes(Val + Y1)
-        ;(OtherC = var(X) -- var(V), search(CsIn, X, val(XVal)) ->
-          OtherVal = yes(XVal - Val)
-        ;(OtherC = var(V) -- var(Y), search(CsIn, Y, val(YVal)) ->
-          OtherVal = yes(Val - YVal)
-        ;
-          OtherVal = no)))
+      (search(CsIn, OtherV, cs(CSet)) ->
+        % Try to set OtherVal to the value of OtherV by evaluating a constraint in CSet.
+        OtherVal = foldl(
+          (func(OtherC, OtherValIn) = OtherValOut :-
+            (OtherValIn = yes(_) ->
+              % Already got a result.
+              OtherValOut = OtherValIn
+            ;
+              % TODO: If we set OtherValOut from OtherC, remove it from CSet.
+              (OtherC = var(V) + Y1 ->
+                OtherValOut = yes(Val + Y1)
+              ;(OtherC = var(X) -- var(V), search(CsIn, X, val(XVal)) ->
+                OtherValOut = yes(XVal - Val)
+              ;(OtherC = var(V) -- var(Y), search(CsIn, Y, val(YVal)) ->
+                OtherValOut = yes(Val - YVal)
+              ;
+                OtherValOut = no))))),
+          CSet, no)
       ;
         OtherVal = no),
 
