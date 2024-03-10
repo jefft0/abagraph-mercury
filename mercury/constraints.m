@@ -26,11 +26,19 @@
    ;    i(i_constraint)
    ;    s(s_constraint).
 
-:- type f_constraints == map(int, f_constraint).
-:- type i_constraints == map(int, i_constraint).
-:- type s_constraints == map(int, s_constraint).
+% A variable is either the bound value val(X) or constraints cs.
+% (We don't put the ':=' constraint in cs.)
+:- type f_constraints
+   ---> val(float)
+   ;    cs(f_constraint).
+:- type i_constraints
+   ---> val(int)
+   ;    cs(i_constraint).
+:- type s_constraints
+   ---> val(string)
+   ;    cs(s_constraint).
 
-:- type constraints ---> constraints(f_constraints, i_constraints, s_constraints).
+:- type constraints ---> constraints(map(int, f_constraints), map(int, i_constraints), map(int, s_constraints)).
 
 :- func init = constraints.
 
@@ -55,14 +63,14 @@
 :- import_module pair.
 :- import_module string.
 
-:- pred f_unify(int::in, f_constraint::in, f_constraints::in, f_constraints::out, set(string)::out) is semidet.
-:- pred i_unify(int::in, i_constraint::in, i_constraints::in, i_constraints::out, set(string)::out) is semidet.
-:- pred s_unify(int::in, s_constraint::in, s_constraints::in, s_constraints::out, set(string)::out) is semidet.
-:- pred f_set_binding(int::in, float::in, f_constraints::in, f_constraints::out, set(string)::out) is det.
-:- pred i_set_binding(int::in, int::in, i_constraints::in, i_constraints::out, set(string)::out) is det.
-:- pred s_set_binding(int::in, string::in, s_constraints::in, s_constraints::out, set(string)::out) is det.
-:- pred f_new_value(int::in, float::in, f_constraints::in, f_constraints::out, set(string)::out) is det.
-:- pred i_new_value(int::in, int::in, i_constraints::in, i_constraints::out, set(string)::out) is det.
+:- pred f_unify(int::in, f_constraint::in, map(int, f_constraints)::in, map(int, f_constraints)::out, set(string)::out) is semidet.
+:- pred i_unify(int::in, i_constraint::in, map(int, i_constraints)::in, map(int, i_constraints)::out, set(string)::out) is semidet.
+:- pred s_unify(int::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is semidet.
+:- pred f_set_binding(int::in, float::in, map(int, f_constraints)::in, map(int, f_constraints)::out, set(string)::out) is det.
+:- pred i_set_binding(int::in, int::in, map(int, i_constraints)::in, map(int, i_constraints)::out, set(string)::out) is det.
+:- pred s_set_binding(int::in, string::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is det.
+:- pred f_new_value(int::in, float::in, map(int, f_constraints)::in, map(int, f_constraints)::out, set(string)::out) is det.
+:- pred i_new_value(int::in, int::in, map(int, i_constraints)::in, map(int, i_constraints)::out, set(string)::out) is det.
 
 init = constraints(map.init, map.init, map.init).
 
@@ -73,20 +81,20 @@ unify(V, s(SC), constraints(FCs, ICs, SCs), constraints(FCs, ICs, SCsOut), Descs
 
 f_unify(V, ':='(Val), Cs, CsOut, Descs) :-
   (search(Cs, V, C) ->
-    C = ':='(BoundVal),
+    C = val(BoundVal),
     Val = BoundVal,
     CsOut = Cs,
     Descs = set.init
   ;
     f_set_binding(V, Val, Cs, CsOut, Descs)).
 f_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
-  (search(Cs, X, ':='(XVal)) ->
+  (search(Cs, X, val(XVal)) ->
     Evaluated = yes(XVal + Y)
   ;
     Evaluated = no),
 
   (search(Cs, V, C) ->
-    C = ':='(BoundVal),
+    C = val(BoundVal),
     Evaluated = yes(Val),
     Val = BoundVal,
     CsOut = Cs,
@@ -96,16 +104,16 @@ f_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
     (Evaluated = yes(Val) ->
       f_set_binding(V, Val, Cs, CsOut, Descs)
     ;
-      CsOut = insert(Cs, V, var(X) + Y),
+      CsOut = set(Cs, V, cs(var(X) + Y)),
       Descs = set.init)).
 f_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
-  (search(Cs, X, ':='(XVal)), search(Cs, Y, ':='(YVal)) ->
+  (search(Cs, X, val(XVal)), search(Cs, Y, val(YVal)) ->
     Evaluated = yes(XVal - YVal)
   ;
     Evaluated = no),
 
   (search(Cs, V, C) ->
-    C = ':='(BoundVal),
+    C = val(BoundVal),
     Evaluated = yes(Val),
     Val = BoundVal,
     CsOut = Cs,
@@ -115,7 +123,7 @@ f_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
     (Evaluated = yes(Val) ->
       f_set_binding(V, Val, Cs, CsOut, Descs)
     ;
-      CsOut = insert(Cs, V, var(X) -- var(Y)),
+      CsOut = set(Cs, V, cs(var(X) -- var(Y))),
       Descs = set.init)).
 f_unify(V, '=<'(Val), Cs, CsOut, Descs) :-
 %  (search(Cs, V, ':='(BoundVal)) ->
@@ -133,20 +141,20 @@ f_unify(V, '=<'(Val), Cs, CsOut, Descs) :-
   CsOut = Cs, Descs = make_singleton_set(format("(var %i) <= %f", [i(V), f(Val)])).
 i_unify(V, ':='(Val), Cs, CsOut, Descs) :-
   (search(Cs, V, C) ->
-    C = ':='(BoundVal),
+    C = val(BoundVal),
     Val = BoundVal,
     CsOut = Cs,
     Descs = set.init
   ;
     i_set_binding(V, Val, Cs, CsOut, Descs)).
 i_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
-  (search(Cs, X, ':='(XVal)) ->
+  (search(Cs, X, val(XVal)) ->
     Evaluated = yes(XVal + Y)
   ;
     Evaluated = no),
 
   (search(Cs, V, C) ->
-    C = ':='(BoundVal),
+    C = val(BoundVal),
     Evaluated = yes(Val),
     Val = BoundVal,
     CsOut = Cs,
@@ -156,16 +164,16 @@ i_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
     (Evaluated = yes(Val) ->
       i_set_binding(V, Val, Cs, CsOut, Descs)
     ;
-      CsOut = insert(Cs, V, var(X) + Y),
+      CsOut = set(Cs, V, cs(var(X) + Y)),
       Descs = set.init)).
 i_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
-  (search(Cs, X, ':='(XVal)), search(Cs, Y, ':='(YVal)) ->
+  (search(Cs, X, val(XVal)), search(Cs, Y, val(YVal)) ->
     Evaluated = yes(XVal - YVal)
   ;
     Evaluated = no),
 
   (search(Cs, V, C) ->
-    C = ':='(BoundVal),
+    C = val(BoundVal),
     Evaluated = yes(Val),
     Val = BoundVal,
     CsOut = Cs,
@@ -175,7 +183,7 @@ i_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
     (Evaluated = yes(Val) ->
       i_set_binding(V, Val, Cs, CsOut, Descs)
     ;
-      CsOut = insert(Cs, V, var(X) -- var(Y)),
+      CsOut = set(Cs, V, cs(var(X) -- var(Y))),
       Descs = set.init)).
 i_unify(V, '=<'(Val), Cs, CsOut, Descs) :-
 %  (search(Cs, V, ':='(BoundVal)) ->
@@ -192,7 +200,7 @@ i_unify(V, '=<'(Val), Cs, CsOut, Descs) :-
 %      Descs = set.init)).
   CsOut = Cs, Descs = make_singleton_set(format("(var %i) <= %i", [i(V), i(Val)])).
 s_unify(V, ':='(Val), Cs, CsOut, Descs) :-
-  (search(Cs, V, ':='(BoundVal)) ->
+  (search(Cs, V, val(BoundVal)) ->
     Val = BoundVal,
     CsOut = Cs,
     Descs = set.init
@@ -201,7 +209,7 @@ s_unify(V, ':='(Val), Cs, CsOut, Descs) :-
 
 f_set_binding(V, Val, Cs, CsOut, Descs) :-
   % Set the binding as the only constraint.
-  Cs1 = set(Cs, V, ':='(Val)),
+  Cs1 = set(Cs, V, val(Val)),
   f_new_value(V, Val, Cs1, CsOut, Descs1),
   (verbose ->
     Descs = insert(Descs1, format("(var %i) = %f", [i(V), f(Val)]))
@@ -210,7 +218,7 @@ f_set_binding(V, Val, Cs, CsOut, Descs) :-
 
 i_set_binding(V, Val, Cs, CsOut, Descs) :-
   % Set the binding as the only constraint.
-  Cs1 = set(Cs, V, ':='(Val)),
+  Cs1 = set(Cs, V, val(Val)),
   i_new_value(V, Val, Cs1, CsOut, Descs1),
   (verbose ->
     Descs = insert(Descs1, format("(var %i) = %i", [i(V), i(Val)]))
@@ -219,7 +227,7 @@ i_set_binding(V, Val, Cs, CsOut, Descs) :-
 
 s_set_binding(V, Val, Cs, CsOut, Descs) :-
   % Set the binding as the only constraint.
-  CsOut = set(Cs, V, ':='(Val)),
+  CsOut = set(Cs, V, val(Val)),
   (verbose ->
     Descs = make_singleton_set(format("(var %i) = %s", [i(V), s(Val)]))
   ; 
@@ -229,12 +237,12 @@ f_new_value(V, Val, Cs, CsOut, Descs) :-
   CsOut-Descs = foldl(
     (func(OtherV, CsIn-DescsIn) = Cs1-Descs1 :-
       % Try to get the value of OtherV.
-      (search(CsIn, OtherV, OtherC) ->
+      (search(CsIn, OtherV, cs(OtherC)) ->
         (OtherC = var(V) + Y1 ->
           OtherVal = yes(Val + Y1)
-        ;(OtherC = var(X) -- var(V), search(CsIn, X, ':='(XVal)) ->
+        ;(OtherC = var(X) -- var(V), search(CsIn, X, val(XVal)) ->
           OtherVal = yes(XVal - Val)
-        ;(OtherC = var(V) -- var(Y), search(CsIn, Y, ':='(YVal)) ->
+        ;(OtherC = var(V) -- var(Y), search(CsIn, Y, val(YVal)) ->
           OtherVal = yes(Val - YVal)
         ;
           OtherVal = no)))
@@ -260,12 +268,12 @@ i_new_value(V, Val, Cs, CsOut, Descs) :-
   CsOut-Descs = foldl(
     (func(OtherV, CsIn-DescsIn) = Cs1-Descs1 :-
       % Try to get the value of OtherV.
-      (search(CsIn, OtherV, OtherC) ->
+      (search(CsIn, OtherV, cs(OtherC)) ->
         (OtherC = var(V) + Y1 ->
           OtherVal = yes(Val + Y1)
-        ;(OtherC = var(X) -- var(V), search(CsIn, X, ':='(XVal)) ->
+        ;(OtherC = var(X) -- var(V), search(CsIn, X, val(XVal)) ->
           OtherVal = yes(XVal - Val)
-        ;(OtherC = var(V) -- var(Y), search(CsIn, Y, ':='(YVal)) ->
+        ;(OtherC = var(V) -- var(Y), search(CsIn, Y, val(YVal)) ->
           OtherVal = yes(Val - YVal)
         ;
           OtherVal = no)))
