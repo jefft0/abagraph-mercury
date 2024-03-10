@@ -33,7 +33,9 @@
 :- type constraints ---> constraints(f_constraints, i_constraints, s_constraints).
 
 :- func init = constraints.
-% If there is no binding for V, add one for V and the constraint and set Descs to
+
+% unify(V, C, Cs, CsOut, Descs).
+% If there is no binding for V, add one for V and the constraint C and set Descs to
 % a set of description strings for the bindings (only if verbose).
 % If there is a binding for V, confirm the constraint and set Descs to "",
 % else if the constraint is not confirmed then fail.
@@ -237,20 +239,22 @@ s_unify(V, ':='(Val), Cs, CsOut, Descs) :-
 
 f_new_value(V, Val, Cs, CsOut, Descs) :-
   CsOut-Descs = foldl(
-    (func(OtherV, OtherC, CsIn-DescsIn) = Cs1-Descs1 :-
+    (func(OtherV, CsIn-DescsIn) = Cs1-Descs1 :-
       % Try to get the value of OtherV.
-      (OtherC = var(V) + Y1 ->
-        OtherVal = yes(Val + Y1)
-      ;(OtherC = var(X) -- var(V), search(CsIn, X, ':='(XVal)) ->
-        OtherVal = yes(XVal - Val)
-      ;(OtherC = var(V) -- var(Y), search(CsIn, Y, ':='(YVal)) ->
-        OtherVal = yes(Val - YVal)
+      (search(CsIn, OtherV, OtherC) ->
+        (OtherC = var(V) + Y1 ->
+          OtherVal = yes(Val + Y1)
+        ;(OtherC = var(X) -- var(V), search(CsIn, X, ':='(XVal)) ->
+          OtherVal = yes(XVal - Val)
+        ;(OtherC = var(V) -- var(Y), search(CsIn, Y, ':='(YVal)) ->
+          OtherVal = yes(Val - YVal)
+        ;
+          OtherVal = no)))
       ;
-        % TODO: Check other expressions.
-        OtherVal = no))),
+        OtherVal = no),
 
       (OtherVal = yes(NewVal) ->
-        % Replace OtherV with evaluated value.
+        % Replace OtherV with the evaluated value and maybe propagate.
         (f_unify(OtherV, ':='(NewVal), delete(CsIn, OtherV), Cs2, Descs2) ->
           Cs1 = Cs2,
           Descs1 = union(DescsIn, Descs2)
@@ -261,24 +265,27 @@ f_new_value(V, Val, Cs, CsOut, Descs) :-
       ;
         Cs1 = CsIn,
         Descs1 = DescsIn)),
-    Cs, Cs-set.init).
+    % Only use the map keys because f_unify can update the values.
+    keys(Cs), Cs-set.init).
 
 i_new_value(V, Val, Cs, CsOut, Descs) :-
   CsOut-Descs = foldl(
-    (func(OtherV, OtherC, CsIn-DescsIn) = Cs1-Descs1 :-
+    (func(OtherV, CsIn-DescsIn) = Cs1-Descs1 :-
       % Try to get the value of OtherV.
-      (OtherC = var(V) + Y1 ->
-        OtherVal = yes(Val + Y1)
-      ;(OtherC = var(X) -- var(V), search(CsIn, X, ':='(XVal)) ->
-        OtherVal = yes(XVal - Val)
-      ;(OtherC = var(V) -- var(Y), search(CsIn, Y, ':='(YVal)) ->
-        OtherVal = yes(Val - YVal)
+      (search(CsIn, OtherV, OtherC) ->
+        (OtherC = var(V) + Y1 ->
+          OtherVal = yes(Val + Y1)
+        ;(OtherC = var(X) -- var(V), search(CsIn, X, ':='(XVal)) ->
+          OtherVal = yes(XVal - Val)
+        ;(OtherC = var(V) -- var(Y), search(CsIn, Y, ':='(YVal)) ->
+          OtherVal = yes(Val - YVal)
+        ;
+          OtherVal = no)))
       ;
-        % TODO: Check other expressions.
-        OtherVal = no))),
+        OtherVal = no),
 
       (OtherVal = yes(NewVal) ->
-        % Replace OtherV with evaluated value.
+        % Replace OtherV with the evaluated value and maybe propagate.
         (i_unify(OtherV, ':='(NewVal), delete(CsIn, OtherV), Cs2, Descs2) ->
           Cs1 = Cs2,
           Descs1 = union(DescsIn, Descs2)
@@ -289,7 +296,8 @@ i_new_value(V, Val, Cs, CsOut, Descs) :-
       ;
         Cs1 = CsIn,
         Descs1 = DescsIn)),
-    Cs, Cs-set.init).
+    % Only use the map keys because i_unify can update the values.
+    keys(Cs), Cs-set.init).
 
 f_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %f)", [i(V), f(Val)]).
 f_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %f)", [i(V), i(X1), f(X2)]).
