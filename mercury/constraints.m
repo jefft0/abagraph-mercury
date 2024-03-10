@@ -243,7 +243,7 @@ f_add_constraint(V, C, Cs, CsOut, AddTransformed) :-
         CsOut = set(Cs, V, cs(insert(CSet1, C))),
         AddTransformed = yes)
     ;
-      % This is already var(X).
+      % This is already val(X).
       CsOut = Cs,
       AddTransformed = yes)
   ;
@@ -262,7 +262,7 @@ i_add_constraint(V, C, Cs, CsOut, AddTransformed) :-
         CsOut = set(Cs, V, cs(insert(CSet1, C))),
         AddTransformed = yes)
     ;
-      % This is already var(X).
+      % This is already val(X).
       CsOut = Cs,
       AddTransformed = yes)
   ;
