@@ -9,11 +9,13 @@
 :- type f_constraint
    ---> ':='(float)
    ;    '+'(var(float), float)
-   ;    '--'(var(float), var(float)).
+   ;    '--'(var(float), var(float))
+   ;    '=<'(float).
 
 :- type i_constraint
    ---> ':='(int)
    ;    '+'(var(int), int)
+   ;    '--'(var(int), var(int))
    ;    '=<'(int).
 
 :- type s_constraint
@@ -126,6 +128,8 @@ f_unify(V, var(X) -- var(Y), FCs, FCsOut, Descs) :-
     ;
       FCsOut = insert(FCs, V, var(X) -- var(Y)),
       Descs = set.init)).
+f_unify(V, '=<'(Val), ICs, ICsOut, Descs) :-
+  ICsOut = ICs, Descs = make_singleton_set(format("(var %i) <= %f", [i(V), f(Val)])).
 i_unify(V, ':='(Val), ICs, ICsOut, Descs) :-
   (search(ICs, V, ':='(BoundVal)) ->
     Val = BoundVal,
@@ -162,6 +166,30 @@ i_unify(V, var(X) + Y, ICs, ICsOut, Descs) :-
         Descs = set.init)
     ;
       ICsOut = insert(ICs, V, var(X) + Y),
+      Descs = set.init)).
+i_unify(V, var(X) -- var(Y), ICs, ICsOut, Descs) :-
+  (search(ICs, X, ':='(XVal)), search(ICs, Y, ':='(YVal)) ->
+    Evaluated = yes(XVal - YVal)
+  ;
+    Evaluated = no),
+
+  (search(ICs, V, C) ->
+    C = ':='(BoundVal),
+    Evaluated = yes(Val),
+    Val = BoundVal,
+    ICsOut = ICs,
+    Descs = set.init
+  ;
+    % Add the binding.
+    (Evaluated = yes(Val) ->
+      ICsOut = insert(ICs, V, ':='(Val)),
+      % TODO: Call f_new_value.
+      (verbose ->
+        Descs = make_singleton_set(format("(var %i) = %i", [i(V), i(Val)]))
+      ; 
+        Descs = set.init)
+    ;
+      ICsOut = insert(ICs, V, var(X) -- var(Y)),
       Descs = set.init)).
 i_unify(V, '=<'(Val), ICs, ICsOut, Descs) :-
 %  (search(ICs, V, ':='(BoundVal)) ->
@@ -245,7 +273,9 @@ i_new_value(V, Val, ICs, ICsOut, Descs) :-
 f_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %f)", [i(V), f(Val)]).
 f_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %f)", [i(V), i(X1), f(X2)]).
 f_constraint_to_string(V, var(X1) -- var(X2)) = format("(= (var %i) (- (var %i) (var %i))", [i(V), i(X1), i(X2)]).
+f_constraint_to_string(V, '=<'(X)) =            format("(<= (var %i) %f)", [i(V), f(X)]).
 i_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %i)", [i(V), i(Val)]).
 i_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %i)", [i(V), i(X1), i(X2)]).
-i_constraint_to_string(V, '=<'(X)) =            format("(=< (var %i) %i)", [i(V), i(X)]).
+i_constraint_to_string(V, var(X1) -- var(X2)) = format("(= (var %i) (- (var %i) (var %i))", [i(V), i(X1), i(X2)]).
+i_constraint_to_string(V, '=<'(X)) =            format("(<= (var %i) %i)", [i(V), i(X)]).
 s_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V), s(Val)]).
