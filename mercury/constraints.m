@@ -9,12 +9,14 @@
 :- type f_constraint
    ---> ':='(float)
    ;    '+'(var(float), float)
+   ;    '++'(var(float), var(float))
    ;    '--'(var(float), var(float))
    ;    '=<'(float).
 
 :- type i_constraint
    ---> ':='(int)
    ;    '+'(var(int), int)
+   ;    '++'(var(float), var(float))
    ;    '--'(var(int), var(int))
    ;    '=<'(int).
 
@@ -118,6 +120,19 @@ f_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
     ;
       CsOut = CsOut1,
       Descs = set.init)).
+f_unify(V, var(X) ++ var(Y), Cs, CsOut, Descs) :-
+  (search(Cs, X, val(XVal)), search(Cs, Y, val(YVal)) ->
+    % We already know the value. Treat this like assignment.
+    f_unify(V, ':='(XVal + YVal), Cs, CsOut, Descs)
+  ;
+    f_add_constraint(V, var(X) ++ var(Y), Cs, CsOut1, AddTransformed),
+    (AddTransformed = yes ->
+      f_unify(X, var(V) -- var(Y), CsOut1, CsOut2, Descs1),
+      f_unify(Y, var(V) -- var(X), CsOut2, CsOut, Descs2),
+      Descs = union(Descs1, Descs2)
+    ;
+      CsOut = CsOut1,
+      Descs = set.init)).
 f_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
   (search(Cs, X, val(XVal)), search(Cs, Y, val(YVal)) ->
     % We already know the value. Treat this like assignment.
@@ -125,9 +140,8 @@ f_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
   ;
     f_add_constraint(V, var(X) -- var(Y), Cs, CsOut1, AddTransformed),
     (AddTransformed = yes ->
-      f_unify(Y, var(X) -- var(V), CsOut1, CsOut2, Descs1),
-      % TODO: f_unify(X, var(V) ++ var(Y), CsOut2, CsOut, Descs2),
-      CsOut = CsOut2, Descs2 = set.init,
+      f_unify(X, var(V) ++ var(Y), CsOut1, CsOut2, Descs1),
+      f_unify(Y, var(X) -- var(V), CsOut2, CsOut, Descs2),
       Descs = union(Descs1, Descs2)
     ;
       CsOut = CsOut1,
@@ -187,6 +201,19 @@ i_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
     ;
       CsOut = CsOut1,
       Descs = set.init)).
+i_unify(V, var(X) ++ var(Y), Cs, CsOut, Descs) :-
+  (search(Cs, X, val(XVal)), search(Cs, Y, val(YVal)) ->
+    % We already know the value. Treat this like assignment.
+    i_unify(V, ':='(XVal + YVal), Cs, CsOut, Descs)
+  ;
+    i_add_constraint(V, var(X) ++ var(Y), Cs, CsOut1, AddTransformed),
+    (AddTransformed = yes ->
+      i_unify(X, var(V) -- var(Y), CsOut1, CsOut2, Descs1),
+      i_unify(Y, var(V) -- var(X), CsOut2, CsOut, Descs2),
+      Descs = union(Descs1, Descs2)
+    ;
+      CsOut = CsOut1,
+      Descs = set.init)).
 i_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
   (search(Cs, X, val(XVal)), search(Cs, Y, val(YVal)) ->
     % We already know the value. Treat this like assignment.
@@ -194,9 +221,8 @@ i_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
   ;
     i_add_constraint(V, var(X) -- var(Y), Cs, CsOut1, AddTransformed),
     (AddTransformed = yes ->
-      i_unify(Y, var(X) -- var(V), CsOut1, CsOut2, Descs1),
-      % TODO: i_unify(X, var(V) ++ var(Y), CsOut2, CsOut, Descs2),
-      CsOut = CsOut2, Descs2 = set.init,
+      i_unify(X, var(V) ++ var(Y), CsOut1, CsOut2, Descs1),
+      i_unify(Y, var(X) -- var(V), CsOut2, CsOut, Descs2),
       Descs = union(Descs1, Descs2)
     ;
       CsOut = CsOut1,
@@ -376,10 +402,12 @@ i_new_value(V, Val, Cs, CsOut, Descs) :-
 
 f_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %f)", [i(V), f(Val)]).
 f_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %f)", [i(V), i(X1), f(X2)]).
+f_constraint_to_string(V, var(X1) ++ var(X2)) = format("(= (var %i) (+ (var %i) (var %i))", [i(V), i(X1), i(X2)]).
 f_constraint_to_string(V, var(X1) -- var(X2)) = format("(= (var %i) (- (var %i) (var %i))", [i(V), i(X1), i(X2)]).
 f_constraint_to_string(V, '=<'(X)) =            format("(<= (var %i) %f)", [i(V), f(X)]).
 i_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %i)", [i(V), i(Val)]).
 i_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %i)", [i(V), i(X1), i(X2)]).
+i_constraint_to_string(V, var(X1) ++ var(X2)) = format("(= (var %i) (+ (var %i) (var %i))", [i(V), i(X1), i(X2)]).
 i_constraint_to_string(V, var(X1) -- var(X2)) = format("(= (var %i) (- (var %i) (var %i))", [i(V), i(X1), i(X2)]).
 i_constraint_to_string(V, '=<'(X)) =            format("(<= (var %i) %i)", [i(V), i(X)]).
 s_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V), s(Val)]).
