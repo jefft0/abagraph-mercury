@@ -1,6 +1,8 @@
 % Ported to Mercury from abagraph in Prolog by Robert Craven:
 % http://robertcraven.org/proarg/abagraph.html
 
+% mmc --grade hlc.gc --make abagraph && ./abagraph.exe
+
 :- module abagraph.
 :- interface.
 
