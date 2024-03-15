@@ -61,9 +61,11 @@
 :- pred n_unify(int::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, set(string)::out) is semidet <= number(T).
 :- pred s_unify(int::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is semidet.
 :- pred n_add_constraint(int::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, bool::out) is det.
-:- pred n_set_binding(int::in, T::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, set(string)::out) is det <= number(T).
 :- pred s_set_binding(int::in, string::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is det.
-:- pred n_new_value(int::in, T::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, set(string)::out) is det <= number(T).
+% n_new_value(Val, CSet, Cs, CsOut, Descs).
+% Iterate the constraints in CSet and confirm boolean constraints with Val or maybe get a new value
+% for another variable in the arithmetic expression.
+:- pred n_new_value(T::in, set(n_constraint(T))::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, set(string)::out) is semidet <= number(T).
 
 init = constraints(map.init, map.init, map.init).
 
@@ -73,13 +75,29 @@ unify(V, i(IC), constraints(FCs, ICs, SCs), constraints(FCs, ICsOut, SCs), Descs
 unify(V, s(SC), constraints(FCs, ICs, SCs), constraints(FCs, ICs, SCsOut), Descs) :- s_unify(V, SC, SCs, SCsOut, Descs).
 
 n_unify(V, ':='(Val), Cs, CsOut, Descs) :-
-  (search(Cs, V, val(BoundVal)) ->
-    Val = BoundVal,
-    CsOut = Cs,
-    Descs = set.init
+  (search(Cs, V, VCs) ->
+    (VCs = val(BoundVal) ->
+      % Just confirm with the existing value.
+      Val = BoundVal,
+      CsOut = Cs,
+      Descs = set.init
+    ;
+      % Save the CSet.
+      VCs = cs(CSet),
+      % Set the binding as the only constraint.
+      Cs1 = set(Cs, V, val(Val)),
+      n_new_value(Val, CSet, Cs1, CsOut, Descs1),
+      (verbose ->
+        Descs = insert(Descs1, format("(var %i) = %s", [i(V), s(to_string(Val))]))
+      ; 
+        Descs = Descs1))
   ;
-    % TODO: Check boolean constraints.
-    n_set_binding(V, Val, Cs, CsOut, Descs)).
+    % Create the entry for V.
+    CsOut = set(Cs, V, val(Val)),
+    (verbose ->
+      Descs = make_singleton_set(format("(var %i) = %s", [i(V), s(to_string(Val))]))
+    ; 
+      Descs = set.init)).
 n_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
   (search(Cs, X, val(XVal)) ->
     % We already know the value. Treat this like assignment.
@@ -184,15 +202,6 @@ n_add_constraint(V, C, Cs, CsOut, AddTransformed) :-
     CsOut = set(Cs, V, cs(make_singleton_set(C))),
     AddTransformed = yes).
 
-n_set_binding(V, Val, Cs, CsOut, Descs) :-
-  % Set the binding as the only constraint.
-  Cs1 = set(Cs, V, val(Val)),
-  n_new_value(V, Val, Cs1, CsOut, Descs1),
-  (verbose ->
-    Descs = insert(Descs1, format("(var %i) = %s", [i(V), s(to_string(Val))]))
-  ; 
-    Descs = Descs1).
-
 s_set_binding(V, Val, Cs, CsOut, Descs) :-
   % Set the binding as the only constraint.
   CsOut = set(Cs, V, val(Val)),
@@ -201,44 +210,36 @@ s_set_binding(V, Val, Cs, CsOut, Descs) :-
   ; 
     Descs = set.init).
 
-n_new_value(V, Val, Cs, CsOut, Descs) :-
-  CsOut-Descs = foldl(
-    (func(OtherV, CsIn-DescsIn) = Cs1-Descs1 :-
-      (search(CsIn, OtherV, cs(CSet)) ->
-        % Try to set OtherVal to the value of OtherV by evaluating a constraint in CSet.
-        OtherVal = foldl(
-          (func(OtherC, OtherValIn) = OtherValOut :-
-            (OtherValIn = yes(_) ->
-              % Already got a result.
-              OtherValOut = OtherValIn
-            ;
-              % TODO: If we set OtherValOut from OtherC, remove it from CSet.
-              (OtherC = var(V) + Y1 ->
-                OtherValOut = yes(Val + Y1)
-              ;(OtherC = var(X) -- var(V), search(CsIn, X, val(XVal)) ->
-                OtherValOut = yes(XVal - Val)
-              ;(OtherC = var(V) -- var(Y), search(CsIn, Y, val(YVal)) ->
-                OtherValOut = yes(Val - YVal)
-              ;
-                OtherValOut = no))))),
-          CSet, no)
+n_new_value(Val, CSet, Cs, CsOut, Descs) :-
+  foldl(
+    (pred(C::in, CsIn-DescsIn::in, CsOut1-Descs1::out) is semidet :-
+      % If we need to assign a new value for X, first search(CsIn, X, cs(_)) to
+      % confirm that it hasn't already been assigned. (Prevent loops.)
+      (C = var(X) + Y, search(CsIn, X, cs(_)) ->
+        % We have Val = X + Y. Set X to Val - Y).
+        n_unify(X, ':='(Val - Y), CsIn, CsOut1, Descs1)
+      ;(C = var(X) ++ var(Y), search(CsIn, X, val(XVal)), search(CsIn, Y, cs(_)) ->
+        % We have Val = X + Y and XVal. Set Y to Val - XVal.
+        n_unify(Y, ':='(Val - XVal), CsIn, CsOut1, Descs1)
+      ;(C = var(X) ++ var(Y), search(CsIn, Y, val(YVal)), search(CsIn, X, cs(_)) ->
+        % We have Val = X + Y and YVal. Set X to Val - YVal.
+        n_unify(X, ':='(Val - YVal), CsIn, CsOut1, Descs1)
+      ;(C = var(X) -- var(Y), search(CsIn, X, val(XVal)), search(CsIn, Y, cs(_)) ->
+        % We have Val = X - Y and XVal. Set Y to XVal - Val.
+        n_unify(Y, ':='(XVal - Val), CsIn, CsOut1, Descs1)
+      ;(C = var(X) -- var(Y), search(CsIn, Y, val(YVal)), search(CsIn, X, cs(_)) ->
+        % We have Val = X - Y and YVal. Set X to Val + YVal.
+        n_unify(X, ':='(Val + YVal), CsIn, CsOut1, Descs1)
+      % Check boolean constraints.
+      ;(C = '=<'(X) ->
+        Val =< X,
+        CsOut1 = CsIn,
+        Descs1 = DescsIn
       ;
-        OtherVal = no),
-
-      (OtherVal = yes(NewVal) ->
-        % Replace OtherV with the evaluated value and maybe propagate.
-        (n_unify(OtherV, ':='(NewVal), delete(CsIn, OtherV), Cs2, Descs2) ->
-          Cs1 = Cs2,
-          Descs1 = union(DescsIn, Descs2)
-        ;
-          % This shouldn't happen.
-          Cs1 = CsIn,
-          Descs1 = DescsIn)
-      ;
-        Cs1 = CsIn,
-        Descs1 = DescsIn)),
-    % Only use the map keys because n_unify can update the values.
-    keys(Cs), Cs-set.init).
+        % This shouldn't happen.
+        CsOut1 = CsIn,
+        Descs1 = DescsIn))))))),
+    CSet, Cs-set.init, CsOut-Descs).
 
 f_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %f)", [i(V), f(Val)]).
 f_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %f)", [i(V), i(X1), f(X2)]).
