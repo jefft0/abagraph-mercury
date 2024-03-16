@@ -61,7 +61,6 @@
 :- pred n_unify(int::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, set(string)::out) is semidet <= number(T).
 :- pred s_unify(int::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is semidet.
 :- pred n_add_constraint(int::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, bool::out) is det.
-:- pred s_set_binding(int::in, string::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is det.
 % n_new_value(Val, CSet, Cs, CsOut, Descs).
 % Iterate the constraints in CSet and confirm boolean constraints with Val or maybe get a new value
 % for another variable in the arithmetic expression.
@@ -177,7 +176,12 @@ s_unify(V, ':='(Val), Cs, CsOut, Descs) :-
     CsOut = Cs,
     Descs = set.init
   ;
-    s_set_binding(V, Val, Cs, CsOut, Descs)).
+    % Set the binding as the only constraint.
+    CsOut = set(Cs, V, val(Val)),
+    (verbose ->
+      Descs = make_singleton_set(format("(var %i) = %s", [i(V), s(Val)]))
+    ; 
+      Descs = set.init)).
 
 % If the constraints for V already has C, then set AddTransformed no and do nothing.
 % If the constraints for V already has a val, then set AddTransformed yes and do nothing.
@@ -201,14 +205,6 @@ n_add_constraint(V, C, Cs, CsOut, AddTransformed) :-
     % New variable.
     CsOut = set(Cs, V, cs(make_singleton_set(C))),
     AddTransformed = yes).
-
-s_set_binding(V, Val, Cs, CsOut, Descs) :-
-  % Set the binding as the only constraint.
-  CsOut = set(Cs, V, val(Val)),
-  (verbose ->
-    Descs = make_singleton_set(format("(var %i) = %s", [i(V), s(Val)]))
-  ; 
-    Descs = set.init).
 
 n_new_value(Val, CSet, Cs, CsOut, Descs) :-
   foldl(
