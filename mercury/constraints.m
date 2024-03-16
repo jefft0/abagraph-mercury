@@ -65,6 +65,7 @@
 % Iterate the constraints in CSet and confirm boolean constraints with Val or maybe get a new value
 % for another variable in the arithmetic expression.
 :- pred n_new_value(T::in, set(n_constraint(T))::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, set(string)::out) is semidet <= number(T).
+:- func n_constraint_to_string(int, n_constraint(T)) = string is det <= number(T).
 
 init = constraints(map.init, map.init, map.init).
 
@@ -237,14 +238,12 @@ n_new_value(Val, CSet, Cs, CsOut, Descs) :-
         Descs1 = DescsIn))))))),
     CSet, Cs-set.init, CsOut-Descs).
 
-f_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %f)", [i(V), f(Val)]).
-f_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %f)", [i(V), i(X1), f(X2)]).
-f_constraint_to_string(V, var(X1) ++ var(X2)) = format("(= (var %i) (+ (var %i) (var %i))", [i(V), i(X1), i(X2)]).
-f_constraint_to_string(V, var(X1) -- var(X2)) = format("(= (var %i) (- (var %i) (var %i))", [i(V), i(X1), i(X2)]).
-f_constraint_to_string(V, '=<'(X)) =            format("(<= (var %i) %f)", [i(V), f(X)]).
-i_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %i)", [i(V), i(Val)]).
-i_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %i)", [i(V), i(X1), i(X2)]).
-i_constraint_to_string(V, var(X1) ++ var(X2)) = format("(= (var %i) (+ (var %i) (var %i))", [i(V), i(X1), i(X2)]).
-i_constraint_to_string(V, var(X1) -- var(X2)) = format("(= (var %i) (- (var %i) (var %i))", [i(V), i(X1), i(X2)]).
-i_constraint_to_string(V, '=<'(X)) =            format("(<= (var %i) %i)", [i(V), i(X)]).
+n_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V), s(to_string(Val))]).
+n_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %s)", [i(V), i(X1), s(to_string(X2))]).
+n_constraint_to_string(V, var(X1) ++ var(X2)) = format("(= (var %i) (+ (var %i) (var %i))", [i(V), i(X1), i(X2)]).
+n_constraint_to_string(V, var(X1) -- var(X2)) = format("(= (var %i) (- (var %i) (var %i))", [i(V), i(X1), i(X2)]).
+n_constraint_to_string(V, '=<'(X)) =            format("(<= (var %i) %s)", [i(V), s(to_string(X))]).
+
+f_constraint_to_string(V, C) = n_constraint_to_string(V, C).
+i_constraint_to_string(V, C) = n_constraint_to_string(V, C).
 s_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V), s(Val)]).
