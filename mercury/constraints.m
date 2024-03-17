@@ -78,7 +78,7 @@ n_unify(V, ':='(Val), Cs, CsOut, Descs) :-
   (search(Cs, V, VCs) ->
     (VCs = val(BoundVal) ->
       % Just confirm with the existing value.
-      Val = BoundVal,
+      Val == BoundVal,
       CsOut = Cs,
       Descs = set.init
     ;
@@ -210,21 +210,19 @@ n_add_constraint(V, C, Cs, CsOut, AddTransformed) :-
 n_new_value(Val, CSet, Cs, CsOut, Descs) :-
   foldl(
     (pred(C::in, CsIn-DescsIn::in, CsOut1-Descs1::out) is semidet :-
-      % If we need to assign a new value for X, first search(CsIn, X, cs(_)) to
-      % confirm that it hasn't already been assigned. (Prevent loops.)
-      (C = var(X) + Y, search(CsIn, X, cs(_)) ->
+      (C = var(X) + Y ->
         % We have Val = X + Y. Set X to Val - Y).
         n_unify(X, ':='(Val - Y), CsIn, CsOut1, Descs1)
-      ;(C = var(X) ++ var(Y), search(CsIn, X, val(XVal)), search(CsIn, Y, cs(_)) ->
+      ;(C = var(X) ++ var(Y), search(CsIn, X, val(XVal)) ->
         % We have Val = X + Y and XVal. Set Y to Val - XVal.
         n_unify(Y, ':='(Val - XVal), CsIn, CsOut1, Descs1)
-      ;(C = var(X) ++ var(Y), search(CsIn, Y, val(YVal)), search(CsIn, X, cs(_)) ->
+      ;(C = var(X) ++ var(Y), search(CsIn, Y, val(YVal)) ->
         % We have Val = X + Y and YVal. Set X to Val - YVal.
         n_unify(X, ':='(Val - YVal), CsIn, CsOut1, Descs1)
-      ;(C = var(X) -- var(Y), search(CsIn, X, val(XVal)), search(CsIn, Y, cs(_)) ->
+      ;(C = var(X) -- var(Y), search(CsIn, X, val(XVal)) ->
         % We have Val = X - Y and XVal. Set Y to XVal - Val.
         n_unify(Y, ':='(XVal - Val), CsIn, CsOut1, Descs1)
-      ;(C = var(X) -- var(Y), search(CsIn, Y, val(YVal)), search(CsIn, X, cs(_)) ->
+      ;(C = var(X) -- var(Y), search(CsIn, Y, val(YVal)) ->
         % We have Val = X - Y and YVal. Set X to Val + YVal.
         n_unify(X, ':='(Val + YVal), CsIn, CsOut1, Descs1)
       % Check boolean constraints.
