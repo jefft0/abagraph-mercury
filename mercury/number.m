@@ -8,6 +8,7 @@
   func T + T = T,
   func - (T) = T,
   func T - T = T,
+  pred (T::in) == (T::in) is semidet,
   pred (T::in) =< (T::in) is semidet,
   func to_string(T) = string
 ].
@@ -26,6 +27,7 @@
     func((+)/2) is float.(+),
     func((-)/1) is float.(-),
     func((-)/2) is float.(-),
+    (X == Y :- abs(float.'-'(X, Y)) < 0.00001), % TODO: Make this more general.
     pred((=<)/2) is float.(=<),
     to_string(X) = format("%f", [f(X)])
 ].
@@ -33,6 +35,7 @@
     func((+)/2) is int.(+),
     func((-)/1) is int.(-),
     func((-)/2) is int.(-),
+    (X == Y :- X = Y),
     pred((=<)/2) is int.(=<),
     to_string(X) = format("%i", [i(X)])
 ].
