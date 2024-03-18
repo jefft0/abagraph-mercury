@@ -15,6 +15,7 @@
 :- pred main(io::di, io::uo) is det.
 
 :- pred assumption(sentence::in) is semidet.
+:- pred constraint(sentence::in) is semidet.
 :- pred rule(sentence::in, list(sentence)::out) is semidet.
 :- pred contrary(sentence::in, sentence::out) is semidet.
 :- func decompiled_path = string is det.
@@ -36,6 +37,8 @@ main(!IO) :-
 
 assumption(fact("a")).
 assumption(fact("b")).
+
+constraint(_) :- fail.
 
 rule(not(fact("a")), [fact("b")]).
 rule(not(fact("b")), []).
