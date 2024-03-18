@@ -600,16 +600,26 @@ choose_turn(P, O, Player) :-
     turn_choice(TurnStrategy, P, O, Player))).
 
 proponent_sentence_choice(P, S, Pminus) :-
-  get_proponent_sentence_choice(PropSentenceStrategy),
-  sentence_choice(PropSentenceStrategy, P, S, Pminus).
+  % Process a constraint if available.
+  (find_first((pred(X::in) is semidet :- constraint(X)), P, First, PminusC) ->
+    S = First, Pminus = PminusC
+  ;
+    % No constraint. Use the sentence choice.
+    get_proponent_sentence_choice(PropSentenceStrategy),
+    sentence_choice(PropSentenceStrategy, P, S, Pminus)).
 
 opponent_abagraph_choice(O, JC, Ominus) :-
   get_opponent_abagraph_choice(OppJCStrategy),
   opponent_abagraph_choice(OppJCStrategy, O, JC, Ominus).
 
 opponent_sentence_choice(Claim-(Ss-Marked-OGraph), Se, Claim-(Ssminus-Marked-OGraph)) :-
-  get_opponent_sentence_choice(OppSentenceStrategy),
-  sentence_choice_backtrack(OppSentenceStrategy, Ss, Se, Ssminus).
+  % Process a constraint if available.
+  (find_first((pred(X::in) is semidet :- constraint(X)), Ss, First, SsminusC) ->
+    Se = First, Ssminus = SsminusC
+  ;
+    % No constraint. Use the sentence choice.
+    get_opponent_sentence_choice(OppSentenceStrategy),
+    sentence_choice_backtrack(OppSentenceStrategy, Ss, Se, Ssminus)).
 
 % PropInfo here holds information about the current state of
 % proponent's derivations.
