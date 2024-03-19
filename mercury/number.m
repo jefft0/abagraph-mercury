@@ -32,9 +32,9 @@ f_tolerance = 0.00001.
     func((+)/2) is float.(+),
     func((-)/1) is float.(-),
     func((-)/2) is float.(-),
-    (X == Y :- float.(X =< float.(Y + f_tolerance)), float.(X >= float.(Y - f_tolerance))),
-    (X =< Y :- float.(X =< float.(Y + f_tolerance))),
-    (X > Y :- float.(X > float.(Y + f_tolerance))),
+    (X == Y :- float.(float.(X - Y) =< f_tolerance), float.(float.(X - Y) >= float.(-f_tolerance))),
+    (X =< Y :- float.(float.(X - Y) =< f_tolerance)),
+    (X > Y :- float.(float.(X - Y) > f_tolerance)),
     to_string(X) = format("%f", [f(X)])
 ].
 :- instance number(int) where [
