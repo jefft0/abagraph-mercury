@@ -212,19 +212,24 @@ n_new_value(Val, CSet, Cs, CsOut, Descs) :-
     (pred(C::in, CsIn-DescsIn::in, CsOut1-Descs1::out) is semidet :-
       (C = var(X) + Y ->
         % We have Val = X + Y. Set X to Val - Y).
-        n_unify(X, ':='(Val - Y), CsIn, CsOut1, Descs1)
+        n_unify(X, ':='(Val - Y), CsIn, CsOut1, Descs2),
+        Descs1 = union(DescsIn, Descs2)
       ;(C = var(X) ++ var(Y), search(CsIn, X, val(XVal)) ->
         % We have Val = X + Y and XVal. Set Y to Val - XVal.
-        n_unify(Y, ':='(Val - XVal), CsIn, CsOut1, Descs1)
+        n_unify(Y, ':='(Val - XVal), CsIn, CsOut1, Descs2),
+        Descs1 = union(DescsIn, Descs2)
       ;(C = var(X) ++ var(Y), search(CsIn, Y, val(YVal)) ->
         % We have Val = X + Y and YVal. Set X to Val - YVal.
-        n_unify(X, ':='(Val - YVal), CsIn, CsOut1, Descs1)
+        n_unify(X, ':='(Val - YVal), CsIn, CsOut1, Descs2),
+        Descs1 = union(DescsIn, Descs2)
       ;(C = var(X) -- var(Y), search(CsIn, X, val(XVal)) ->
         % We have Val = X - Y and XVal. Set Y to XVal - Val.
-        n_unify(Y, ':='(XVal - Val), CsIn, CsOut1, Descs1)
+        n_unify(Y, ':='(XVal - Val), CsIn, CsOut1, Descs2),
+        Descs1 = union(DescsIn, Descs2)
       ;(C = var(X) -- var(Y), search(CsIn, Y, val(YVal)) ->
         % We have Val = X - Y and YVal. Set X to Val + YVal.
-        n_unify(X, ':='(Val + YVal), CsIn, CsOut1, Descs1)
+        n_unify(X, ':='(Val + YVal), CsIn, CsOut1, Descs2),
+        Descs1 = union(DescsIn, Descs2)
       % Check boolean constraints.
       ;(C = '=<'(X) ->
         Val =< X,
