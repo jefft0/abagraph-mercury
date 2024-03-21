@@ -233,8 +233,8 @@ proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), T1, IdsIn
       T1 = step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att, CSOut),
       IdsOut = IdsIn,
 
-      _ = foldl(func(Desc, _) = 0 :- format_append(runtime_out_path, "%s Step %i: Case 1.(iii): %s\n", 
-                 [s(now), i(fst(IdsIn)), s(Desc)]),
+      _ = foldl(func(Desc, _) = 0 :- format_append(runtime_out_path, "%s Step %i: Case 1.(iii): %s\n  debug_S: %s\n", 
+                 [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
             Descs, 0)
     ;
       proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, T1, IdsIn, IdsOut)),
@@ -256,8 +256,8 @@ opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), T1, IdsIn, IdsOut) 
         OppUnMrkMinus1-OppMrk1, IdsIn, IdsOut),
       T1 = step_tuple(P, OppUnMrkMinus1-OppMrk1, D, C, Att, CSOut),
 
-      _ = foldl(func(Desc, _) = 0 :- format_append(runtime_out_path, "%s Step %i: Case 1.(iii): %s\n", 
-                 [s(now), i(fst(IdsIn)), s(Desc)]),
+      _ = foldl(func(Desc, _) = 0 :- format_append(runtime_out_path, "%s Step %i: Case 1.(iii): %s\n  debug_S: %s\n", 
+                 [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
             Descs, 0)
     ;
       opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), T1, IdsIn, IdsOut)),
