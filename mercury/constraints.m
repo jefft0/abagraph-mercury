@@ -65,10 +65,10 @@
 % n_set_value(V, Val, Cs, CsOut, Descs).
 % If Cs already has a val for V then confirm it. Otherwise set val(Val). If Cs has constraints, call n_set_value to evaluate them.
 :- pred n_set_value(int::in, T::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, set(string)::out) is semidet <= number(T).
-% n_new_value(Val, CSet, Cs, CsOut, Descs).
-% Iterate the constraints in CSet and confirm boolean constraints with Val or maybe get a new value
-% for another variable in the arithmetic expression.
-:- pred n_new_value(T::in, set(n_constraint(T))::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, set(string)::out) is semidet <= number(T).
+% n_new_value(Val, C, Cs, CsOut, Descs).
+% The variable with constraint C has a new value Val. Confirm a boolean constraint C with Val or
+% maybe get a new value for another variable in the arithmetic expression C.
+:- pred n_new_value(T::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, set(string)::out) is semidet <= number(T).
 :- func n_constraint_to_string(int, n_constraint(T)) = string is det <= number(T).
 :- pred n_dump_store(string::in, map(int, n_constraints(T))::in) is det <= number(T).
 
@@ -197,16 +197,22 @@ n_set_value(V, Val, Cs, CsOut, Descs) :-
       CsOut = Cs,
       Descs = set.init
     ;
-      % Save the CSet.
+      % Save the constraints.
       VCs = cs(CSet),
       % Set the binding as the only constraint.
       Cs1 = set(Cs, V, val(Val)),
-      n_new_value(Val, CSet, Cs1, CsOut, Descs1),
+
       (verbose ->
-        Descs = insert(Descs1, format("(var %i) = %s", [i(V), s(to_string(Val))]))
+        Descs1 = make_singleton_set(format("(var %i) = %s", [i(V), s(to_string(Val))]))
       ; 
-        Descs = Descs1))
-  ;
+        Descs1 = set.init),
+      % Possibly evaluate all the constraints.
+      foldl(
+        (pred(C::in, CsIn-DescsIn1::in, CsOut1-DescsOut1::out) is semidet :-
+          n_new_value(Val, C, CsIn, CsOut1, Descs2),
+          DescsOut1 = union(DescsIn1, Descs2)),
+        CSet, Cs1-Descs1, CsOut-Descs))
+  ;  
     % Create the entry for V.
     CsOut = set(Cs, V, val(Val)),
     (verbose ->
@@ -214,39 +220,31 @@ n_set_value(V, Val, Cs, CsOut, Descs) :-
     ; 
       Descs = set.init)).
 
-n_new_value(Val, CSet, Cs, CsOut, Descs) :-
-  foldl(
-    (pred(C::in, CsIn-DescsIn::in, CsOut1-DescsOut1::out) is semidet :-
-      (C = var(X) + Y ->
-        % We have Val = X + Y. Set X to Val - Y).
-        n_set_value(X, Val - Y, CsIn, CsOut1, Descs2),
-        DescsOut1 = union(DescsIn, Descs2)
-      ;(C = var(X) ++ var(Y), search(CsIn, X, val(XVal)) ->
-        % We have Val = X + Y and XVal. Set Y to Val - XVal.
-        n_set_value(Y, Val - XVal, CsIn, CsOut1, Descs2),
-        DescsOut1 = union(DescsIn, Descs2)
-      ;(C = var(X) ++ var(Y), search(CsIn, Y, val(YVal)) ->
-        % We have Val = X + Y and YVal. Set X to Val - YVal.
-        n_set_value(X, Val - YVal, CsIn, CsOut1, Descs2),
-        DescsOut1 = union(DescsIn, Descs2)
-      ;(C = var(X) -- var(Y), search(CsIn, X, val(XVal)) ->
-        % We have Val = X - Y and XVal. Set Y to XVal - Val.
-        n_set_value(Y, XVal - Val, CsIn, CsOut1, Descs2),
-        DescsOut1 = union(DescsIn, Descs2)
-      ;(C = var(X) -- var(Y), search(CsIn, Y, val(YVal)) ->
-        % We have Val = X - Y and YVal. Set X to Val + YVal.
-        n_set_value(X, Val + YVal, CsIn, CsOut1, Descs2),
-        DescsOut1 = union(DescsIn, Descs2)
-      % Check boolean constraints.
-      ;(C = '=<'(X) ->
-        Val =< X,
-        CsOut1 = CsIn,
-        DescsOut1 = DescsIn
-      ;
-        % This shouldn't happen.
-        CsOut1 = CsIn,
-        DescsOut1 = DescsIn))))))),
-    CSet, Cs-set.init, CsOut-Descs).
+n_new_value(Val, var(X) + Y, CsIn, CsOut, Descs) :-
+  % We have Val = X + Y. Set X to Val - Y).
+  n_set_value(X, Val - Y, CsIn, CsOut, Descs).
+n_new_value(Val, var(X) ++ var(Y), CsIn, CsOut, Descs) :-
+  (search(CsIn, X, val(XVal)) ->
+    % We have Val = X + Y and XVal. Set Y to Val - XVal.
+    n_set_value(Y, Val - XVal, CsIn, CsOut, Descs)
+  ;(search(CsIn, Y, val(YVal)) ->
+    % We have Val = X + Y and YVal. Set X to Val - YVal.
+    n_set_value(X, Val - YVal, CsIn, CsOut, Descs)
+  ;
+    CsOut = CsIn, Descs = set.init)).
+n_new_value(Val, var(X) -- var(Y), CsIn, CsOut, Descs) :-
+  (search(CsIn, X, val(XVal)) ->
+    % We have Val = X - Y and XVal. Set Y to XVal - Val.
+    n_set_value(Y, XVal - Val, CsIn, CsOut, Descs)
+  ;(search(CsIn, Y, val(YVal)) ->
+    % We have Val = X - Y and YVal. Set X to Val + YVal.
+    n_set_value(X, Val + YVal, CsIn, CsOut, Descs)
+  ;
+    CsOut = CsIn, Descs = set.init)).
+% Boolean constraints.
+n_new_value(Val, '=<'(X), CsIn, CsIn, set.init) :- Val =< X.
+% Ignore. (Shouldn't happen.)
+n_new_value(_Val, ':='(_), CsIn, CsIn, set.init).
 
 n_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V), s(to_string(Val))]).
 n_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %s)", [i(V), i(X1), s(to_string(X2))]).
