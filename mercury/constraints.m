@@ -90,17 +90,17 @@ unify(V, i(IC), constraints(FCs, ICs, SCs), constraints(FCs, ICsOut, SCs), Descs
 unify(V, s(SC), constraints(FCs, ICs, SCs), constraints(FCs, ICs, SCsOut), Descs) :- s_unify(V, SC, SCs, SCsOut, Descs).
 
 f_get(V, constraints(Cs, _, _)) = Val :-
-  (search(Cs, V, ValOrCSet), ValOrCSet = val(Val1) ->
+  (search(Cs, V, val(Val1)) ->
     Val = yes(Val1)
   ;
     Val = no).
 i_get(V, constraints(_, Cs, _)) = Val :-
-  (search(Cs, V, ValOrCSet), ValOrCSet = val(Val1) ->
+  (search(Cs, V, val(Val1)) ->
     Val = yes(Val1)
   ;
     Val = no).
 s_get(V, constraints(_, _, Cs)) = Val :-
-  (search(Cs, V, ValOrCSet), ValOrCSet = val(Val1) ->
+  (search(Cs, V, val(Val1)) ->
     Val = yes(Val1)
   ;
     Val = no).
