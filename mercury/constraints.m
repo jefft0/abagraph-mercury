@@ -2,6 +2,7 @@
 :- interface.
 
 :- import_module map.
+:- import_module maybe.
 :- import_module set.
 
 :- type var(T) ---> var(int).
@@ -43,6 +44,11 @@
 % If there is a binding for V, confirm the constraint and set Descs to "",
 % else if the constraint is not confirmed then fail.
 :- pred unify(int::in, constraint::in, constraints::in, constraints::out, set(string)::out) is semidet.
+% f_get(V, Cs) = Val.
+% Return yes(Val) where Val is the bound value of V, or no if not found.
+:- func f_get(int, constraints) = maybe(float).
+:- func i_get(int, constraints) = maybe(int).
+:- func s_get(int, constraints) = maybe(string).
 
 :- func f_constraint_to_string(int, n_constraint(float)) = string is det.
 :- func i_constraint_to_string(int, n_constraint(int)) = string is det.
@@ -52,9 +58,7 @@
 
 :- import_module bool.
 :- import_module list.
-:- import_module maybe.
 :- import_module number.
-:- import_module options.
 :- import_module pair.
 :- import_module printing. % only for n_dump_store
 :- import_module string.
@@ -76,6 +80,7 @@
 :- pred n_add_math_constraint(int::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, bool::out) is det.
 :- func n_constraint_to_string(int, n_constraint(T)) = string is det <= number(T).
 :- pred n_dump_store(string::in, map(int, n_constraints(T))::in) is det <= number(T).
+:- pred verbose is det.
 
 init = constraints(map.init, map.init, map.init).
 
@@ -83,6 +88,22 @@ init = constraints(map.init, map.init, map.init).
 unify(V, f(FC), constraints(FCs, ICs, SCs), constraints(FCsOut, ICs, SCs), Descs) :- n_unify(V, FC, FCs, FCsOut, Descs).
 unify(V, i(IC), constraints(FCs, ICs, SCs), constraints(FCs, ICsOut, SCs), Descs) :- n_unify(V, IC, ICs, ICsOut, Descs).
 unify(V, s(SC), constraints(FCs, ICs, SCs), constraints(FCs, ICs, SCsOut), Descs) :- s_unify(V, SC, SCs, SCsOut, Descs).
+
+f_get(V, constraints(Cs, _, _)) = Val :-
+  (search(Cs, V, ValOrCSet), ValOrCSet = val(Val1) ->
+    Val = yes(Val1)
+  ;
+    Val = no).
+i_get(V, constraints(_, Cs, _)) = Val :-
+  (search(Cs, V, ValOrCSet), ValOrCSet = val(Val1) ->
+    Val = yes(Val1)
+  ;
+    Val = no).
+s_get(V, constraints(_, _, Cs)) = Val :-
+  (search(Cs, V, ValOrCSet), ValOrCSet = val(Val1) ->
+    Val = yes(Val1)
+  ;
+    Val = no).
 
 n_unify(V, ':='(Val), Cs, CsOut, Descs) :- n_set_value(V, Val, Cs, CsOut, Descs).
 n_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
@@ -317,3 +338,5 @@ n_dump_store(Prefix, Cs) :-
     Cs, 0),
 
   close(Fd).
+
+verbose.
