@@ -3,7 +3,6 @@
 
 :- import_module map.
 :- import_module maybe.
-:- import_module number.
 :- import_module set.
 
 :- type var(T) ---> var(int).
@@ -51,7 +50,13 @@
 :- func f_get(int, constraints) = maybe(float).
 :- func i_get(int, constraints) = maybe(int).
 :- func s_get(int, constraints) = maybe(string).
-:- func to_string(map(int, n_constraints(T)), string) = string is det <= number(T).
+% Return a string representation of the constraints, indented (so that you can prefix a label). Example:
+%   int
+%   (= (var 2) 10)
+%   string
+%   (<> (var 1) (var 2))
+%   (<> (var 2) (var 1))
+:- func to_string(constraints) = string is det.
 
 :- func f_constraint_to_string(int, n_constraint(float)) = string is det.
 :- func i_constraint_to_string(int, n_constraint(int)) = string is det.
@@ -61,6 +66,7 @@
 
 :- import_module bool.
 :- import_module list.
+:- import_module number.
 :- import_module pair.
 :- import_module string.
 
@@ -81,6 +87,8 @@
 :- pred n_add_math_constraint(int::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, bool::out) is det.
 :- func n_constraint_to_string(int, n_constraint(T)) = string is det <= number(T).
 :- pred s_new_value(string::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is semidet.
+:- func n_to_string(map(int, n_constraints(T))) = string is det <= number(T).
+:- func s_to_string(map(int, s_constraints)) = string is det.
 :- pred verbose is det.
 
 init = constraints(map.init, map.init, map.init).
@@ -384,7 +392,11 @@ i_constraint_to_string(V, C) = n_constraint_to_string(V, C).
 s_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V), s(Val)]).
 s_constraint_to_string(V, '\\=='(var(X))) =     format("(<> (var %i) (var %i))", [i(V), i(X)]).
 
-to_string(Cs, Prefix) =
+to_string(constraints(FCs, ICs, SCs)) = F ++ I ++ S :-
+  (count(FCs) = 0 -> F = "" ; F = "  float\n" ++ n_to_string(FCs)),
+  (count(ICs) = 0 -> I = "" ; I = "  int\n" ++ n_to_string(ICs)),
+  (count(SCs) = 0 -> S = "" ; S = "  string\n" ++ s_to_string(SCs)).
+n_to_string(Cs) =
   foldl(func(V, ValOrCSet, ResultIn) = ResultOut :-
       (ValOrCSet = val(Val) ->
         ResultOut = ResultIn ++ format("  %s\n", [s(n_constraint_to_string(V, ':='(Val)))])
@@ -394,6 +406,17 @@ to_string(Cs, Prefix) =
                             CSet, ResultIn)
         ;
           ResultOut = ResultIn)),
-    Cs, Prefix ++ "\n").
+    Cs, "").
+s_to_string(Cs) =
+  foldl(func(V, ValOrCSet, ResultIn) = ResultOut :-
+      (ValOrCSet = val(Val) ->
+        ResultOut = ResultIn ++ format("  %s\n", [s(s_constraint_to_string(V, ':='(Val)))])
+      ;
+        (ValOrCSet = cs(CSet) ->
+          ResultOut = foldl(func(C, RIn) = RIn ++ format("  %s\n", [s(s_constraint_to_string(V, C))]),
+                            CSet, ResultIn)
+        ;
+          ResultOut = ResultIn)),
+    Cs, "").
 
 verbose.
