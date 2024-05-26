@@ -3,6 +3,7 @@
 
 :- import_module map.
 :- import_module maybe.
+:- import_module number.
 :- import_module set.
 
 :- type var(T) ---> var(int).
@@ -18,7 +19,8 @@
 :- type i_constraint == n_constraint(int).
 
 :- type s_constraint
-   ---> ':='(string).
+   ---> ':='(string)
+   ;    '\\=='(var(string)).
 
 :- type constraint
    ---> f(n_constraint(float))
@@ -49,6 +51,7 @@
 :- func f_get(int, constraints) = maybe(float).
 :- func i_get(int, constraints) = maybe(int).
 :- func s_get(int, constraints) = maybe(string).
+:- func to_string(map(int, n_constraints(T)), string) = string is det <= number(T).
 
 :- func f_constraint_to_string(int, n_constraint(float)) = string is det.
 :- func i_constraint_to_string(int, n_constraint(int)) = string is det.
@@ -58,9 +61,7 @@
 
 :- import_module bool.
 :- import_module list.
-:- import_module number.
 :- import_module pair.
-:- import_module printing. % only for n_dump_store
 :- import_module string.
 
 :- pred n_unify(int::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, set(string)::out) is semidet <= number(T).
@@ -79,7 +80,7 @@
 % If AddTransformed is yes, then you should add the transformed constraint(s) to the other variable(s).
 :- pred n_add_math_constraint(int::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, bool::out) is det.
 :- func n_constraint_to_string(int, n_constraint(T)) = string is det <= number(T).
-:- pred n_dump_store(string::in, map(int, n_constraints(T))::in) is det <= number(T).
+:- pred s_new_value(string::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is semidet.
 :- pred verbose is det.
 
 init = constraints(map.init, map.init, map.init).
@@ -223,18 +224,69 @@ n_unify(V, '=<'(X), Cs, CsOut, Descs) :-
       Descs = make_singleton_set(format("(var %i) <= %s", [i(V), s(to_string(X))]))
     ; 
       Descs = set.init)).
+
 s_unify(V, ':='(Val), Cs, CsOut, Descs) :-
-  (search(Cs, V, val(BoundVal)) ->
-    Val = BoundVal,
-    CsOut = Cs,
-    Descs = set.init
-  ;
-    % Set the binding as the only constraint.
+  (search(Cs, V, ValOrCSet) ->
+    (ValOrCSet = val(BoundVal) ->
+      % Just confirm the existing value.
+      Val = BoundVal,
+      CsOut = Cs,
+      Descs = set.init
+    ;
+      % Save the constraints.
+      ValOrCSet = cs(CSet),
+      % Set the binding as the only constraint.
+      Cs1 = set(Cs, V, val(Val)),
+
+      (verbose ->
+        Descs1 = make_singleton_set(format("(var %i) = %s", [i(V), s(Val)]))
+      ; 
+        Descs1 = set.init),
+      % Possibly evaluate all the constraints.
+      foldl(
+        (pred(C::in, CsIn-DescsIn::in, CsOut1-DescsOut1::out) is semidet :-
+          s_new_value(Val, C, CsIn, CsOut1, Descs2),
+          DescsOut1 = union(DescsIn, Descs2)),
+        CSet, Cs1-Descs1, CsOut-Descs))
+  ;  
+    % Create the entry for V.
     CsOut = set(Cs, V, val(Val)),
     (verbose ->
       Descs = make_singleton_set(format("(var %i) = %s", [i(V), s(Val)]))
     ; 
       Descs = set.init)).
+s_unify(V, '\\=='(var(X)), Cs, CsOut, Descs) :-
+  C = '\\=='(var(X)),
+  (search(Cs, V, ValOrCSet) ->
+    (ValOrCSet = val(BoundVal) ->
+      (search(Cs, X, val(XVal)) ->
+        % Just confirm the constraint with the existing value.
+        BoundVal \= XVal,
+        CsOut = Cs,
+        Descs = set.init
+      ;
+        s_unify(X, '\\=='(var(V)), Cs, CsOut, Descs))
+    ;
+      ValOrCSet = cs(CSet),
+      (member(C, CSet) ->
+        % We already added the constraint. Do nothing. This also prevents loops.
+        CsOut = Cs,
+        Descs = set.init
+      ;
+        % Add the constraint.
+        CsOut = set(Cs, V, cs(insert(CSet, C))),
+        (verbose ->
+          Descs = make_singleton_set(format("(var %i) <> (var %i)", [i(V), i(X)]))
+        ; 
+          Descs = set.init)))
+  ;
+    % Create the entry for V.
+    CsOut1 = set(Cs, V, cs(make_singleton_set(C))),
+    s_unify(X, '\\=='(var(V)), CsOut1, CsOut, Descs1),
+    (verbose ->
+      Descs = insert(Descs1, format("(var %i) <> (var %i)", [i(V), i(X)]))
+    ; 
+      Descs = Descs1)).
 
 n_set_value(V, Val, Cs, CsOut, Descs) :-
   (search(Cs, V, ValOrCSet) ->
@@ -312,6 +364,15 @@ n_add_math_constraint(V, C, Cs, CsOut, AddTransformed) :-
     CsOut = set(Cs, V, cs(make_singleton_set(C))),
     AddTransformed = yes).
 
+% Boolean constraints.
+s_new_value(Val, '\\=='(var(X)), CsIn, CsIn, set.init) :-
+  (search(CsIn, X, val(XVal)) ->
+    Val \= XVal
+  ;
+    true).
+% Ignore. (Shouldn't happen.)
+s_new_value(_Val, ':='(_), CsIn, CsIn, set.init).
+
 n_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V), s(to_string(Val))]).
 n_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %s)", [i(V), i(X1), s(to_string(X2))]).
 n_constraint_to_string(V, var(X1) ++ var(X2)) = format("(= (var %i) (+ (var %i) (var %i))", [i(V), i(X1), i(X2)]).
@@ -321,22 +382,18 @@ n_constraint_to_string(V, '=<'(X)) =            format("(<= (var %i) %s)", [i(V)
 f_constraint_to_string(V, C) = n_constraint_to_string(V, C).
 i_constraint_to_string(V, C) = n_constraint_to_string(V, C).
 s_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V), s(Val)]).
+s_constraint_to_string(V, '\\=='(var(X))) =     format("(<> (var %i) (var %i))", [i(V), i(X)]).
 
-n_dump_store(Prefix, Cs) :-
-  open("C:/Users/Jeff/AERA/replicode/AERA/runtime_out.txt", "a", Fd),
-  format(Fd, "%s\n", [s(Prefix)]),
-  _ = foldl(func(V, ValOrCSet, _) = 0 :-
+to_string(Cs, Prefix) =
+  foldl(func(V, ValOrCSet, ResultIn) = ResultOut :-
       (ValOrCSet = val(Val) ->
-        format(Fd, "  %s\n", [s(n_constraint_to_string(V, ':='(Val)))])
+        ResultOut = ResultIn ++ format("  %s\n", [s(n_constraint_to_string(V, ':='(Val)))])
       ;
         (ValOrCSet = cs(CSet) ->
-          _ = foldl(func(C, _) = 0 :-
-              format(Fd, "  %s\n", [s(n_constraint_to_string(V, C))]),
-            CSet, 0)
+          ResultOut = foldl(func(C, RIn) = RIn ++ format("  %s\n", [s(n_constraint_to_string(V, C))]),
+                            CSet, ResultIn)
         ;
-          true)),
-    Cs, 0),
-
-  close(Fd).
+          ResultOut = ResultIn)),
+    Cs, Prefix ++ "\n").
 
 verbose.
