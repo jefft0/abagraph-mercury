@@ -19,6 +19,7 @@
 
 :- type s_constraint
    ---> ':='(string)
+   ;    '\\='(string)
    ;    '\\=='(var(string)).
 
 :- type constraint
@@ -215,7 +216,7 @@ n_unify(V, '=<'(X), Cs, CsOut, Descs) :-
           % TODO: Search for math constraints and add a related boolean constraint.
           CsOut = set(Cs, V, cs(insert(CSet1, C))),
           (verbose ->
-            Descs = make_singleton_set(format("(var %i) <= %s", [i(V), s(to_string(X))]))
+            Descs = make_singleton_set(n_constraint_to_string(V, C))
           ; 
             Descs = set.init)
         ;
@@ -229,7 +230,7 @@ n_unify(V, '=<'(X), Cs, CsOut, Descs) :-
     % Create the entry for V.
     CsOut = set(Cs, V, cs(make_singleton_set(C))),
     (verbose ->
-      Descs = make_singleton_set(format("(var %i) <= %s", [i(V), s(to_string(X))]))
+      Descs = make_singleton_set(n_constraint_to_string(V, C))
     ; 
       Descs = set.init)).
 
@@ -247,7 +248,7 @@ s_unify(V, ':='(Val), Cs, CsOut, Descs) :-
       Cs1 = set(Cs, V, val(Val)),
 
       (verbose ->
-        Descs1 = make_singleton_set(format("(var %i) = %s", [i(V), s(Val)]))
+        Descs1 = make_singleton_set(s_constraint_to_string(V, ':='(Val)))
       ; 
         Descs1 = set.init),
       % Possibly evaluate all the constraints.
@@ -260,22 +261,40 @@ s_unify(V, ':='(Val), Cs, CsOut, Descs) :-
     % Create the entry for V.
     CsOut = set(Cs, V, val(Val)),
     (verbose ->
-      Descs = make_singleton_set(format("(var %i) = %s", [i(V), s(Val)]))
+      Descs = make_singleton_set(s_constraint_to_string(V, ':='(Val)))
+    ; 
+      Descs = set.init)).
+s_unify(V, '\\='(X), Cs, CsOut, Descs) :-
+  C = '\\='(X),
+  (search(Cs, V, ValOrCSet) ->
+    (ValOrCSet = val(BoundVal) ->
+      % Just confirm the constraint with the existing value.
+      BoundVal \= X,
+      CsOut = Cs,
+      Descs = set.init
+    ;
+      ValOrCSet = cs(CSet),
+      (member(C, CSet) ->
+        % We already added the constraint. Do nothing. This also prevents loops.
+        CsOut = Cs,
+        Descs = set.init
+      ;
+        CsOut = set(Cs, V, cs(insert(CSet, C))),
+        (verbose ->
+          Descs = make_singleton_set(s_constraint_to_string(V, C))
+        ; 
+          Descs = set.init)))
+  ;  
+    % Create the entry for V.
+    CsOut = set(Cs, V, cs(make_singleton_set(C))),
+    (verbose ->
+      Descs = make_singleton_set(s_constraint_to_string(V, C))
     ; 
       Descs = set.init)).
 s_unify(V, '\\=='(var(X)), Cs, CsOut, Descs) :-
   C = '\\=='(var(X)),
   (search(Cs, V, ValOrCSet) ->
-    (ValOrCSet = val(BoundVal) ->
-      (search(Cs, X, val(XVal)) ->
-        % Just confirm the constraint with the existing value.
-        BoundVal \= XVal,
-        CsOut = Cs,
-        Descs = set.init
-      ;
-        s_unify(X, '\\=='(var(V)), Cs, CsOut, Descs))
-    ;
-      ValOrCSet = cs(CSet),
+    (ValOrCSet = cs(CSet) ->
       (member(C, CSet) ->
         % We already added the constraint. Do nothing. This also prevents loops.
         CsOut = Cs,
@@ -284,15 +303,24 @@ s_unify(V, '\\=='(var(X)), Cs, CsOut, Descs) :-
         % Add the constraint.
         CsOut = set(Cs, V, cs(insert(CSet, C))),
         (verbose ->
-          Descs = make_singleton_set(format("(var %i) <> (var %i)", [i(V), i(X)]))
+          Descs = make_singleton_set(s_constraint_to_string(V, C))
         ; 
-          Descs = set.init)))
+          Descs = set.init))
+    ;
+      ValOrCSet = val(BoundVal),
+      (search(Cs, X, val(XVal)) ->
+        % Just confirm the constraint with the existing value.
+        BoundVal \= XVal,
+        CsOut = Cs,
+        Descs = set.init
+      ;
+        s_unify(X, '\\=='(var(V)), Cs, CsOut, Descs)))
   ;
     % Create the entry for V.
     CsOut1 = set(Cs, V, cs(make_singleton_set(C))),
     s_unify(X, '\\=='(var(V)), CsOut1, CsOut, Descs1),
     (verbose ->
-      Descs = insert(Descs1, format("(var %i) <> (var %i)", [i(V), i(X)]))
+      Descs = insert(Descs1, s_constraint_to_string(V, C))
     ; 
       Descs = Descs1)).
 
@@ -310,7 +338,7 @@ n_set_value(V, Val, Cs, CsOut, Descs) :-
       Cs1 = set(Cs, V, val(Val)),
 
       (verbose ->
-        Descs1 = make_singleton_set(format("(var %i) = %s", [i(V), s(to_string(Val))]))
+        Descs1 = make_singleton_set(n_constraint_to_string(V, ':='(Val)))
       ; 
         Descs1 = set.init),
       % Possibly evaluate all the constraints.
@@ -323,7 +351,7 @@ n_set_value(V, Val, Cs, CsOut, Descs) :-
     % Create the entry for V.
     CsOut = set(Cs, V, val(Val)),
     (verbose ->
-      Descs = make_singleton_set(format("(var %i) = %s", [i(V), s(to_string(Val))]))
+      Descs = make_singleton_set(n_constraint_to_string(V, ':='(Val)))
     ; 
       Descs = set.init)).
 
@@ -373,6 +401,7 @@ n_add_math_constraint(V, C, Cs, CsOut, AddTransformed) :-
     AddTransformed = yes).
 
 % Boolean constraints.
+s_new_value(Val, '\\='(X), CsIn, CsIn, set.init) :- Val \= X.
 s_new_value(Val, '\\=='(var(X)), CsIn, CsIn, set.init) :-
   (search(CsIn, X, val(XVal)) ->
     Val \= XVal
@@ -390,6 +419,7 @@ n_constraint_to_string(V, '=<'(X)) =            format("(<= (var %i) %s)", [i(V)
 f_constraint_to_string(V, C) = n_constraint_to_string(V, C).
 i_constraint_to_string(V, C) = n_constraint_to_string(V, C).
 s_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V), s(Val)]).
+s_constraint_to_string(V, '\\='(X)) =           format("(<> (var %i) %s)", [i(V), s(X)]).
 s_constraint_to_string(V, '\\=='(var(X))) =     format("(<> (var %i) (var %i))", [i(V), i(X)]).
 
 to_string(constraints(FCs, ICs, SCs)) = F ++ I ++ S :-
