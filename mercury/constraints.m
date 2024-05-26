@@ -80,12 +80,13 @@
 % The variable with constraint C has a new value Val. Confirm a boolean constraint C with Val or
 % maybe get a new value for another variable in the arithmetic expression C.
 :- pred n_new_value(T::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, set(string)::out) is semidet <= number(T).
-% n_add_math_constraint(V, C, Cs, CsOut, AddTransformed).
+% n_add_transformable_constraint(V, C, Cs, CsOut, AddTransformed).
 % If the constraints for V already has C, then set AddTransformed no and do nothing.
 % If the constraints for V already has a val, then set AddTransformed yes and do nothing.
 % Otherwise, set AddTransformed yes and add C to the constraints for V.
 % If AddTransformed is yes, then you should add the transformed constraint(s) to the other variable(s).
-:- pred n_add_math_constraint(int::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, bool::out) is det.
+:- pred n_add_transformable_constraint(int::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, bool::out) is det.
+:- pred s_add_transformable_constraint(int::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, bool::out) is det.
 :- func n_constraint_to_string(int, n_constraint(T)) = string is det <= number(T).
 :- pred s_new_value(string::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is semidet.
 :- func n_to_string(map(int, n_constraints(T))) = string is det <= number(T).
@@ -121,7 +122,7 @@ n_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
     % We already know the value. Treat this like assignment.
     n_set_value(V, XVal + Y, Cs, CsOut, Descs)
   ;
-    n_add_math_constraint(V, var(X) + Y, Cs, CsOut1, AddTransformed),
+    n_add_transformable_constraint(V, var(X) + Y, Cs, CsOut1, AddTransformed),
     (AddTransformed = yes ->
       n_unify(X, var(V) + (-Y), CsOut1, CsOut2, Descs1),
 
@@ -149,7 +150,7 @@ n_unify(V, var(X) ++ var(Y), Cs, CsOut, Descs) :-
     % We already know the value. Treat this like assignment.
     n_set_value(V, XVal + YVal, Cs, CsOut, Descs)
   ;
-    n_add_math_constraint(V, var(X) ++ var(Y), Cs, CsOut1, AddTransformed),
+    n_add_transformable_constraint(V, var(X) ++ var(Y), Cs, CsOut1, AddTransformed),
     (AddTransformed = yes ->
       n_unify(X, var(V) -- var(Y), CsOut1, CsOut2, Descs1),
       n_unify(Y, var(V) -- var(X), CsOut2, CsOut, Descs2),
@@ -162,7 +163,7 @@ n_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
     % We already know the value. Treat this like assignment.
     n_set_value(V, XVal - YVal, Cs, CsOut, Descs)
   ;
-    n_add_math_constraint(V, var(X) -- var(Y), Cs, CsOut1, AddTransformed),
+    n_add_transformable_constraint(V, var(X) -- var(Y), Cs, CsOut1, AddTransformed),
     (AddTransformed = yes ->
       n_unify(X, var(V) ++ var(Y), CsOut1, CsOut2, Descs1),
       n_unify(Y, var(X) -- var(V), CsOut2, CsOut, Descs2),
@@ -292,37 +293,16 @@ s_unify(V, '\\='(X), Cs, CsOut, Descs) :-
     ; 
       Descs = set.init)).
 s_unify(V, '\\=='(var(X)), Cs, CsOut, Descs) :-
-  C = '\\=='(var(X)),
-  (search(Cs, V, ValOrCSet) ->
-    (ValOrCSet = cs(CSet) ->
-      (member(C, CSet) ->
-        % We already added the constraint. Do nothing. This also prevents loops.
-        CsOut = Cs,
-        Descs = set.init
-      ;
-        % Add the constraint.
-        CsOut = set(Cs, V, cs(insert(CSet, C))),
-        (verbose ->
-          Descs = make_singleton_set(s_constraint_to_string(V, C))
-        ; 
-          Descs = set.init))
-    ;
-      ValOrCSet = val(BoundVal),
-      (search(Cs, X, val(XVal)) ->
-        % Just confirm the constraint with the existing value.
-        BoundVal \= XVal,
-        CsOut = Cs,
-        Descs = set.init
-      ;
-        s_unify(X, '\\=='(var(V)), Cs, CsOut, Descs)))
+  (search(Cs, X, val(XVal)) ->
+    % We already know the value. Treat this like the simpler \= .
+    s_unify(V, '\\='(XVal), Cs, CsOut, Descs)
   ;
-    % Create the entry for V.
-    CsOut1 = set(Cs, V, cs(make_singleton_set(C))),
-    s_unify(X, '\\=='(var(V)), CsOut1, CsOut, Descs1),
-    (verbose ->
-      Descs = insert(Descs1, s_constraint_to_string(V, C))
-    ; 
-      Descs = Descs1)).
+    s_add_transformable_constraint(V, '\\=='(var(X)), Cs, CsOut1, AddTransformed),
+    (AddTransformed = yes ->
+      s_unify(X, '\\=='(var(V)), CsOut1, CsOut, Descs)
+    ;
+      CsOut = CsOut1,
+      Descs = set.init)).
 
 n_set_value(V, Val, Cs, CsOut, Descs) :-
   (search(Cs, V, ValOrCSet) ->
@@ -381,7 +361,25 @@ n_new_value(Val, '=<'(X), CsIn, CsIn, set.init) :- Val =< X.
 % Ignore. (Shouldn't happen.)
 n_new_value(_Val, ':='(_), CsIn, CsIn, set.init).
 
-n_add_math_constraint(V, C, Cs, CsOut, AddTransformed) :-
+n_add_transformable_constraint(V, C, Cs, CsOut, AddTransformed) :-
+  (search(Cs, V, ValOrCSet) ->
+    (ValOrCSet = cs(CSet) ->
+      (member(C, CSet) ->
+        % We already added the constraint. Do nothing. This also prevents loops.
+        CsOut = Cs,
+        AddTransformed = no
+      ;
+        CsOut = set(Cs, V, cs(insert(CSet, C))),
+        AddTransformed = yes)
+    ;
+      % This is already val(X).
+      CsOut = Cs,
+      AddTransformed = yes)
+  ;
+    % New variable.
+    CsOut = set(Cs, V, cs(make_singleton_set(C))),
+    AddTransformed = yes).
+s_add_transformable_constraint(V, C, Cs, CsOut, AddTransformed) :-
   (search(Cs, V, ValOrCSet) ->
     (ValOrCSet = cs(CSet) ->
       (member(C, CSet) ->
