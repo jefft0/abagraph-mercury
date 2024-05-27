@@ -9,6 +9,7 @@
 
 :- type n_constraint(T)
    ---> ':='(T)
+   ;    '\\='(T)
    ;    '+'(var(T), T)
    ;    '++'(var(T), var(T))
    ;    '--'(var(T), var(T))
@@ -117,6 +118,33 @@ s_get(V, constraints(_, _, Cs)) = Val :-
     Val = no).
 
 n_unify(V, ':='(Val), Cs, CsOut, Descs) :- n_set_value(V, Val, Cs, CsOut, Descs).
+n_unify(V, '\\='(X), Cs, CsOut, Descs) :-
+  C = '\\='(X),
+  (search(Cs, V, ValOrCSet) ->
+    (ValOrCSet = val(BoundVal) ->
+      % Just confirm the constraint with the existing value.
+      BoundVal \= X,
+      CsOut = Cs,
+      Descs = set.init
+    ;
+      ValOrCSet = cs(CSet),
+      (member(C, CSet) ->
+        % We already added the constraint. Do nothing. This also prevents loops.
+        CsOut = Cs,
+        Descs = set.init
+      ;
+        CsOut = set(Cs, V, cs(insert(CSet, C))),
+        (verbose ->
+          Descs = make_singleton_set(n_constraint_to_string(V, C))
+        ; 
+          Descs = set.init)))
+  ;  
+    % Create the entry for V.
+    CsOut = set(Cs, V, cs(make_singleton_set(C))),
+    (verbose ->
+      Descs = make_singleton_set(n_constraint_to_string(V, C))
+    ; 
+      Descs = set.init)).
 n_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
   (search(Cs, X, val(XVal)) ->
     % We already know the value. Treat this like assignment.
@@ -357,6 +385,7 @@ n_new_value(Val, var(X) -- var(Y), CsIn, CsOut, Descs) :-
   ;
     CsOut = CsIn, Descs = set.init)).
 % Boolean constraints.
+n_new_value(Val, '\\='(X), CsIn, CsIn, set.init) :- Val \= X.
 n_new_value(Val, '=<'(X), CsIn, CsIn, set.init) :- Val =< X.
 % Ignore. (Shouldn't happen.)
 n_new_value(_Val, ':='(_), CsIn, CsIn, set.init).
@@ -409,6 +438,7 @@ s_new_value(Val, '\\=='(var(X)), CsIn, CsIn, set.init) :-
 s_new_value(_Val, ':='(_), CsIn, CsIn, set.init).
 
 n_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V), s(to_string(Val))]).
+n_constraint_to_string(V, '\\='(X)) =           format("(<> (var %i) %s)", [i(V), s(to_string(X))]).
 n_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %s)", [i(V), i(X1), s(to_string(X2))]).
 n_constraint_to_string(V, var(X1) ++ var(X2)) = format("(= (var %i) (+ (var %i) (var %i))", [i(V), i(X1), i(X2)]).
 n_constraint_to_string(V, var(X1) -- var(X2)) = format("(= (var %i) (- (var %i) (var %i))", [i(V), i(X1), i(X2)]).

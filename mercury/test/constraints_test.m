@@ -23,6 +23,21 @@
 
 main(!IO) :-
   Tests = [
+    % Test int \=
+    (pred(CS::in) is semidet :-
+      unify(1, i('\\='(10)), CS, CS1, _),
+      format("CS1\n%s", [s(to_string(CS1))]),
+      unify(1, i(':='(11)), CS1, _, _)),
+    (pred(CS::in) is semidet :-
+      unify(1, i(':='(10)), CS, CS1, _),
+      unify(1, i('\\='(11)), CS1, _, _)),
+    (pred(CS::in) is semidet :-
+      unify(1, i('\\='(10)), CS, CS1, _),
+      \+ unify(1, i(':='(10)), CS1, _, _)),
+    (pred(CS::in) is semidet :-
+      unify(1, i(':='(10)), CS, CS1, _),
+      \+ unify(1, i('\\='(10)), CS1, _, _)),
+
     % Test int +
     (pred(CS::in) is semidet :-
       unify(1, i('+'(var(2), 5)), CS, CS1, _),
@@ -62,9 +77,7 @@ main(!IO) :-
       \+ unify(2, s(':='("a")), CS2, _, _)),
     (pred(CS::in) is semidet :-
       unify(1, s(':='("a")), CS, CS1, _),
-      format("CS1\n%s", [s(to_string(CS1))]),
       unify(1, s('\\=='(var(2))), CS1, CS2, _),
-      format("CS2\n%s", [s(to_string(CS2))]),
       \+ unify(2, s(':='("a")), CS2, _, _)),
     (pred(CS::in) is semidet :-
       unify(1, s(':='("a")), CS, CS1, _),
@@ -72,7 +85,7 @@ main(!IO) :-
       \+ unify(1, s('\\=='(var(2))), CS2, _, _))
   ],
 
-  Tests = [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11],
+  Tests = [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15],
   run_test(T1),
   run_test(T2),
   run_test(T3),
@@ -83,7 +96,11 @@ main(!IO) :-
   run_test(T8),
   run_test(T9),
   run_test(T10),
-  run_test(T11).
+  run_test(T11),
+  run_test(T12),
+  run_test(T13),
+  run_test(T14),
+  run_test(T15).
 
 run_test(Test) :- (Test(constraints.init) -> format("Pass\n", []) ; format("Fail\n", [])).
 
