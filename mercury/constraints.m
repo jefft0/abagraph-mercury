@@ -10,6 +10,7 @@
 :- type n_constraint(T)
    ---> ':='(T)
    ;    '\\='(T)
+   ;    '\\=='(var(T))
    ;    '+'(var(T), T)
    ;    '++'(var(T), var(T))
    ;    '--'(var(T), var(T))
@@ -144,6 +145,17 @@ n_unify(V, '\\='(X), Cs, CsOut, Descs) :-
     (verbose ->
       Descs = make_singleton_set(n_constraint_to_string(V, C))
     ; 
+      Descs = set.init)).
+n_unify(V, '\\=='(var(X)), Cs, CsOut, Descs) :-
+  (search(Cs, X, val(XVal)) ->
+    % We already know the value. Treat this like the simpler \= .
+    n_unify(V, '\\='(XVal), Cs, CsOut, Descs)
+  ;
+    n_add_transformable_constraint(V, '\\=='(var(X)), Cs, CsOut1, AddTransformed),
+    (AddTransformed = yes ->
+      n_unify(X, '\\=='(var(V)), CsOut1, CsOut, Descs)
+    ;
+      CsOut = CsOut1,
       Descs = set.init)).
 n_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
   (search(Cs, X, val(XVal)) ->
@@ -386,6 +398,11 @@ n_new_value(Val, var(X) -- var(Y), CsIn, CsOut, Descs) :-
     CsOut = CsIn, Descs = set.init)).
 % Boolean constraints.
 n_new_value(Val, '\\='(X), CsIn, CsIn, set.init) :- Val \= X.
+n_new_value(Val, '\\=='(var(X)), CsIn, CsIn, set.init) :-
+  (search(CsIn, X, val(XVal)) ->
+    Val \= XVal
+  ;
+    true).
 n_new_value(Val, '=<'(X), CsIn, CsIn, set.init) :- Val =< X.
 % Ignore. (Shouldn't happen.)
 n_new_value(_Val, ':='(_), CsIn, CsIn, set.init).
@@ -439,6 +456,7 @@ s_new_value(_Val, ':='(_), CsIn, CsIn, set.init).
 
 n_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V), s(to_string(Val))]).
 n_constraint_to_string(V, '\\='(X)) =           format("(<> (var %i) %s)", [i(V), s(to_string(X))]).
+n_constraint_to_string(V, '\\=='(var(X))) =     format("(<> (var %i) (var %i))", [i(V), i(X)]).
 n_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %s)", [i(V), i(X1), s(to_string(X2))]).
 n_constraint_to_string(V, var(X1) ++ var(X2)) = format("(= (var %i) (+ (var %i) (var %i))", [i(V), i(X1), i(X2)]).
 n_constraint_to_string(V, var(X1) -- var(X2)) = format("(= (var %i) (- (var %i) (var %i))", [i(V), i(X1), i(X2)]).
