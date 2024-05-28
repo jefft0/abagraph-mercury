@@ -13,7 +13,7 @@
 :- import_module maybe.
 :- import_module string.
 
-:- pred run_test(pred(constraints)).
+:- pred run_test(pred(constraint_store)).
 :- mode run_test(pred(in) is semidet).
 
 % puts(S). Write the string S to stdout without a newline.

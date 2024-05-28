@@ -36,14 +36,14 @@
                    set(sentence),          % D (the proponent defences)
                    pair(set(sentence), map(sentence, int)), % C = Culprits-CulpritIds (the opponent culprits plus Ids (only for printing))
                    set(attack),            % Att (set of attacks, used only for printing)
-                   constraints).           % Constraint store
+                   constraint_store).       % Constraint store
 
 :- type opponent_step_tuple
    ---> opponent_step_tuple(pot_arg_graph,          % PROPONENT potential argument graph
                             set(sentence),          % D (the proponent defences)
                             pair(set(sentence), map(sentence, int)), % C = Culprits-CulpritIds (the opponent culprits plus Ids (only for printing))
                             set(attack),            % Att
-                            constraints).           % CS
+                            constraint_store).      % CS
 
 :- type derivation_result
    ---> derivation_result(pair(set(sentence), digraph(sentence)), % PropMrk-PropG
@@ -51,7 +51,7 @@
                           set(sentence),                          % D (the proponent defences)
                           set(sentence),                          % C (the opponent culprits)
                           set(attack),                            % Att
-                          constraints).                           % CS
+                          constraint_store).                      % CS
 
 :- pred derive(sentence::in, derivation_result::out) is nondet.
 
@@ -80,10 +80,10 @@
 :- pred opponent_step(step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, pair(set(sentence), map(sentence, int))::in,
-          set(attack)::in, constraints::in, step_tuple::out, id_map::in, id_map::out) is semidet.
+          set(attack)::in, constraint_store::in, step_tuple::out, id_map::in, id_map::out) is semidet.
 :- pred proponent_nonasm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, pair(set(sentence), map(sentence, int))::in,
-          set(attack)::in, constraints::in, step_tuple::out, id_map::in, id_map::out) is nondet.
+          set(attack)::in, constraint_store::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred opponent_i(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is semidet.
 :- pred opponent_ia(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
@@ -133,7 +133,7 @@
 :- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet.
 :- pred select(T::out, list(T)::in, list(T)::out) is nondet.
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
-:- pred unify(sentence::in, constraints::in, constraints::out, set(string)::out) is semidet.
+:- pred unify(sentence::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
 
 % ("set some options" moved to options.m.)
 

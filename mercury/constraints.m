@@ -1,3 +1,9 @@
+% Naming convention for variables:
+% CS for the top-level constraint_store which has all types of constraints (float, int, etc.)
+% Cs for a particular type of constraints, e.g. s_constraints
+% CSet for the set of constraints cs (not val(C)) of a particular type, e.g. set(s_constraint)
+% C for an individual constriant, e.g. s_constraint
+
 :- module constraints.
 :- interface.
 
@@ -38,28 +44,29 @@
    ---> val(string)
    ;    cs(set(s_constraint)).
 
-:- type constraints ---> constraints(map(int, n_constraints(float)), map(int, n_constraints(int)), map(int, s_constraints)).
+:- type constraint_store ---> constraint_store(map(int, n_constraints(float)), map(int, n_constraints(int)), map(int, s_constraints)).
 
-:- func init = constraints.
+% Return a new constraint_store.
+:- func init = constraint_store.
 
-% unify(V, C, Cs, CsOut, Descs).
+% unify(V, C, CS, CSOut, Descs).
 % If there is no binding for V, add one for V and the constraint C and set Descs to
 % a set of description strings for the bindings (only if verbose).
 % If there is a binding for V, confirm the constraint and set Descs to "",
 % else if the constraint is not confirmed then fail.
-:- pred unify(int::in, constraint::in, constraints::in, constraints::out, set(string)::out) is semidet.
+:- pred unify(int::in, constraint::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
 % f_get(V, Cs) = Val.
 % Return yes(Val) where Val is the bound value of V, or no if not found.
-:- func f_get(int, constraints) = maybe(float).
-:- func i_get(int, constraints) = maybe(int).
-:- func s_get(int, constraints) = maybe(string).
-% Return a string representation of the constraints, indented (so that you can prefix a label). Example:
+:- func f_get(int, constraint_store) = maybe(float).
+:- func i_get(int, constraint_store) = maybe(int).
+:- func s_get(int, constraint_store) = maybe(string).
+% Return a string representation of the constraint_store, indented (so that you can prefix a label). Example:
 %   int
 %   (= (var 2) 10)
 %   string
 %   (<> (var 1) (var 2))
 %   (<> (var 2) (var 1))
-:- func to_string(constraints) = string is det.
+:- func to_string(constraint_store) = string is det.
 
 :- func f_constraint_to_string(int, n_constraint(float)) = string is det.
 :- func i_constraint_to_string(int, n_constraint(int)) = string is det.
@@ -95,24 +102,24 @@
 :- func s_to_string(map(int, s_constraints)) = string is det.
 :- pred verbose is det.
 
-init = constraints(map.init, map.init, map.init).
+init = constraint_store(map.init, map.init, map.init).
 
 % Dispatch unify to n_unify, s_unify, etc.
-unify(V, f(FC), constraints(FCs, ICs, SCs), constraints(FCsOut, ICs, SCs), Descs) :- n_unify(V, FC, FCs, FCsOut, Descs).
-unify(V, i(IC), constraints(FCs, ICs, SCs), constraints(FCs, ICsOut, SCs), Descs) :- n_unify(V, IC, ICs, ICsOut, Descs).
-unify(V, s(SC), constraints(FCs, ICs, SCs), constraints(FCs, ICs, SCsOut), Descs) :- s_unify(V, SC, SCs, SCsOut, Descs).
+unify(V, f(FC), constraint_store(FCs, ICs, SCs), constraint_store(FCsOut, ICs, SCs), Descs) :- n_unify(V, FC, FCs, FCsOut, Descs).
+unify(V, i(IC), constraint_store(FCs, ICs, SCs), constraint_store(FCs, ICsOut, SCs), Descs) :- n_unify(V, IC, ICs, ICsOut, Descs).
+unify(V, s(SC), constraint_store(FCs, ICs, SCs), constraint_store(FCs, ICs, SCsOut), Descs) :- s_unify(V, SC, SCs, SCsOut, Descs).
 
-f_get(V, constraints(Cs, _, _)) = Val :-
+f_get(V, constraint_store(Cs, _, _)) = Val :-
   (search(Cs, V, val(Val1)) ->
     Val = yes(Val1)
   ;
     Val = no).
-i_get(V, constraints(_, Cs, _)) = Val :-
+i_get(V, constraint_store(_, Cs, _)) = Val :-
   (search(Cs, V, val(Val1)) ->
     Val = yes(Val1)
   ;
     Val = no).
-s_get(V, constraints(_, _, Cs)) = Val :-
+s_get(V, constraint_store(_, _, Cs)) = Val :-
   (search(Cs, V, val(Val1)) ->
     Val = yes(Val1)
   ;
@@ -468,7 +475,7 @@ s_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V),
 s_constraint_to_string(V, '\\='(X)) =           format("(<> (var %i) %s)", [i(V), s(X)]).
 s_constraint_to_string(V, '\\=='(var(X))) =     format("(<> (var %i) (var %i))", [i(V), i(X)]).
 
-to_string(constraints(FCs, ICs, SCs)) = F ++ I ++ S :-
+to_string(constraint_store(FCs, ICs, SCs)) = F ++ I ++ S :-
   (count(FCs) = 0 -> F = "" ; F = "  float\n" ++ n_to_string(FCs)),
   (count(ICs) = 0 -> I = "" ; I = "  int\n" ++ n_to_string(ICs)),
   (count(SCs) = 0 -> S = "" ; S = "  string\n" ++ s_to_string(SCs)).
