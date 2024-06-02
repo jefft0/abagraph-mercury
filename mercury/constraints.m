@@ -214,18 +214,34 @@ n_unify(V, var(X) ++ var(Y), Cs, CsOut, Descs) :-
         CsOut = CsOut1,
         Descs = set.init))).
 n_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
-  (search(Cs, X, val(XVal)), search(Cs, Y, val(YVal)) ->
-    % We already know the value. Treat this like assignment.
-    n_set_value(V, XVal - YVal, Cs, CsOut, Descs)
-  ;
-    n_add_transformable_constraint(V, var(X) -- var(Y), Cs, CsOut1, AddTransformed),
-    (AddTransformed = yes ->
-      n_unify(X, var(V) ++ var(Y), CsOut1, CsOut2, Descs1),
-      n_unify(Y, var(X) -- var(V), CsOut2, CsOut, Descs2),
-      Descs = union(Descs1, Descs2)
+  (search(Cs, X, val(XVal)) ->
+    (search(Cs, Y, val(YVal)) ->
+      % We already know both values. Treat this like assignment.
+      n_set_value(V, XVal - YVal, Cs, CsOut, Descs)
     ;
-      CsOut = CsOut1,
-      Descs = set.init)).
+      % We already know one of the values. Treat this like the simpler + .
+      % TODO: n_unify(V, '-'(XVal, var(Y)), Cs, CsOut, Descs))
+      n_add_transformable_constraint(V, var(X) -- var(Y), Cs, CsOut1, AddTransformed),
+      (AddTransformed = yes ->
+        n_unify(X, var(V) ++ var(Y), CsOut1, CsOut2, Descs1),
+        n_unify(Y, var(X) -- var(V), CsOut2, CsOut, Descs2),
+        Descs = union(Descs1, Descs2)
+      ;
+        CsOut = CsOut1,
+        Descs = set.init))
+  ;
+    (search(Cs, Y, val(YVal)) ->
+      % We already know one of the values. Treat this like the simpler + .
+      n_unify(V, '+'(var(X), -YVal), Cs, CsOut, Descs)
+    ;
+      n_add_transformable_constraint(V, var(X) -- var(Y), Cs, CsOut1, AddTransformed),
+      (AddTransformed = yes ->
+        n_unify(X, var(V) ++ var(Y), CsOut1, CsOut2, Descs1),
+        n_unify(Y, var(X) -- var(V), CsOut2, CsOut, Descs2),
+        Descs = union(Descs1, Descs2)
+      ;
+        CsOut = CsOut1,
+        Descs = set.init))).
 n_unify(V, '=<'(X), Cs, CsOut, Descs) :-
   C = '=<'(X),
   (search(Cs, V, ValOrCSet) ->
