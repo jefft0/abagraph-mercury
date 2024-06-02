@@ -19,6 +19,7 @@
    ;    '\\=='(var(T))
    ;    '+'(var(T), T)
    ;    '++'(var(T), var(T))
+   ;    '-'(T, var(T)) % NOTE: We don't have '-'(var(T), T) because it's the same as '+'(var(T), -T)
    ;    '--'(var(T), var(T))
    ;    '=<'(T).
 
@@ -213,22 +214,30 @@ n_unify(V, var(X) ++ var(Y), Cs, CsOut, Descs) :-
       ;
         CsOut = CsOut1,
         Descs = set.init))).
+n_unify(V, X - var(Y), Cs, CsOut, Descs) :-
+  (search(Cs, Y, val(YVal)) ->
+    % We already know the value. Treat this like assignment.
+    n_set_value(V, X - YVal, Cs, CsOut, Descs)
+  ;
+    n_add_transformable_constraint(V, X - var(Y), Cs, CsOut1, AddTransformed),
+    (AddTransformed = yes ->
+      n_unify(Y, X - var(V), CsOut1, CsOut2, Descs1),
+
+      % Add or tighten boolean constraints.
+      % TODO.
+      CsOut = CsOut2,
+      Descs = Descs1
+    ;
+      CsOut = CsOut1,
+      Descs = set.init)).
 n_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
   (search(Cs, X, val(XVal)) ->
     (search(Cs, Y, val(YVal)) ->
       % We already know both values. Treat this like assignment.
       n_set_value(V, XVal - YVal, Cs, CsOut, Descs)
     ;
-      % We already know one of the values. Treat this like the simpler + .
-      % TODO: n_unify(V, '-'(XVal, var(Y)), Cs, CsOut, Descs))
-      n_add_transformable_constraint(V, var(X) -- var(Y), Cs, CsOut1, AddTransformed),
-      (AddTransformed = yes ->
-        n_unify(X, var(V) ++ var(Y), CsOut1, CsOut2, Descs1),
-        n_unify(Y, var(X) -- var(V), CsOut2, CsOut, Descs2),
-        Descs = union(Descs1, Descs2)
-      ;
-        CsOut = CsOut1,
-        Descs = set.init))
+      % We already know one of the values. Treat this like the simpler - .
+      n_unify(V, '-'(XVal, var(Y)), Cs, CsOut, Descs))
   ;
     (search(Cs, Y, val(YVal)) ->
       % We already know one of the values. Treat this like the simpler + .
@@ -407,7 +416,7 @@ n_set_value(V, Val, Cs, CsOut, Descs) :-
       Descs = set.init)).
 
 n_new_value(Val, var(X) + Y, CsIn, CsOut, Descs) :-
-  % We have Val = X + Y. Set X to Val - Y).
+  % We have Val = X + Y. Set X to Val - Y.
   n_set_value(X, Val - Y, CsIn, CsOut, Descs).
 n_new_value(Val, var(X) ++ var(Y), CsIn, CsOut, Descs) :-
   (search(CsIn, X, val(XVal)) ->
@@ -418,6 +427,9 @@ n_new_value(Val, var(X) ++ var(Y), CsIn, CsOut, Descs) :-
     n_set_value(X, Val - YVal, CsIn, CsOut, Descs)
   ;
     CsOut = CsIn, Descs = set.init)).
+n_new_value(Val, X - var(Y), CsIn, CsOut, Descs) :-
+  % We have Val = X - Y. Set Y to X - Val.
+  n_set_value(Y, X - Val, CsIn, CsOut, Descs).
 n_new_value(Val, var(X) -- var(Y), CsIn, CsOut, Descs) :-
   (search(CsIn, X, val(XVal)) ->
     % We have Val = X - Y and XVal. Set Y to XVal - Val.
@@ -490,6 +502,7 @@ n_constraint_to_string(V, '\\='(X)) =           format("(<> (var %i) %s)", [i(V)
 n_constraint_to_string(V, '\\=='(var(X))) =     format("(<> (var %i) (var %i))", [i(V), i(X)]).
 n_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %s)", [i(V), i(X1), s(to_string(X2))]).
 n_constraint_to_string(V, var(X1) ++ var(X2)) = format("(= (var %i) (+ (var %i) (var %i))", [i(V), i(X1), i(X2)]).
+n_constraint_to_string(V, X1 - var(X2)) =       format("(= (var %i) (- %s (var %i))", [i(V), s(to_string(X1)), i(X2)]).
 n_constraint_to_string(V, var(X1) -- var(X2)) = format("(= (var %i) (- (var %i) (var %i))", [i(V), i(X1), i(X2)]).
 n_constraint_to_string(V, '=<'(X)) =            format("(<= (var %i) %s)", [i(V), s(to_string(X))]).
 
