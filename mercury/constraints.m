@@ -21,6 +21,7 @@
    ;    '++'(var(T), var(T))
    ;    '-'(T, var(T)) % NOTE: We don't have '-'(var(T), T) because it's the same as '+'(var(T), -T)
    ;    '--'(var(T), var(T))
+   ;    '>='(T)
    ;    '=<'(T).
 
 :- type f_constraint == n_constraint(float).
@@ -178,6 +179,7 @@ n_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
       (search(CsOut2, X, cs(XCSet)) ->
         foldl(
           (pred(XC::in, CsIn-DescsIn::in, CsOut3-Descs3::out) is semidet :-
+            % TODO: Check for XC = '>='(XVal)
             (XC = '=<'(XVal) ->
               % We have var(V) - Y = var(X) and also var(X) =< XVal, so add
               % var(V) - Y =< XVal -> var(V) =< XVal + Y.
@@ -224,24 +226,22 @@ n_unify(V, X - var(Y), Cs, CsOut, Descs) :-
       n_unify(Y, X - var(V), CsOut1, CsOut2, Descs1),
 
       % Add or tighten boolean constraints.
-      % TODO: Add '>='
-      %(search(CsOut2, Y, cs(YCSet)) ->
-      %  foldl(
-      %    (pred(YC::in, CsIn-DescsIn::in, CsOut3-Descs3::out) is semidet :-
-      %      (YC = '=<'(YVal) ->
-      %        % We have X - var(V) = var(Y) and also var(Y) =< YVal, so add
-      %        % X - var(V) =< YVal -> -var(V) =< YVal - X -> var(V) >= X - YVal.
-      %        n_unify(V, '>='(X - YVal), CsIn, CsOut3, Descs2),
-      %        Descs3 = union(DescsIn, Descs2)
-      %      ;
-      %        CsOut3 = CsIn,
-      %        Descs3 = DescsIn)),
-      %    YCSet, CsOut2-Descs1, CsOut-Descs)
-      %;
-      %  CsOut = CsOut2,
-      %  Descs = Descs1)
-      CsOut = CsOut2,
-      Descs = Descs1
+      (search(CsOut2, Y, cs(YCSet)) ->
+        foldl(
+          (pred(YC::in, CsIn-DescsIn::in, CsOut3-Descs3::out) is semidet :-
+            % TODO: Check for YC = '>='(YVal)
+            (YC = '=<'(YVal) ->
+              % We have X - var(V) = var(Y) and also var(Y) =< YVal, so add
+              % X - var(V) =< YVal -> -var(V) =< YVal - X -> var(V) >= X - YVal.
+              n_unify(V, '>='(X - YVal), CsIn, CsOut3, Descs2),
+              Descs3 = union(DescsIn, Descs2)
+            ;
+              CsOut3 = CsIn,
+              Descs3 = DescsIn)),
+          YCSet, CsOut2-Descs1, CsOut-Descs)
+      ;
+        CsOut = CsOut2,
+        Descs = Descs1)
     ;
       CsOut = CsOut1,
       Descs = set.init)).
@@ -266,6 +266,69 @@ n_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
       ;
         CsOut = CsOut1,
         Descs = set.init))).
+n_unify(V, '>='(X), Cs, CsOut, Descs) :-
+  C = '>='(X),
+  (search(Cs, V, ValOrCSet) ->
+    (ValOrCSet = val(BoundVal) ->
+      % Just confirm the constraint with the existing value.
+      BoundVal >= X,
+      CsOut = Cs,
+      Descs = set.init
+    ;
+      ValOrCSet = cs(CSet),
+      (member(C, CSet) ->
+        % We already added the constraint. Do nothing. This also prevents loops.
+        CsOut = Cs,
+        Descs = set.init
+      ;
+        % Search for other boolean constraints and confirm or tighten.
+        foldl(
+          (pred(OtherC::in, CSetIn-AddCIn-CSetChangedIn::in, CSetOut1-AddCOut1-CSetChangedOut1::out) is semidet :-
+            (AddCIn = no ->
+              % We have discarded C in favor of another. Do nothing.
+              CSetOut1 = CSetIn,
+              AddCOut1 = AddCIn,
+              CSetChangedOut1 = CSetChangedIn
+            ;
+              (OtherC = '>='(OtherX) ->
+                (OtherX >= X ->
+                  % V >= OtherX is already tighter than V >= X, so discard C.
+                  CSetOut1 = CSetIn,
+                  AddCOut1 = no,
+                  CSetChangedOut1 = CSetChangedIn
+                ;
+                  % Discard OtherC in favor of the tighter new C.
+                  CSetOut1 = delete(CSetIn, OtherC),
+                  AddCOut1 = AddCIn,
+                  CSetChangedOut1 = yes))
+              ;
+                % Ignore OtherC.
+                CSetOut1 = CSetIn,
+                AddCOut1 = AddCIn,
+                CSetChangedOut1 = CSetChangedIn)),
+          CSet, pair.(CSet-yes)-no, pair.(CSet1-AddC)-CSetChanged),
+
+        (AddC = yes ->
+          % TODO: Search for math constraints and add a related boolean constraint.
+          CsOut = set(Cs, V, cs(insert(CSet1, C))),
+          (verbose ->
+            Descs = make_singleton_set(n_constraint_to_string(V, C))
+          ; 
+            Descs = set.init)
+        ;
+          (CSetChanged = yes ->
+            % Update with the new CSet modified by the search.
+            CsOut = set(Cs, V, cs(CSet1))
+          ;
+            CsOut = Cs),
+          Descs = set.init)))
+  ;  
+    % Create the entry for V.
+    CsOut = set(Cs, V, cs(make_singleton_set(C))),
+    (verbose ->
+      Descs = make_singleton_set(n_constraint_to_string(V, C))
+    ; 
+      Descs = set.init)).
 n_unify(V, '=<'(X), Cs, CsOut, Descs) :-
   C = '=<'(X),
   (search(Cs, V, ValOrCSet) ->
@@ -461,6 +524,7 @@ n_new_value(Val, '\\=='(var(X)), CsIn, CsIn, set.init) :-
     Val \= XVal
   ;
     true).
+n_new_value(Val, '>='(X), CsIn, CsIn, set.init) :- Val >= X.
 n_new_value(Val, '=<'(X), CsIn, CsIn, set.init) :- Val =< X.
 % Ignore. (Shouldn't happen.)
 n_new_value(_Val, ':='(_), CsIn, CsIn, set.init).
@@ -519,6 +583,7 @@ n_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) 
 n_constraint_to_string(V, var(X1) ++ var(X2)) = format("(= (var %i) (+ (var %i) (var %i))", [i(V), i(X1), i(X2)]).
 n_constraint_to_string(V, X1 - var(X2)) =       format("(= (var %i) (- %s (var %i))", [i(V), s(to_string(X1)), i(X2)]).
 n_constraint_to_string(V, var(X1) -- var(X2)) = format("(= (var %i) (- (var %i) (var %i))", [i(V), i(X1), i(X2)]).
+n_constraint_to_string(V, '>='(X)) =            format("(>= (var %i) %s)", [i(V), s(to_string(X))]).
 n_constraint_to_string(V, '=<'(X)) =            format("(<= (var %i) %s)", [i(V), s(to_string(X))]).
 
 f_constraint_to_string(V, C) = n_constraint_to_string(V, C).
