@@ -139,11 +139,8 @@ main(!IO) :-
     unify(2, i(':='(20)), CS3, _, _))),
   run_test((pred(CS::in) is semidet :-
     unify(2, i(':='(20)), CS, CS1, _),
-    format("CS1\n%s", [s(to_string(CS1))]),
     unify(1, i('--'(var(2), var(3))), CS1, CS2, _),
-    format("CS2\n%s", [s(to_string(CS2))]),
     unify(1, i(':='(15)), CS2, CS3, _),
-    format("CS3\n%s", [s(to_string(CS3))]),
     unify(3, i(':='(5)), CS3, _, _))),
   run_test((pred(CS::in) is semidet :-
     unify(1, i(':='(15)), CS, CS1, _),
@@ -155,6 +152,38 @@ main(!IO) :-
     unify(2, i(':='(20)), CS1, CS2, _),
     unify(3, i(':='(5)), CS2, CS3, _),
     unify(1, i('--'(var(2), var(3))), CS3, _, _))),
+
+  % Test int =<
+  run_test((pred(CS::in) is semidet :-
+    unify(1, i('=<'(2)), CS, CS1, _),
+    unify(1, i(':='(1)), CS1, _, _))),
+  run_test((pred(CS::in) is semidet :-
+    unify(1, i(':='(1)), CS, CS1, _),
+    unify(1, i('=<'(2)), CS1, _, _))),
+  run_test((pred(CS::in) is semidet :-
+    unify(1, i(':='(2)), CS, CS1, _),
+    unify(1, i('=<'(2)), CS1, _, _))),
+  run_test((pred(CS::in) is semidet :-
+    unify(1, i(':='(3)), CS, CS1, _),
+    \+ unify(1, i('=<'(2)), CS1, _, _))),
+  run_test((pred(CS::in) is semidet :-
+    unify(1, i('=<'(5)), CS, CS1, _),
+    unify(1, i('=<'(2)), CS1, CS2, _), % Tighten
+    \+ unify(1, i(':='(3)), CS2, _, _))),
+  run_test((pred(CS::in) is semidet :-
+    unify(1, i('=<'(2)), CS, CS1, _),
+    unify(1, i('=<'(5)), CS1, CS2, _), % Don't loosen.
+    \+ unify(1, i(':='(3)), CS2, _, _))),
+  run_test((pred(CS::in) is semidet :-
+    unify(1, i('=<'(2)), CS, CS1, _),
+    unify(2, i('+'(var(1), 10)), CS1, CS2, _), % Adds (<= (var 2) 12)
+    unify(2, i(':='(11)), CS2, _, _))),
+  run_test((pred(CS::in) is semidet :-
+    unify(1, i('=<'(2)), CS, CS1, _),
+    format("CS1\n%s", [s(to_string(CS1))]),
+    unify(2, i('+'(var(1), 10)), CS1, CS2, _), % Adds (<= (var 2) 12)
+    format("CS2\n%s", [s(to_string(CS2))]),
+    \+ unify(2, i(':='(13)), CS2, _, _))),
 
   % Test string \=
   run_test((pred(CS::in) is semidet :-
