@@ -179,15 +179,19 @@ n_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
       (search(CsOut2, X, cs(XCSet)) ->
         foldl(
           (pred(XC::in, CsIn-DescsIn::in, CsOut3-Descs3::out) is semidet :-
-            % TODO: Check for XC = '>='(XVal)
-            (XC = '=<'(XVal) ->
+            (XC = '>='(XVal) ->
+              % We have var(V) - Y = var(X) and also var(X) >= XVal, so add
+              % var(V) - Y >= XVal -> var(V) >= XVal + Y.
+              n_unify(V, '>='(XVal + Y), CsIn, CsOut3, Descs2),
+              Descs3 = union(DescsIn, Descs2)
+            ;(XC = '=<'(XVal) ->
               % We have var(V) - Y = var(X) and also var(X) =< XVal, so add
               % var(V) - Y =< XVal -> var(V) =< XVal + Y.
               n_unify(V, '=<'(XVal + Y), CsIn, CsOut3, Descs2),
               Descs3 = union(DescsIn, Descs2)
             ;
               CsOut3 = CsIn,
-              Descs3 = DescsIn)),
+              Descs3 = DescsIn))),
           XCSet, CsOut2-Descs1, CsOut-Descs)
       ;
         CsOut = CsOut2,
@@ -229,15 +233,19 @@ n_unify(V, X - var(Y), Cs, CsOut, Descs) :-
       (search(CsOut2, Y, cs(YCSet)) ->
         foldl(
           (pred(YC::in, CsIn-DescsIn::in, CsOut3-Descs3::out) is semidet :-
-            % TODO: Check for YC = '>='(YVal)
-            (YC = '=<'(YVal) ->
+            (YC = '>='(YVal) ->
+              % We have X - var(V) = var(Y) and also var(Y) >= YVal, so add
+              % X - var(V) >= YVal -> -var(V) >= YVal - X -> var(V) =< X - YVal.
+              n_unify(V, '=<'(X - YVal), CsIn, CsOut3, Descs2),
+              Descs3 = union(DescsIn, Descs2)
+            ;(YC = '=<'(YVal) ->
               % We have X - var(V) = var(Y) and also var(Y) =< YVal, so add
               % X - var(V) =< YVal -> -var(V) =< YVal - X -> var(V) >= X - YVal.
               n_unify(V, '>='(X - YVal), CsIn, CsOut3, Descs2),
               Descs3 = union(DescsIn, Descs2)
             ;
               CsOut3 = CsIn,
-              Descs3 = DescsIn)),
+              Descs3 = DescsIn))),
           YCSet, CsOut2-Descs1, CsOut-Descs)
       ;
         CsOut = CsOut2,
