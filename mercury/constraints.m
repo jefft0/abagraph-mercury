@@ -224,7 +224,22 @@ n_unify(V, X - var(Y), Cs, CsOut, Descs) :-
       n_unify(Y, X - var(V), CsOut1, CsOut2, Descs1),
 
       % Add or tighten boolean constraints.
-      % TODO.
+      % TODO: Add '>='
+      %(search(CsOut2, Y, cs(YCSet)) ->
+      %  foldl(
+      %    (pred(YC::in, CsIn-DescsIn::in, CsOut3-Descs3::out) is semidet :-
+      %      (YC = '=<'(YVal) ->
+      %        % We have X - var(V) = var(Y) and also var(Y) =< YVal, so add
+      %        % X - var(V) =< YVal -> -var(V) =< YVal - X -> var(V) >= X - YVal.
+      %        n_unify(V, '>='(X - YVal), CsIn, CsOut3, Descs2),
+      %        Descs3 = union(DescsIn, Descs2)
+      %      ;
+      %        CsOut3 = CsIn,
+      %        Descs3 = DescsIn)),
+      %    YCSet, CsOut2-Descs1, CsOut-Descs)
+      %;
+      %  CsOut = CsOut2,
+      %  Descs = Descs1)
       CsOut = CsOut2,
       Descs = Descs1
     ;

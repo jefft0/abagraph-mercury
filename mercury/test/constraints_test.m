@@ -79,6 +79,14 @@ main(!IO) :-
     unify(1, i(':='(20)), !CS, _),
     unify(2, i(':='(15)), !CS, _),
     unify(1, i('+'(var(2), 5)), !CS, _))),
+  run_test((pred(!.CS::in, !:CS::out) is semidet :-
+    unify(1, i('=<'(2)), !CS, _),
+    unify(2, i('+'(var(1), 10)), !CS, _), % Adds (<= (var 2) 12)
+    unify(2, i(':='(11)), !CS, _))),
+  run_test((pred(!.CS::in, !:CS::out) is semidet :-
+    unify(1, i('=<'(2)), !CS, _),
+    unify(2, i('+'(var(1), 10)), !CS, _), % Adds (<= (var 2) 12)
+    \+ unify(2, i(':='(13)), !.CS, _, _))),
 
   % Test int ++
   run_test((pred(!.CS::in, !:CS::out) is semidet :-
@@ -120,6 +128,16 @@ main(!IO) :-
     unify(1, i(':='(15)), !CS, _),
     unify(2, i(':='(5)), !CS, _),
     unify(1, i('-'(20, var(2))), !CS, _))),
+  %run_test((pred(!.CS::in, !:CS::out) is semidet :-
+  %  unify(1, i('=<'(2)), !CS, _),
+  %  unify(2, i('-'(10, var(1))), !CS, _), % Adds (>= (var 2) 8)
+  %  unify(2, i(':='(9)), !CS, _))),
+  %run_test((pred(!.CS::in, !:CS::out) is semidet :-
+  %  unify(1, i('=<'(2)), !CS, _),
+  %  format("CS1\n%s", [s(to_string(!.CS))]),
+  %  unify(2, i('-'(10, var(1))), !CS, _), % Adds (>= (var 2) 8)
+  %  format("CS2\n%s", [s(to_string(!.CS))]),
+  %  \+ unify(2, i(':='(7)), !.CS, _, _))),
 
   % Test int --
   run_test((pred(!.CS::in, !:CS::out) is semidet :-
@@ -174,16 +192,6 @@ main(!IO) :-
     unify(1, i('=<'(2)), !CS, _),
     unify(1, i('=<'(5)), !CS, _), % Don't loosen.
     \+ unify(1, i(':='(3)), !.CS, _, _))),
-  run_test((pred(!.CS::in, !:CS::out) is semidet :-
-    unify(1, i('=<'(2)), !CS, _),
-    unify(2, i('+'(var(1), 10)), !CS, _), % Adds (<= (var 2) 12)
-    unify(2, i(':='(11)), !CS, _))),
-  run_test((pred(!.CS::in, !:CS::out) is semidet :-
-    unify(1, i('=<'(2)), !CS, _),
-    format("CS1\n%s", [s(to_string(!.CS))]),
-    unify(2, i('+'(var(1), 10)), !CS, _), % Adds (<= (var 2) 12)
-    format("CS2\n%s", [s(to_string(!.CS))]),
-    \+ unify(2, i(':='(13)), !.CS, _, _))),
 
   % Test string \=
   run_test((pred(!.CS::in, !:CS::out) is semidet :-
