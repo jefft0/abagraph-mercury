@@ -60,7 +60,7 @@
 % unify_all(NewCS, CS, CSOut, Descs).
 % Unify all the constraints in NewCS into CS2.
 :- pred unify_all(constraint_store::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
-:- pred f_unifiable(int::in, int::in, constraint_store::in) is semidet.
+:- pred new_var(var(T)::out) is det.
 % f_get(V, Cs) = Val.
 % Return yes(Val) where Val is the bound value of V, or no if not found.
 :- func f_get(int, constraint_store) = maybe(float).
@@ -110,6 +110,7 @@
 :- pred s_new_value(string::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is semidet.
 :- func n_to_string(map(int, n_constraints(T))) = string is det <= number(T).
 :- func s_to_string(map(int, s_constraints)) = string is det.
+:- pred next_var_int(int::out) is det.
 :- pred verbose is det.
 
 init = constraint_store(map.init, map.init, map.init).
@@ -148,11 +149,7 @@ unify_all(constraint_store(NewFCs, NewICs, NewSCs), constraint_store(FCs, ICs, S
              DescsOut = union(DescsIn, Ds))),
         NewSCs, SCs-Descs2, SCsOut-Descs).
 
-f_unifiable(X, Y, CS) :-
-  (f_get(X, CS) = yes(XVal), f_get(Y, CS) = yes(YVal) ->
-    XVal == YVal
-  ;
-    true).
+new_var(var(V)) :- next_var_int(V).
 
 f_get(V, constraint_store(Cs, _, _)) = Val :-
   (search(Cs, V, val(Val1)) ->
@@ -680,5 +677,14 @@ s_to_string(Cs) =
         ;
           ResultOut = ResultIn)),
     Cs, "").
+
+:- pragma no_inline(next_var_int/1).
+:- pragma foreign_proc("C",
+next_var_int(Int::out),
+[promise_pure],
+"
+static long long int integer = 99;
+Int = ++integer;
+").
 
 verbose.
