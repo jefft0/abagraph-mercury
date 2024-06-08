@@ -57,6 +57,10 @@
 % If there is a binding for V, confirm the constraint and set Descs to "",
 % else if the constraint is not confirmed then fail.
 :- pred unify(int::in, constraint::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
+% unify_all(NewCS, CS, CSOut, Descs).
+% Unify all the constraints in NewCS into CS2.
+:- pred unify_all(constraint_store::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
+:- pred f_unifiable(int::in, int::in, constraint_store::in) is semidet.
 % f_get(V, Cs) = Val.
 % Return yes(Val) where Val is the bound value of V, or no if not found.
 :- func f_get(int, constraint_store) = maybe(float).
@@ -98,6 +102,10 @@
 % If AddTransformed is yes, then you should add the transformed constraint(s) to the other variable(s).
 :- pred n_add_transformable_constraint(int::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, bool::out) is det.
 :- pred s_add_transformable_constraint(int::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, bool::out) is det.
+% n_unify_all(V, CSet, Cs, CsOut, Descs).
+% Unify each C in CSet for V with CsIn.
+:- pred n_unify_all(int::in, set(n_constraint(T))::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, set(string)::out) is semidet <= number(T).
+:- pred s_unify_all(int::in, set(s_constraint)::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is semidet.
 :- func n_constraint_to_string(int, n_constraint(T)) = string is det <= number(T).
 :- pred s_new_value(string::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is semidet.
 :- func n_to_string(map(int, n_constraints(T))) = string is det <= number(T).
@@ -110,6 +118,41 @@ init = constraint_store(map.init, map.init, map.init).
 unify(V, f(FC), constraint_store(FCs, ICs, SCs), constraint_store(FCsOut, ICs, SCs), Descs) :- n_unify(V, FC, FCs, FCsOut, Descs).
 unify(V, i(IC), constraint_store(FCs, ICs, SCs), constraint_store(FCs, ICsOut, SCs), Descs) :- n_unify(V, IC, ICs, ICsOut, Descs).
 unify(V, s(SC), constraint_store(FCs, ICs, SCs), constraint_store(FCs, ICs, SCsOut), Descs) :- s_unify(V, SC, SCs, SCsOut, Descs).
+
+unify_all(constraint_store(NewFCs, NewICs, NewSCs), constraint_store(FCs, ICs, SCs), constraint_store(FCs, ICs, SCsOut), Descs) :-
+  foldl((pred(V::in, ValOrCSet::in, CsIn-DescsIn::in, CsOut-DescsOut::out) is semidet :-
+           (ValOrCSet = val(X) ->
+             n_unify(V, ':='(X), CsIn, CsOut, Ds),
+             DescsOut = union(DescsIn, Ds)
+           ;
+             ValOrCSet = cs(CSet),
+             n_unify_all(V, CSet, CsIn, CsOut, Ds),
+             DescsOut = union(DescsIn, Ds))),
+        NewFCs, FCs-set.init, FCsOut-Descs1),
+  foldl((pred(V::in, ValOrCSet::in, CsIn-DescsIn::in, CsOut-DescsOut::out) is semidet :-
+           (ValOrCSet = val(X) ->
+             n_unify(V, ':='(X), CsIn, CsOut, Ds),
+             DescsOut = union(DescsIn, Ds)
+           ;
+             ValOrCSet = cs(CSet),
+             n_unify_all(V, CSet, CsIn, CsOut, Ds),
+             DescsOut = union(DescsIn, Ds))),
+        NewICs, ICs-Descs1, ICsOut-Descs2),
+  foldl((pred(V::in, ValOrCSet::in, CsIn-DescsIn::in, CsOut-DescsOut::out) is semidet :-
+           (ValOrCSet = val(X) ->
+             s_unify(V, ':='(X), CsIn, CsOut, Ds),
+             DescsOut = union(DescsIn, Ds)
+           ;
+             ValOrCSet = cs(CSet),
+             s_unify_all(V, CSet, CsIn, CsOut, Ds),
+             DescsOut = union(DescsIn, Ds))),
+        NewSCs, SCs-Descs2, SCsOut-Descs).
+
+f_unifiable(X, Y, CS) :-
+  (f_get(X, CS) = yes(XVal), f_get(Y, CS) = yes(YVal) ->
+    XVal == YVal
+  ;
+    true).
 
 f_get(V, constraint_store(Cs, _, _)) = Val :-
   (search(Cs, V, val(Val1)) ->
@@ -583,6 +626,17 @@ s_new_value(Val, '\\=='(var(X)), CsIn, CsIn, set.init) :-
     true).
 % Ignore. (Shouldn't happen.)
 s_new_value(_Val, ':='(_), CsIn, CsIn, set.init).
+
+n_unify_all(V, CSet, Cs, CsOut, Descs) :-
+  foldl((pred(C::in, CsIn-DescsIn::in, CsOut1-DescsOut1::out) is semidet :-
+           n_unify(V, C, CsIn, CsOut1, Descs1),
+           DescsOut1 = union(DescsIn, Descs1)),
+        CSet, Cs-set.init, CsOut-Descs).
+s_unify_all(V, CSet, Cs, CsOut, Descs) :-
+  foldl((pred(C::in, CsIn-DescsIn::in, CsOut1-DescsOut1::out) is semidet :-
+           s_unify(V, C, CsIn, CsOut1, Descs1),
+           DescsOut1 = union(DescsIn, Descs1)),
+        CSet, Cs-set.init, CsOut-Descs).
 
 n_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V), s(to_string(Val))]).
 n_constraint_to_string(V, '\\='(X)) =           format("(<> (var %i) %s)", [i(V), s(to_string(X))]).
