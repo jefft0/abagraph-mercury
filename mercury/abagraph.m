@@ -85,7 +85,7 @@
           opponent_arg_graph_set::in, set(sentence)::in, pair(set(sentence), map(sentence, int))::in,
           set(attack)::in, constraint_store::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred opponent_i(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
-          opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is semidet.
+          opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred opponent_ia(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out) is semidet.
 :- pred opponent_ib(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
@@ -93,15 +93,15 @@
 :- pred opponent_ic(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is semidet.
 :- pred opponent_ii(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
-          opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is det.
+          opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred iterate_bodies(list(list(sentence))::in, pair(sentence, int)::in, focussed_pot_arg_graph::in,
-          constraint_store::in, pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::in,
-          pair(set(sentence), map(sentence, int))::in,
+          pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::in,
+          pair(set(sentence), map(sentence, int))::in, constraint_store::in, constraint_store::out,
           pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::out,
-          id_map::in, id_map::out) is det.
+          id_map::in, id_map::out) is nondet.
 :- pred update_argument_graph(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
-          constraint_store::in, list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out) is det.
-:- pred filter_marked(list(sentence)::in, set(sentence)::in, constraint_store::in, list(sentence)::out, list(sentence)::out) is det.
+          constraint_store::in, constraint_store::out, list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out) is nondet.
+:- pred filter_marked(list(sentence)::in, set(sentence)::in, constraint_store::in, constraint_store::out, list(sentence)::out, list(sentence)::out) is nondet.
 :- pred acyclic(digraph(sentence)::in) is semidet.
 :- pred graph_union(digraph(sentence)::in, digraph(sentence)::in, digraph(sentence)::out) is det.
 :- pred append_element_nodup(list(T)::in, T::in, list(T)::out) is det.
@@ -133,6 +133,11 @@
 :- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet.
 :- pred select(T::out, list(T)::in, list(T)::out) is nondet.
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
+% membership(S, SSet) = C.
+% Return a boolean constraint expression for the conditions when S matches any sentence in SSet.
+% If no match is possible, return f.
+:- func membership(sentence, set(sentence)) = bn_constraint(float) is det.
+:- func yes_val(maybe(T)) = T is semidet.
 :- pred unify(sentence::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
 
 % ("set some options" moved to options.m.)
@@ -212,7 +217,6 @@ derivation(T, Result, InN-IdsIn, N-IdsOut) :-
 derivation_step(step_tuple(P, O, D, C, Att, CS), T1, IdsIn, IdsOut) :-
   (verbose ->
     puts("\n"),
-    OppUnMrk-_ = O,
     format_append(runtime_out_path,
       "%s Step %i start\n  D: %s\n  C: %s\n%s",
       [s(now), i(fst(IdsIn)), s(sentence_set_to_string(D)), s(sentence_set_to_string(fst(C))), s(to_string(CS))])
@@ -295,15 +299,15 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS,
     format_append(runtime_out_path, "%s Step %i: Case 1.(ii) start S: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(S))])
   ; true),
   (constraint(S) ->
-    unify(S, CS, CSOut, Descs),
+    unify(S, CS, CS1, Descs),
     Body = [],
     Ids1 = IdsIn
   ;
     Descs = set.init,
-    CSOut = CS,
+    CS1 = CS,
     rule_choice(S, Body, prop_info(D, PropGr), IdsIn, Ids1)),
   \+ (member(X, Body), member(X, fst(C))),
-  update_argument_graph(S, Body, PropMrk-PropGr, CSOut, BodyUnMrk, BodyUnMrkAs, PropMrk1-PropGr1),
+  update_argument_graph(S, Body, PropMrk-PropGr, CS1, CSOut, BodyUnMrk, BodyUnMrkAs, PropMrk1-PropGr1),
   append_elements_nodup(BodyUnMrk, PropUnMrkMinus, PropUnMrk1),
   union(list_to_set(BodyUnMrkAs), D, D1),
   % TODO: Support GB. gb_acyclicity_check(G, S, Body, G1),
@@ -346,11 +350,11 @@ opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P
   (verbose ->
     format_append(runtime_out_path, "%s Step %i: Case 2 start A: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(A))])
   ; true),
-  % TODO: member with constraints
-  (\+ member(A, D) ->
-    % TODO: member with constraints
-    (member(A, fst(C)) ->
-      opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS), T1),
+  MemberAD = membership(A, D),
+  ( b_unify(not(MemberAD), CS, CS1),
+    MemberAC = membership(A, fst(C)),
+    ( b_unify(MemberAC, CS1, CS2),
+      opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS2), T1),
       poss_print_case("2.(ib)", A),
       (verbose ->
         open(decompiled_path, "a", Fd),
@@ -363,10 +367,12 @@ opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P
       ; 
         IdsOut = IdsIn)
     ;
-      opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS), T1, IdsIn, IdsOut),
+      b_unify(not(MemberAC), CS1, CS2),
+      opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS2), T1, IdsIn, IdsOut),
       poss_print_case("2.(ic)", A))
   ;
-    opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS), T1),
+    b_unify(not(MemberAD), CS, CS1),
+    opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS1), T1),
     poss_print_case("2.(ia)", A),
     (verbose ->
       open(decompiled_path, "a", Fd),
@@ -443,8 +449,8 @@ opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, oppone
     format_append(runtime_out_path, "%s Step %i: Case 2.(ii) start S: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(S))])
   ; true),
   (constraint(S) ->
-    (unify(S, CS, CSOut1, Descs) ->
-      CSOut = CSOut1,
+    (unify(S, CS, CSOutLocal, Descs) ->
+      CS1 = CSOutLocal,
       Bodies = [[]],
       (verbose ->
         _ = foldl(func(Desc, _) = 0 :- format_append(runtime_out_path, "%s Step %i: Case 2.(iii): %s\n  S: %s\n", 
@@ -453,23 +459,23 @@ opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, oppone
       ;
         true)
     ;
-      CSOut = CS,
+      CS1 = CS,
       Bodies = [])
   ;
-    CSOut = CS,
+    CS1 = CS,
     solutions((pred(Body::out) is nondet :- rule(S, Body)), Bodies)),
-  iterate_bodies(Bodies, S-GId, Claim-GId-(UnMrkMinus-Marked-Graph), CSOut, OppUnMrkMinus-OppMrk, C,
+  iterate_bodies(Bodies, S-GId, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, C, CS1, CSOut,
                  OppUnMrkMinus1-OppMrk1, IdsIn, IdsOut).
 
 % SGId is the graph ID that S came from.
-iterate_bodies([], _, _, _, OppUnMrkMinus-OppMrk, _, OppUnMrkMinus-OppMrk, Ids, Ids).
-iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), CS, InOppUnMrkMinus-InOppMrk, C,
+iterate_bodies([], _, _, OppUnMrkMinus-OppMrk, _, CS, CS, OppUnMrkMinus-OppMrk, Ids, Ids).
+iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), InOppUnMrkMinus-InOppMrk, C, CS, CSOut,
                OppUnMrkMinus1-OppMrk1, IdsIn, IdsOut) :-
   (verbose ->
     format_append(runtime_out_path, "%s Step %i: Case 2.(ii) Rest: %i Body: %s\n", 
                   [s(now), i(fst(IdsIn)), i(length(RestBodies)), s(sentence_list_to_string(Body))])
   ; true),
-  update_argument_graph(S, Body, Marked-Graph, CS, UnMarked, UnMarkedAs, Marked1-Graph1),
+  update_argument_graph(S, Body, Marked-Graph, CS, CS1, UnMarked, UnMarkedAs, Marked1-Graph1),
   append_elements_nodup(UnMarked, UnMrkMinus, UnMrk1),
   (GId = 0 ->
     % We are on iteration >= 2 and need a new GId.
@@ -532,7 +538,7 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), C
     Ids5 = Ids1),
 
   % For further iterations, set GId to 0 so that we mint new IDs for added graphs.
-  iterate_bodies(RestBodies, S-SGId, Claim-0-(UnMrkMinus-Marked-Graph), CS, OutOppUnMrkMinus-OutOppMrk, C,
+  iterate_bodies(RestBodies, S-SGId, Claim-0-(UnMrkMinus-Marked-Graph), OutOppUnMrkMinus-OutOppMrk, C, CS1, CSOut,
                  OppUnMrkMinus1-OppMrk1, Ids5, IdsOut).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -540,12 +546,12 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), C
 %
 % SUBSIDIARY FUNCTIONS
 
-% update_argument_graph(S, Body, Marked-Graph, CS, Unproved, UnprovedAs, Marked1-Graph1)
+% update_argument_graph(S, Body, Marked-Graph, CS, CSOut, Unproved, UnprovedAs, Marked1-Graph1)
 % - update graph representation of an argument with rule(S, Body)
 % - check updated version for acyclicity
 % - record the previously unproved sentences and assumptions from body
-update_argument_graph(S, Body, Marked-Graph, CS, UnMarked, UnMarkedAs, Marked1-Graph1) :-
-  filter_marked(Body, Marked, CS, UnMarked, UnMarkedAs),
+update_argument_graph(S, Body, Marked-Graph, CS, CSOut, UnMarked, UnMarkedAs, Marked1-Graph1) :-
+  filter_marked(Body, Marked, CS, CSOut, UnMarked, UnMarkedAs),
   %ord_del_element(Graph, S-[], GraphMinus),
   GraphMinus = Graph, % Note: We don't need to  delete S because it will be added again below.
   insert(S, Marked, Marked1),
@@ -562,27 +568,32 @@ update_argument_graph(S, Body, Marked-Graph, CS, UnMarked, UnMarkedAs, Marked1-G
   graph_union(GraphMinus1, BodyUnMarkedGraph, Graph1).
   %TODO: Check acyclic under constraints (acyclic(Graph1) -> true ; unexpected($file, $pred, "Graph1 not acyclic")).
 
-% filter_marked(Body, AlreadyProved, CS, Unproved, UnprovedAs)
-filter_marked([], _, _, [], []).
-filter_marked([S|RestBody], Proved, CS, InUnproved, InUnprovedAs) :-
+% filter_marked(Body, AlreadyProved, CS, CSOut, Unproved, UnprovedAs)
+filter_marked([], _, CS, CS, [], []).
+filter_marked([S|RestBody], Proved, CS, CSOut, InUnproved, InUnprovedAs) :-
   (assumption(S) ->
     A = S,
-    % TODO: member with constraints
-    (member(A, Proved) ->
+    MemberAProved = membership(A, Proved),
+    ( b_unify(MemberAProved, CS, CS1),
       InUnproved = OutUnproved,
-      InUnprovedAs = OutUnprovedAs
+      InUnprovedAs = OutUnprovedAs,
+      filter_marked(RestBody, Proved, CS1, CSOut, OutUnproved, OutUnprovedAs)
     ;
-      InUnproved = [A|OutUnproved],
-      InUnprovedAs = [A|OutUnprovedAs]),
-    filter_marked(RestBody, Proved, CS, OutUnproved, OutUnprovedAs)
+      b_unify(not(MemberAProved), CS, CS1),
+      InUnproved = [A|OutUnproved], 
+      InUnprovedAs = [A|OutUnprovedAs],
+      filter_marked(RestBody, Proved, CS1, CSOut, OutUnproved, OutUnprovedAs))
   ;
-    % TODO: member with constraints
-    (member(S, Proved) ->
-      InUnproved = OutUnproved
+    MemberSProved = membership(S, Proved),
+    ( b_unify(MemberSProved, CS, CS1),
+      InUnproved = OutUnproved,
+      InUnprovedAs = OutUnprovedAs,
+      filter_marked(RestBody, Proved, CS1, CSOut, OutUnproved, OutUnprovedAs)
     ;
-      InUnproved = [S|OutUnproved]),
-    InUnprovedAs = OutUnprovedAs,
-    filter_marked(RestBody, Proved, CS, OutUnproved, OutUnprovedAs)).
+      b_unify(not(MemberSProved), CS, CS1),
+      InUnproved = [S|OutUnproved],
+      InUnprovedAs = OutUnprovedAs,
+      filter_marked(RestBody, Proved, CS1, CSOut, OutUnproved, OutUnprovedAs))).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -862,6 +873,14 @@ select(X, [Head|Tail], Rest) :-
 select3_(Tail, Head, Head, Tail).
 select3_([Head2|Tail], Head, X, [Head|Rest]) :-
     select3_(Tail, Head2, X, Rest).
+
+membership(S, SSet) = C :-
+  (member(S, SSet) ->
+    C = t
+  ;
+    C = f).
+
+yes_val(yes(X)) = X.
 
 % Syntactic sugar.
 unify(f(var(V) := Val), CS, CSOut, Descs) :- unify(V, f(':='(Val)), CS, CSOut, Descs).
