@@ -88,6 +88,7 @@
 %   (<> (var 1) (var 2))
 %   (<> (var 2) (var 1))
 :- func to_string(constraint_store) = string is det.
+:- func b_constraint_to_string(bn_constraint(float)) = string is det.
 
 :- func f_constraint_to_string(int, n_constraint(float)) = string is det.
 :- func i_constraint_to_string(int, n_constraint(int)) = string is det.
@@ -137,6 +138,7 @@ unify(V, s(SC), constraint_store(FCs, ICs, SCs), constraint_store(FCs, ICs, SCsO
 % TODO: Handle expressions with mixed types.
 b_unify(FC, constraint_store(FCs, ICs, SCs), constraint_store(FCsOut, ICs, SCs)) :- bn_unify(FC, FCs, FCsOut).
 b_reduce(FC, constraint_store(Cs-_, _, _)) = bn_reduce(FC, Cs).
+b_constraint_to_string(FC) = bn_constraint_to_string(FC).
 
 new_var(var(V)) :- next_var_int(V).
 
