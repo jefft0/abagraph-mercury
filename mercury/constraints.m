@@ -33,14 +33,17 @@
    ;    '\\='(string)
    ;    '\\=='(var(string)).
 
+:- type n_eq_constraint(T)
+   ---> '='(int, T)
+   ;    '=='(int, int).
+
 :- type bn_constraint(T)
    ---> t
    ;    f
-   ;    '='(int, T)
-   ;    '=='(int, int)
    ;    and(bn_constraint(T), bn_constraint(T))
    ;    or(bn_constraint(T), bn_constraint(T))
-   ;    not(bn_constraint(T)).
+   ;    not(bn_constraint(T))
+   ;    f(n_eq_constraint(T)).
 
 :- type constraint
    ---> f(n_constraint(float))
@@ -517,22 +520,22 @@ bn_unify(C, Cs, CsOut) :-
 
 bn_reduce(t, _) = t.
 bn_reduce(f, _) = f.
-bn_reduce(X = YVal, Cs) = Out :-
+bn_reduce(f(X = YVal), Cs) = Out :-
   (search(Cs, X, val(XVal)) ->
     (XVal = YVal -> Out = t ; Out = f)
   ;
-    Out = (X = YVal)).
-bn_reduce(X == Y, Cs) = Out :-
+    Out = f(X = YVal)).
+bn_reduce(f(X == Y), Cs) = Out :-
   (search(Cs, X, val(XVal)) ->
     % Use the simpler form. This will check if Y has a value.
-    Out = bn_reduce(Y = XVal, Cs)
+    Out = bn_reduce(f(Y = XVal), Cs)
   ;(search(Cs, Y, val(YVal)) ->
     % Use the simpler form. This will check if X has a value.
-    Out = bn_reduce(X = YVal, Cs)
+    Out = bn_reduce(f(X = YVal), Cs)
   ;(Y == X ->
     Out = t
   ;
-    Out = (X == Y)))).
+    Out = f(X == Y)))).
 bn_reduce(and(X, Y), Cs) = Out :-
   X1 = bn_reduce(X, Cs),
   Y1 = bn_reduce(Y, Cs),
@@ -683,8 +686,8 @@ n_constraint_to_string(V, '=<'(X)) =            format("(<= (var %i) %s)", [i(V)
 
 bn_constraint_to_string(t) =         format("t", []). % NOTE: We don't expect to ever print this.
 bn_constraint_to_string(f) =         format("f", []). % NOTE: We don't expect to ever print this.
-bn_constraint_to_string(X = Y) =     format("(== (var %i) %s)", [i(X), s(to_string(Y))]).
-bn_constraint_to_string(X == Y) =    format("(== (var %i) (var %i))", [i(X), i(Y)]).
+bn_constraint_to_string(f(X = Y)) =  format("(f= (var %i) %s)", [i(X), s(to_string(Y))]).
+bn_constraint_to_string(f(X == Y)) = format("(f= (var %i) (var %i))", [i(X), i(Y)]).
 bn_constraint_to_string(and(X, Y)) = format("(and %s %s)", [s(bn_constraint_to_string(X)), s(bn_constraint_to_string(Y))]).
 bn_constraint_to_string(or(X, Y)) =  format("(or %s %s)", [s(bn_constraint_to_string(X)), s(bn_constraint_to_string(Y))]).
 bn_constraint_to_string(not(X)) =    format("(not %s)", [s(bn_constraint_to_string(X))]).
