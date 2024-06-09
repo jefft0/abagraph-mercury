@@ -306,8 +306,17 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS,
     Descs = set.init,
     CS1 = CS,
     rule_choice(S, Body, prop_info(D, PropGr), IdsIn, Ids1)),
-  \+ (member(X, Body), member(X, fst(C))),
-  update_argument_graph(S, Body, PropMrk-PropGr, CS1, CSOut, BodyUnMrk, BodyUnMrkAs, PropMrk1-PropGr1),
+  %\+ (member(X, Body), member(X, fst(C))),
+  foldl((pred(X::in, CSIn-Debug1In::in, CSOut1-Debug1Out::out) is semidet :-
+           MemberXC = membership(X, fst(C), CS1),
+           b_unify(not(MemberXC), CSIn, CSOut1),
+           (MemberXC = f ->
+             Debug1Out = Debug1In
+           ;
+             Debug1Out = Debug1In ++ "  " ++ b_constraint_to_string(not(MemberXC)) ++ "\n")),
+        Body, CS1-"", CS2-Debug1),
+  (Debug1 = "" -> true ; format_append(runtime_out_path, "%s Step %i: not(MemberXC):\n%s", [s(now), i(fst(IdsIn)), s(Debug1)])),
+  update_argument_graph(S, Body, PropMrk-PropGr, CS2, CSOut, BodyUnMrk, BodyUnMrkAs, PropMrk1-PropGr1),
   append_elements_nodup(BodyUnMrk, PropUnMrkMinus, PropUnMrk1),
   union(list_to_set(BodyUnMrkAs), D, D1),
   % TODO: Support GB. gb_acyclicity_check(G, S, Body, G1),
@@ -386,14 +395,16 @@ opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P
       IdsOut = IdsIn)).
 
 opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
-            opponent_step_tuple(P, D, C, Att, CS), step_tuple(P, OppUnMrkMinus1-OppMrk, D, C, Att, CS)) :-
+            opponent_step_tuple(P, D, C, Att, CS), step_tuple(P, OppUnMrkMinus1-OppMrk, D, C, Att, CSOut)) :-
   (verbose ->
     format_append(runtime_out_path, "%s Step ?: Case 2.(ia) start\n", [s(now)])
   ; true),
   (gb_derivation ->
-    true
+    CSOut = CS
   ;
-    \+ member(A, fst(C))),    % also sound for gb? CHECK in general
+    MemberAC = membership(A, fst(C), CS),  % also sound for gb? CHECK in general
+    b_unify(not(MemberAC), CS, CSOut),
+    (MemberAC = f -> true ; format_append(runtime_out_path, "%s Step ?: not(MemberAC): %s\n", [s(now), s(b_constraint_to_string(not(MemberAC)))]))),
   insert(A, Marked, Marked1),
   append_element_nodup(OppUnMrkMinus, Claim-GId-(UnMrkMinus-Marked1-Graph), OppUnMrkMinus1).
 
@@ -492,6 +503,7 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
     % The first iteration re-uses the GId from the graph extracted by opponent_abagraph_choice.
     NewGId = GId,
     Ids1 = IdsIn),
+  % TODO: Use membership
   ((\+ gb_derivation, member(A, Body), member(A, fst(C))) ->
     (NewGId = GId ->
       % Move the opponent graph to marked.
@@ -845,6 +857,7 @@ rule_sort_look_ahead_1(prop_info(D, P_Graph), Body1, Body2, Result) :-
 
 count_nonD_nonJsP([], _, _, N, N).
 count_nonD_nonJsP([S|Rest], D, P_Graph, N, NB) :-
+  % TODO: Use membership
   (\+ member(S, D),
    % \+ member(S-[_|_], P_Graph
    \+ (search_key(P_Graph, S, SKey), is_edge(P_Graph, SKey, _)) ->
