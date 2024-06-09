@@ -72,6 +72,9 @@
 % b_unify(C, CS, CSOut).
 % Add the boolean constraint expression C, reducing it if possible with variable bindings from CS.
 :- pred b_unify(bn_constraint(float)::in, constraint_store::in, constraint_store::out) is semidet.
+% b_reduce(C, CS).
+% Reduce the boolean constraint expression C, using variable bindings from CS if possible.
+:- func b_reduce(bn_constraint(float), constraint_store) = bn_constraint(float) is det.
 :- pred new_var(var(T)::out) is det.
 % f_get(V, Cs) = Val.
 % Return yes(Val) where Val is the bound value of V, or no if not found.
@@ -133,6 +136,7 @@ unify(V, s(SC), constraint_store(FCs, ICs, SCs), constraint_store(FCs, ICs, SCsO
 
 % TODO: Handle expressions with mixed types.
 b_unify(FC, constraint_store(FCs, ICs, SCs), constraint_store(FCsOut, ICs, SCs)) :- bn_unify(FC, FCs, FCsOut).
+b_reduce(FC, constraint_store(Cs-_, _, _)) = bn_reduce(FC, Cs).
 
 new_var(var(V)) :- next_var_int(V).
 
