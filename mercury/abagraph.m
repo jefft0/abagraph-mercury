@@ -133,10 +133,10 @@
 :- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet.
 :- pred select(T::out, list(T)::in, list(T)::out) is nondet.
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
-% membership(S, SSet) = C.
+% membership(S, SSet, CS) = C.
 % Return a boolean constraint expression for the conditions when S matches any sentence in SSet.
 % If no match is possible, return f.
-:- func membership(sentence, set(sentence)) = bn_constraint(float) is det.
+:- func membership(sentence, set(sentence), constraint_store) = bn_constraint(float) is det.
 :- func yes_val(maybe(T)) = T is semidet.
 :- pred unify(sentence::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
 
@@ -350,9 +350,11 @@ opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P
   (verbose ->
     format_append(runtime_out_path, "%s Step %i: Case 2 start A: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(A))])
   ; true),
-  MemberAD = membership(A, D),
+  MemberAD = membership(A, D, CS),
+  format_append(runtime_out_path, "%s Step %i: MemberAD: %s\n", [s(now), i(fst(IdsIn)), s(b_constraint_to_string(MemberAD))]),
   ( b_unify(not(MemberAD), CS, CS1),
-    MemberAC = membership(A, fst(C)),
+    MemberAC = membership(A, fst(C), CS1),
+    format_append(runtime_out_path, "%s Step %i: MemberAC: %s\n", [s(now), i(fst(IdsIn)), s(b_constraint_to_string(MemberAC))]),
     ( b_unify(MemberAC, CS1, CS2),
       opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS2), T1),
       poss_print_case("2.(ib)", A),
@@ -573,7 +575,7 @@ filter_marked([], _, CS, CS, [], []).
 filter_marked([S|RestBody], Proved, CS, CSOut, InUnproved, InUnprovedAs) :-
   (assumption(S) ->
     A = S,
-    MemberAProved = membership(A, Proved),
+    MemberAProved = membership(A, Proved, CS),
     ( b_unify(MemberAProved, CS, CS1),
       InUnproved = OutUnproved,
       InUnprovedAs = OutUnprovedAs,
@@ -584,7 +586,7 @@ filter_marked([S|RestBody], Proved, CS, CSOut, InUnproved, InUnprovedAs) :-
       InUnprovedAs = [A|OutUnprovedAs],
       filter_marked(RestBody, Proved, CS1, CSOut, OutUnproved, OutUnprovedAs))
   ;
-    MemberSProved = membership(S, Proved),
+    MemberSProved = membership(S, Proved, CS),
     ( b_unify(MemberSProved, CS, CS1),
       InUnproved = OutUnproved,
       InUnprovedAs = OutUnprovedAs,
@@ -874,11 +876,14 @@ select3_(Tail, Head, Head, Tail).
 select3_([Head2|Tail], Head, X, [Head|Rest]) :-
     select3_(Tail, Head2, X, Rest).
 
-membership(S, SSet) = C :-
-  (member(S, SSet) ->
-    C = t
-  ;
-    C = f).
+membership(S, SSet, CS) = b_reduce(C, CS) :-
+  C = foldl(func(S2, CIn) = COut :-
+              % TODO: Maybe reduce C1 and check t.
+              (C1 = matches(S, S2) ->
+                COut = or(CIn, C1)
+              ;
+                COut = CIn),
+            SSet, f).
 
 yes_val(yes(X)) = X.
 
