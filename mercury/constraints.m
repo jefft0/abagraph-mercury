@@ -32,8 +32,12 @@
    ;    '\\='(string)
    ;    '\\=='(var(string)).
 
-:- type n_eq_constraint(T)
+:- type nb_constraint(T)
    ---> '='(int, T)
+   ;    '=='(int, int).
+
+:- type sb_constraint
+   ---> '='(int, string)
    ;    '=='(int, int).
 
 :- type b_constraint
@@ -42,7 +46,8 @@
    ;    and(b_constraint, b_constraint)
    ;    or(b_constraint, b_constraint)
    ;    not(b_constraint)
-   ;    f(n_eq_constraint(float)).
+   ;    f(nb_constraint(float))
+   ;    s(sb_constraint).
 
 :- type constraint
    ---> f(n_constraint(float))
@@ -107,7 +112,7 @@
 
 :- pred n_unify(int::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, set(string)::out) is semidet <= number(T).
 :- pred s_unify(int::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is semidet.
-:- pred b_unify(b_constraint::in, set(b_constraint)::in, map(int, n_constraints(float))::in, set(b_constraint)::out) is semidet.
+:- pred b_unify(b_constraint::in, set(b_constraint)::in, map(int, n_constraints(float))::in, map(int, s_constraints)::in, set(b_constraint)::out) is semidet.
 % n_set_value(V, Val, Cs, CsOut, Descs).
 % If Cs already has a val for V then confirm it. Otherwise set val(Val). If Cs has constraints, call n_set_value to evaluate them.
 :- pred n_set_value(int::in, T::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, set(string)::out) is semidet <= number(T).
@@ -135,16 +140,21 @@ init = constraint_store(map.init, map.init, map.init, set.init).
 unify(V, f(FC), constraint_store(FCs, ICs, SCs, BCs), constraint_store(FCsOut, ICs, SCs, BCsOut), Descs) :-
   n_unify(V, FC, FCs, FCsOut, Descs),
   % Use the new values to possibly reduce each boolean expression.
-  % TODO: Track whether each expression has a variable.
   foldl(
     (pred(C::in, BCsIn::in, BCsOut1::out) is semidet :-
-       b_unify(C, BCsIn, FCsOut, BCsOut1)),
+       b_unify(C, BCsIn, FCsOut, map.init, BCsOut1)),
     BCs, set.init, BCsOut).
 unify(V, i(IC), constraint_store(FCs, ICs, SCs, BCs), constraint_store(FCs, ICsOut, SCs, BCs), Descs) :- n_unify(V, IC, ICs, ICsOut, Descs).
-unify(V, s(SC), constraint_store(FCs, ICs, SCs, BCs), constraint_store(FCs, ICs, SCsOut, BCs), Descs) :- s_unify(V, SC, SCs, SCsOut, Descs).
+unify(V, s(SC), constraint_store(FCs, ICs, SCs, BCs), constraint_store(FCs, ICs, SCsOut, BCsOut), Descs) :-
+  s_unify(V, SC, SCs, SCsOut, Descs),
+  % Use the new values to possibly reduce each boolean expression.
+  foldl(
+    (pred(C::in, BCsIn::in, BCsOut1::out) is semidet :-
+       b_unify(C, BCsIn, map.init, SCsOut, BCsOut1)),
+    BCs, set.init, BCsOut).
 
 % TODO: Handle expressions with mixed types.
-b_unify(FC, constraint_store(FCs, ICs, SCs, BCs), constraint_store(FCs, ICs, SCs, BCsOut)) :- b_unify(FC, BCs, FCs, BCsOut).
+b_unify(FC, constraint_store(FCs, ICs, SCs, BCs), constraint_store(FCs, ICs, SCs, BCsOut)) :- b_unify(FC, BCs, FCs, SCs, BCsOut).
 
 new_var(var(V)) :- next_var_int(V).
 
@@ -507,32 +517,14 @@ s_unify(V, '\\=='(var(X)), Cs, CsOut, Descs) :-
       CsOut = CsOut1,
       Descs = set.init)).
 
-b_unify(C, BCs, FCs, BCsOut) :-
-  C1 = b_reduce(C, constraint_store(FCs, map.init, map.init, set.init)),
+b_unify(C, BCs, FCs, SCs, BCsOut) :-
+  C1 = b_reduce(C, constraint_store(FCs, map.init, SCs, set.init)),
   (C1 = f -> fail
   ; (C1 = t -> BCsOut = BCs
   ; BCsOut = insert(BCs, C1))).
 
 b_reduce(t, _) = t.
 b_reduce(f, _) = f.
-b_reduce(f(X = YVal), CS) = Out :-
-  CS = constraint_store(FCs, _, _, _),
-  (search(FCs, X, val(XVal)) ->
-    (XVal == YVal -> Out = t ; Out = f)
-  ;
-    Out = f(X = YVal)).
-b_reduce(f(X == Y), CS) = Out :-
-  CS = constraint_store(FCs, _, _, _),
-  (search(FCs, X, val(XVal)) ->
-    % Use the simpler form. This will check if Y has a value.
-    Out = b_reduce(f(Y = XVal), CS)
-  ;(search(FCs, Y, val(YVal)) ->
-    % Use the simpler form. This will check if X has a value.
-    Out = b_reduce(f(X = YVal), CS)
-  ;(Y == X ->
-    Out = t
-  ;
-    Out = f(X == Y)))).
 b_reduce(and(X, Y), CS) = Out :-
   X1 = b_reduce(X, CS),
   Y1 = b_reduce(Y, CS),
@@ -554,6 +546,54 @@ b_reduce(not(X), CS) = Out :-
   (X1 = t -> Out = f
   ; (X1 = f -> Out = t
   ; Out = not(X1))).
+b_reduce(f(X = YVal), CS) = Out :-
+  CS = constraint_store(FCs, _, _, _),
+  (is_empty(FCs) ->
+    Out = f(X = YVal)
+  ;
+    (search(FCs, X, val(XVal)) ->
+      (XVal == YVal -> Out = t ; Out = f)
+    ;
+      Out = f(X = YVal))).
+b_reduce(f(X == Y), CS) = Out :-
+  CS = constraint_store(FCs, _, _, _),
+  (is_empty(FCs) ->
+    Out = f(X == Y)
+  ;
+    (search(FCs, X, val(XVal)) ->
+      % Use the simpler form. This will check if Y has a value.
+      Out = b_reduce(f(Y = XVal), CS)
+    ;(search(FCs, Y, val(YVal)) ->
+      % Use the simpler form. This will check if X has a value.
+      Out = b_reduce(f(X = YVal), CS)
+    ;(Y == X ->
+      Out = t
+    ;
+      Out = f(X == Y))))).
+b_reduce(s(X = YVal), CS) = Out :-
+  CS = constraint_store(_, _, SCs, _),
+  (is_empty(SCs) ->
+    Out = s(X = YVal)
+  ;
+    (search(SCs, X, val(XVal)) ->
+      (XVal = YVal -> Out = t ; Out = f)
+    ;
+      Out = s(X = YVal))).
+b_reduce(s(X == Y), CS) = Out :-
+  CS = constraint_store(_, _, SCs, _),
+  (is_empty(SCs) ->
+    Out = s(X == Y)
+  ;
+    (search(SCs, X, val(XVal)) ->
+      % Use the simpler form. This will check if Y has a value.
+      Out = b_reduce(s(Y = XVal), CS)
+    ;(search(SCs, Y, val(YVal)) ->
+      % Use the simpler form. This will check if X has a value.
+      Out = b_reduce(s(X = YVal), CS)
+    ;(Y == X ->
+      Out = t
+    ;
+      Out = s(X == Y))))).
 
 n_set_value(V, Val, Cs, CsOut, Descs) :-
   (search(Cs, V, ValOrCSet) ->
@@ -683,6 +723,8 @@ b_constraint_to_string(t) =         format("t", []). % NOTE: We don't expect to 
 b_constraint_to_string(f) =         format("f", []). % NOTE: We don't expect to ever print this.
 b_constraint_to_string(f(X = Y)) =  format("(f= (var %i) %s)", [i(X), s(to_string(Y))]).
 b_constraint_to_string(f(X == Y)) = format("(f= (var %i) (var %i))", [i(X), i(Y)]).
+b_constraint_to_string(s(X = Y)) =  format("(s= (var %i) %s)", [i(X), s(Y)]).
+b_constraint_to_string(s(X == Y)) = format("(s= (var %i) (var %i))", [i(X), i(Y)]).
 b_constraint_to_string(and(X, Y)) = format("(and %s %s)", [s(b_constraint_to_string(X)), s(b_constraint_to_string(Y))]).
 b_constraint_to_string(or(X, Y)) =  format("(or %s %s)", [s(b_constraint_to_string(X)), s(b_constraint_to_string(Y))]).
 b_constraint_to_string(not(X)) =    format("(not %s)", [s(b_constraint_to_string(X))]).
@@ -695,11 +737,13 @@ f_constraint_to_string(V, C) = n_constraint_to_string(V, C).
 i_constraint_to_string(V, C) = n_constraint_to_string(V, C).
 
 to_string(constraint_store(FCs, ICs, SCs, BCs)) = F ++ I ++ S ++ B :-
-  (count(FCs) = 0 -> F = "" ; F = "  float\n" ++ n_to_string(FCs)),
-  (count(ICs) = 0 -> I = "" ; I = "  int\n" ++ n_to_string(ICs)),
-  (count(SCs) = 0 -> S = "" ; S = "  string\n" ++ s_to_string(SCs)),
-  B = foldl(func(C, ResultIn) = ResultIn ++ format("  %s\n", [s(b_constraint_to_string(C))]),
-        BCs, "").
+  (is_empty(FCs) -> F = "" ; F = "  float\n" ++ n_to_string(FCs)),
+  (is_empty(ICs) -> I = "" ; I = "  int\n" ++ n_to_string(ICs)),
+  (is_empty(SCs) -> S = "" ; S = "  string\n" ++ s_to_string(SCs)),
+  (is_empty(BCs) -> B = ""
+  ;
+    B = "  bool\n" ++ foldl(func(C, ResultIn) = ResultIn ++ format("  %s\n", [s(b_constraint_to_string(C))]),
+                            BCs, "")).
 n_to_string(Cs) =
   foldl(func(V, ValOrCSet, ResultIn) = ResultOut :-
           (ValOrCSet = val(Val) ->

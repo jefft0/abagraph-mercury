@@ -273,25 +273,43 @@ main(!IO) :-
     unify(2, s(':='("a")), !CS, _),
     \+ unify(1, s('\\=='(var(2))), !.CS, _, _))),
 
-  % Test b_unify
+  % Test b_unify f()
   run_test((pred(!.CS::in, !:CS::out) is semidet :-
-    b_unify(and(1 = 1.0, 2 = 2.0), !CS),
+    b_unify(and(f(1 = 1.0), f(2 = 2.0)), !CS),
     unify(1, f(':='(1.0)), !CS, _),
     unify(2, f(':='(2.0)), !.CS, _, _))),
   run_test((pred(!.CS::in, !:CS::out) is semidet :-
-    b_unify(and(1 = 1.0, 2 = 2.0), !CS),
+    b_unify(and(f(1 = 1.0), f(2 = 2.0)), !CS),
     unify(1, f(':='(1.0)), !CS, _),
     \+ unify(2, f(':='(3.0)), !.CS, _, _))),
   run_test((pred(!.CS::in, !:CS::out) is semidet :-
-    b_unify(not(and(1 = 1.0, 2 = 2.0)), !CS),
+    b_unify(not(and(f(1 = 1.0), f(2 = 2.0))), !CS),
     unify(1, f(':='(1.0)), !CS, _),
     unify(2, f(':='(3.0)), !.CS, _, _))),
   run_test((pred(!.CS::in, !:CS::out) is semidet :-
-    b_unify(or(1 = 1.0, 2 = 2.0), !CS),
-    format("CS\n%s", [s(to_string(!.CS))]),
+    b_unify(or(f(1 = 1.0), f(2 = 2.0)), !CS),
     unify(1, f(':='(1.0)), !CS, _),
+    unify(2, f(':='(2.0)), !.CS, _, _))),
+
+  % Test b_unify s()
+  run_test((pred(!.CS::in, !:CS::out) is semidet :-
+    b_unify(and(s(1 = "a"), s(2 = "b")), !CS),
+    unify(1, s(':='("a")), !CS, _),
+    unify(2, s(':='("b")), !.CS, _, _))),
+  run_test((pred(!.CS::in, !:CS::out) is semidet :-
+    b_unify(and(s(1 = "a"), s(2 = "b")), !CS),
+    unify(1, s(':='("a")), !CS, _),
+    \+ unify(2, s(':='("c")), !.CS, _, _))),
+  run_test((pred(!.CS::in, !:CS::out) is semidet :-
+    b_unify(not(and(s(1 = "a"), s(2 = "b"))), !CS),
+    unify(1, s(':='("a")), !CS, _),
+    unify(2, s(':='("c")), !.CS, _, _))),
+  run_test((pred(!.CS::in, !:CS::out) is semidet :-
+    b_unify(or(s(1 = "a"), s(2 = "b")), !CS),
     format("CS\n%s", [s(to_string(!.CS))]),
-    unify(2, f(':='(2.0)), !CS, _),
+    unify(1, s(':='("a")), !CS, _),
+    format("CS\n%s", [s(to_string(!.CS))]),
+    unify(2, s(':='("b")), !CS, _),
     format("CS\n%s", [s(to_string(!.CS))]))).
 
 run_test(Test) :- (Test(constraints.init, _) -> format("pass\n", []) ; format("FAIL\n", [])).
