@@ -7,6 +7,7 @@
 :- module constraints.
 :- interface.
 
+:- import_module list.
 :- import_module map.
 :- import_module maybe.
 :- import_module set.
@@ -102,10 +103,13 @@
 :- func i_constraint_to_string(int, n_constraint(int)) = string is det.
 :- func s_constraint_to_string(int, s_constraint) = string is det.
 
+% A helper function to return a binary constraint expression for the conditions
+% when two var(string) lists match. Fail if cannot match.
+:- func var_string_list_matches(list(var(string)), list(var(string))) = b_constraint is semidet.
+
 :- implementation.
 
 :- import_module bool.
-:- import_module list.
 :- import_module number.
 :- import_module pair.
 :- import_module string.
@@ -766,6 +770,16 @@ s_to_string(Cs) =
             ;
               ResultOut = ResultIn)),
     Cs, "").
+
+var_string_list_matches(XList, YList) = C :-
+  length(XList) == length(YList),
+  (XList = [] ->
+    C = t
+  ;
+    XList = [var(X1)|RestX],
+    YList = [var(Y1)|RestY],
+    foldl(pred(var(XIn)::in, CIn-[var(YIn)|RestYIn]::in, and(CIn, s(XIn == YIn))-RestYIn::out) is semidet,
+               RestX, s(X1 == Y1)-RestY, C-_)).
 
 :- pragma no_inline(next_var_int/1).
 :- pragma foreign_proc("C",
