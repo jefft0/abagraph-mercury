@@ -1,6 +1,8 @@
 :- module number.
 :- interface.
 
+:- import_module constraints.
+
 % number is a type class to allow math operations within a polymorphic definition,
 % where the type T can be float, int, etc.
 % (This is pretty basic. It seems like there should be an existing module somewhere.)
@@ -14,6 +16,7 @@
   pred (T::in) < (T::in) is semidet,
   pred (T::in) >= (T::in) is semidet,
   pred (T::in) =< (T::in) is semidet,
+  func to_b_constraint(nb_constraint(T)) = b_constraint is det,
   func to_string(T) = string
 ].
 
@@ -43,6 +46,7 @@ f_neg_tolerance = -0.00001.
     (X < Y :- float.(float.(X - Y) < f_neg_tolerance)),
     (X >= Y :- float.(float.(X - Y) >= f_neg_tolerance)),
     (X =< Y :- float.(float.(X - Y) =< f_tolerance)),
+    to_b_constraint(C) = f(C),
     to_string(X) = format("%f", [f(X)])
 ].
 :- instance number(int) where [
@@ -55,6 +59,7 @@ f_neg_tolerance = -0.00001.
     pred((<)/2) is int.(<),
     pred((>=)/2) is int.(>=),
     pred((=<)/2) is int.(=<),
+    to_b_constraint(C) = i(C),
     to_string(X) = format("%i", [i(X)])
 ].
 
