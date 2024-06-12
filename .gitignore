@@ -29,3 +29,8 @@
 mercury/*.dot
 mercury/*.pdf
 contrib/abagraph/temp
+
+# symlinks for build
+mercury/test/constraints.m
+mercury/test/abagraph.m
+mercury/test/number.m

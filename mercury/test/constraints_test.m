@@ -275,21 +275,42 @@ main(!IO) :-
 
   % Test b_unify f()
   run_test((pred(!.CS::in, !:CS::out) is semidet :-
-    b_unify(and(f(1 = 1.0), f(2 = 2.0)), !CS),
-    unify(1, f(':='(1.0)), !CS, _),
-    unify(2, f(':='(2.0)), !.CS, _, _))),
+    b_unify(and(f(1 = 11.0), f(2 = 12.0)), !CS),
+    unify(1, f(':='(11.0)), !CS, _),
+    unify(2, f(':='(12.0)), !.CS, _, _))),
   run_test((pred(!.CS::in, !:CS::out) is semidet :-
-    b_unify(and(f(1 = 1.0), f(2 = 2.0)), !CS),
-    unify(1, f(':='(1.0)), !CS, _),
-    \+ unify(2, f(':='(3.0)), !.CS, _, _))),
+    b_unify(and(f(1 = 11.0), f(2 = 12.0)), !CS),
+    unify(1, f(':='(11.0)), !CS, _),
+    \+ unify(2, f(':='(13.0)), !.CS, _, _))),
   run_test((pred(!.CS::in, !:CS::out) is semidet :-
-    b_unify(not(and(f(1 = 1.0), f(2 = 2.0))), !CS),
-    unify(1, f(':='(1.0)), !CS, _),
-    unify(2, f(':='(3.0)), !.CS, _, _))),
+    b_unify(not(and(f(1 = 11.0), f(2 = 12.0))), !CS),
+    unify(1, f(':='(11.0)), !CS, _),
+    unify(2, f(':='(13.0)), !.CS, _, _))),
   run_test((pred(!.CS::in, !:CS::out) is semidet :-
-    b_unify(or(f(1 = 1.0), f(2 = 2.0)), !CS),
-    unify(1, f(':='(1.0)), !CS, _),
-    unify(2, f(':='(2.0)), !.CS, _, _))),
+    b_unify(or(f(1 = 11.0), f(2 = 12.0)), !CS),
+    unify(1, f(':='(11.0)), !CS, _),
+    unify(2, f(':='(12.0)), !.CS, _, _))),
+
+  % Test b_unify i()
+  run_test((pred(!.CS::in, !:CS::out) is semidet :-
+    b_unify(and(i(1 = 11), i(2 = 12)), !CS),
+    unify(1, i(':='(11)), !CS, _),
+    unify(2, i(':='(12)), !.CS, _, _))),
+  run_test((pred(!.CS::in, !:CS::out) is semidet :-
+    b_unify(and(i(1 = 11), i(2 = 12)), !CS),
+    unify(1, i(':='(11)), !CS, _),
+    \+ unify(2, i(':='(13)), !.CS, _, _))),
+  run_test((pred(!.CS::in, !:CS::out) is semidet :-
+    b_unify(not(and(i(1 = 11), i(2 = 12))), !CS),
+    unify(1, i(':='(11)), !CS, _),
+    unify(2, i(':='(13)), !.CS, _, _))),
+  run_test((pred(!.CS::in, !:CS::out) is semidet :-
+    b_unify(or(i(1 = 11), i(2 = 12)), !CS),
+    format("CS\n%s", [s(to_string(!.CS))]),
+    unify(1, i(':='(11)), !CS, _),
+    format("CS\n%s", [s(to_string(!.CS))]),
+    unify(2, i(':='(12)), !CS, _),
+    format("CS\n%s", [s(to_string(!.CS))]))),
 
   % Test b_unify s()
   run_test((pred(!.CS::in, !:CS::out) is semidet :-
@@ -306,11 +327,8 @@ main(!IO) :-
     unify(2, s(':='("c")), !.CS, _, _))),
   run_test((pred(!.CS::in, !:CS::out) is semidet :-
     b_unify(or(s(1 = "a"), s(2 = "b")), !CS),
-    format("CS\n%s", [s(to_string(!.CS))]),
     unify(1, s(':='("a")), !CS, _),
-    format("CS\n%s", [s(to_string(!.CS))]),
-    unify(2, s(':='("b")), !CS, _),
-    format("CS\n%s", [s(to_string(!.CS))]))).
+    unify(2, s(':='("b")), !.CS, _, _))).
 
 run_test(Test) :- (Test(constraints.init, _) -> format("pass\n", []) ; format("FAIL\n", [])).
 
