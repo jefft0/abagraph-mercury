@@ -138,6 +138,7 @@
 % If no match is possible, return f.
 :- func membership(sentence, set(sentence), constraint_store) = b_constraint is det.
 :- pred unify(sentence::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
+:- pred next_step_all_branches_int(int::out) is det.
 
 % ("set some options" moved to options.m.)
 
@@ -197,7 +198,9 @@ initial_derivation_tuple(
 % derivation(T, InN, Result, N, IdsIn, IdsOut) :-
 % Move the step number into Ids
 derivation(T, Result, InN-IdsIn, N-IdsOut) :-
+  next_step_all_branches_int(StepAllBranches),
   (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
+    format("*** Step %i (all branches)\n", [i(StepAllBranches - 1)]),
     Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
     ((option(show_solution, "true"), \+ verbose) -> PreviousN = N - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
     N = InN,
@@ -921,3 +924,12 @@ unify(i(var(V) = C), CS, CSOut, Descs) :- unify(V, i(C), CS, CSOut, Descs).
 unify(s(var(V) := Val), CS, CSOut, Descs) :- unify(V, s(':='(Val)), CS, CSOut, Descs).
 unify(s(var(V) \= Val), CS, CSOut, Descs) :- unify(V, s('\\='(Val)), CS, CSOut, Descs).
 unify(s(var(V) \== Val), CS, CSOut, Descs) :- unify(V, s('\\=='(Val)), CS, CSOut, Descs).
+
+:- pragma no_inline(next_step_all_branches_int/1).
+:- pragma foreign_proc("C",
+next_step_all_branches_int(Int::out),
+[promise_pure],
+"
+static long long int integer = 0;
+Int = ++integer;
+").
