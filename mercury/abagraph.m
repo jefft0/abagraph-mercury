@@ -387,7 +387,7 @@ opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P
       opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS2), T1, IdsIn, IdsOut),
       poss_print_case("2.(ic)", A))
   ;
-    b_unify(not(MemberAD), CS, CS1),
+    b_unify(MemberAD, CS, CS1),
     opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS1), T1),
     poss_print_case("2.(ia)", A),
     (verbose ->
