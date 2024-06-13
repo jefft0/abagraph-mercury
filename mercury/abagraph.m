@@ -137,7 +137,6 @@
 % Return a boolean constraint expression for the conditions when S matches any sentence in SSet.
 % If no match is possible, return f.
 :- func membership(sentence, set(sentence), constraint_store) = b_constraint is det.
-:- func yes_val(maybe(T)) = T is semidet.
 :- pred unify(sentence::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
 
 % ("set some options" moved to options.m.)
@@ -905,8 +904,6 @@ membership(S, SSet, CS) = b_reduce(C, CS) :-
               ;
                 COut = CIn),
             SSet, f).
-
-yes_val(yes(X)) = X.
 
 % Syntactic sugar.
 unify(f(var(V) := Val), CS, CSOut, Descs) :- unify(V, f(':='(Val)), CS, CSOut, Descs).
