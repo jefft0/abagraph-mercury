@@ -58,6 +58,7 @@
 :- implementation.
 
 :- import_module bool.
+:- import_module float.
 :- import_module int.
 :- import_module maybe.
 :- import_module options.
@@ -200,7 +201,7 @@ initial_derivation_tuple(
 derivation(T, Result, InN-IdsIn, N-IdsOut) :-
   next_step_all_branches_int(StepAllBranches),
   (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
-    format("*** Step %i (all branches)\n", [i(StepAllBranches - 1)]),
+    format("*** Step %i (all branches), %0.0f%% extra\n", [i(StepAllBranches - 1), f(100.0 * float((StepAllBranches - 1) - (InN - 1)) / float(InN - 1))]),
     Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
     ((option(show_solution, "true"), \+ verbose) -> PreviousN = N - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
     N = InN,
