@@ -644,6 +644,7 @@ graph_union(G1, G2, G) :-
 % - otherwise, Res is L
 append_element_nodup([], Element, [Element]).
 append_element_nodup([H|T], Element, [HOut|Rest]) :-
+  % TODO: Use membership?
   (H = Element ->
     HOut = Element,
     Rest = T
