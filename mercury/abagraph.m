@@ -112,6 +112,7 @@
 :- pred opponent_abagraph_choice(list(focussed_pot_arg_graph)::in, focussed_pot_arg_graph::out,
           list(focussed_pot_arg_graph)::out) is det.
 :- pred opponent_sentence_choice(focussed_pot_arg_graph::in, sentence::out, focussed_pot_arg_graph::out) is nondet.
+:- pred find_first_constraint(list(sentence)::in, sentence::out, list(sentence)::out) is semidet.
 :- pred rule_choice(sentence::in, list(sentence)::out, prop_info::in, id_map::in, id_map::out) is nondet.
 :- pred turn_choice(turn_choice::in, pot_arg_graph::in, opponent_arg_graph_set::in, turn::out) is det.
 :- pred sentence_choice(proponent_sentence_choice::in, list(sentence)::in, sentence::out,
@@ -676,8 +677,8 @@ choose_turn(P, O, Player) :-
 
 proponent_sentence_choice(P, S, Pminus) :-
   % Process a constraint if available.
-  (find_first((pred(X::in) is semidet :- constraint(X)), P, First, PminusC) ->
-    S = First, Pminus = PminusC
+  (find_first_constraint(P, S1, Pminus1) ->
+    S = S1, Pminus = Pminus1
   ;
     % No constraint. Use the sentence choice.
     get_proponent_sentence_choice(PropSentenceStrategy),
@@ -689,12 +690,15 @@ opponent_abagraph_choice(O, JC, Ominus) :-
 
 opponent_sentence_choice(Claim-(Ss-Marked-OGraph), Se, Claim-(Ssminus-Marked-OGraph)) :-
   % Process a constraint if available.
-  (find_first((pred(X::in) is semidet :- constraint(X)), Ss, First, SsminusC) ->
-    Se = First, Ssminus = SsminusC
+  (find_first_constraint(Ss, Se1, Ssminus1) ->
+    Se = Se1, Ssminus = Ssminus1
   ;
     % No constraint. Use the sentence choice.
     get_opponent_sentence_choice(OppSentenceStrategy),
     sentence_choice_backtrack(OppSentenceStrategy, Ss, Se, Ssminus)).
+
+find_first_constraint(SList, SOut, SListMinus) :-
+  find_first((pred(S::in) is semidet :- constraint(S)), SList, SOut, SListMinus).
 
 % PropInfo here holds information about the current state of
 % proponent's derivations.
