@@ -56,6 +56,21 @@
    ;    i(n_constraint(int))
    ;    s(s_constraint).
 
+% Syntactic sugar for unifying sentences.
+% E.g. unify(1, f('>='(2.0)), ...) can be written as var_f_unify(X >= 2.0, ...) where X = var(1).
+:- type var_n_constraint(T)
+   ---> var(T) := T
+   ;    var(T) \= T
+   ;    var(T) \== var(T)
+   ;    var(T) >= T
+   ;    var(T) =< T
+   ;    var(T) = n_constraint(T).
+
+:- type var_s_constraint
+   ---> var(string) := string
+   ;    var(string) \= string
+   ;    var(string) \== var(string).
+
 % A variable is either the bound value val(X) or constraints cs.
 % (We don't put the ':=' constraint in cs.)
 :- type n_constraints(T)
@@ -91,6 +106,10 @@
 :- func f_get(int, constraint_store) = maybe(float).
 :- func i_get(int, constraint_store) = maybe(int).
 :- func s_get(int, constraint_store) = maybe(string).
+% Syntactic sugar.
+:- pred var_f_unify(var_n_constraint(float)::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
+:- pred var_i_unify(var_n_constraint(int)::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
+:- pred var_s_unify(var_s_constraint::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
 % Return a string representation of the constraint_store, indented (so that you can prefix a label). Example:
 %   int
 %   (= (var 2) 10)
@@ -103,6 +122,10 @@
 :- func f_constraint_to_string(int, n_constraint(float)) = string is det.
 :- func i_constraint_to_string(int, n_constraint(int)) = string is det.
 :- func s_constraint_to_string(int, s_constraint) = string is det.
+
+:- func var_f_constraint_to_string(var_n_constraint(float)) = string is det.
+:- func var_i_constraint_to_string(var_n_constraint(int)) = string is det.
+:- func var_s_constraint_to_string(var_s_constraint) = string is det.
 
 % A helper function to return a binary constraint expression for the conditions
 % when two var(string) lists match. Fail if cannot match.
@@ -135,6 +158,7 @@
 :- pred n_add_transformable_constraint(int::in, n_constraint(T)::in, map(int, n_constraints(T))::in, map(int, n_constraints(T))::out, bool::out) is det.
 :- pred s_add_transformable_constraint(int::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, bool::out) is det.
 :- func n_constraint_to_string(int, n_constraint(T)) = string is det <= number(T).
+:- func var_n_constraint_to_string(var_n_constraint(T)) = string is det <= number(T).
 :- pred s_new_value(string::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is semidet.
 :- func n_to_string(map(int, n_constraints(T))) = string is det <= number(T).
 :- func s_to_string(map(int, s_constraints)) = string is det.
@@ -167,24 +191,6 @@ unify(V, s(SC), constraint_store(FCs, ICs, SCs, BCs), constraint_store(FCs, ICs,
     BCs, set.init, BCsOut).
 
 b_unify(FC, constraint_store(FCs, ICs, SCs, BCs), constraint_store(FCs, ICs, SCs, BCsOut)) :- b_unify(FC, BCs, FCs, ICs, SCs, BCsOut).
-
-new_var(var(V)) :- next_var_int(V).
-
-f_get(V, constraint_store(Cs, _, _, _)) = Val :-
-  (search(Cs, V, val(Val1)) ->
-    Val = yes(Val1)
-  ;
-    Val = no).
-i_get(V, constraint_store(_, Cs, _, _)) = Val :-
-  (search(Cs, V, val(Val1)) ->
-    Val = yes(Val1)
-  ;
-    Val = no).
-s_get(V, constraint_store(_, _, Cs, _)) = Val :-
-  (search(Cs, V, val(Val1)) ->
-    Val = yes(Val1)
-  ;
-    Val = no).
 
 n_unify(V, ':='(Val), Cs, CsOut, Descs) :- n_set_value(V, Val, Cs, CsOut, Descs).
 n_unify(V, '\\='(X), Cs, CsOut, Descs) :-
@@ -600,6 +606,40 @@ nb_reduce(C, Cs) = Out :-
   ;
     Out = to_b_constraint(C)))).
 
+new_var(var(V)) :- next_var_int(V).
+
+f_get(V, constraint_store(Cs, _, _, _)) = Val :-
+  (search(Cs, V, val(Val1)) ->
+    Val = yes(Val1)
+  ;
+    Val = no).
+i_get(V, constraint_store(_, Cs, _, _)) = Val :-
+  (search(Cs, V, val(Val1)) ->
+    Val = yes(Val1)
+  ;
+    Val = no).
+s_get(V, constraint_store(_, _, Cs, _)) = Val :-
+  (search(Cs, V, val(Val1)) ->
+    Val = yes(Val1)
+  ;
+    Val = no).
+
+var_f_unify(var(V) := Val, CS, CSOut, Descs) :-  unify(V, f(':='(Val)), CS, CSOut, Descs).
+var_f_unify(var(V) \= Val, CS, CSOut, Descs) :-  unify(V, f('\\='(Val)), CS, CSOut, Descs).
+var_f_unify(var(V) \== Val, CS, CSOut, Descs) :- unify(V, f('\\=='(Val)), CS, CSOut, Descs).
+var_f_unify(var(V) >= Val, CS, CSOut, Descs) :-  unify(V, f('>='(Val)), CS, CSOut, Descs).
+var_f_unify(var(V) =< Val, CS, CSOut, Descs) :-  unify(V, f('=<'(Val)), CS, CSOut, Descs).
+var_f_unify(var(V) = C, CS, CSOut, Descs) :-     unify(V, f(C), CS, CSOut, Descs).
+var_i_unify(var(V) := Val, CS, CSOut, Descs) :-  unify(V, i(':='(Val)), CS, CSOut, Descs).
+var_i_unify(var(V) \= Val, CS, CSOut, Descs) :-  unify(V, i('\\='(Val)), CS, CSOut, Descs).
+var_i_unify(var(V) \== Val, CS, CSOut, Descs) :- unify(V, i('\\=='(Val)), CS, CSOut, Descs).
+var_i_unify(var(V) >= Val, CS, CSOut, Descs) :-  unify(V, i('>='(Val)), CS, CSOut, Descs).
+var_i_unify(var(V) =< Val, CS, CSOut, Descs) :-  unify(V, i('=<'(Val)), CS, CSOut, Descs).
+var_i_unify(var(V) = C, CS, CSOut, Descs) :-     unify(V, i(C), CS, CSOut, Descs).
+var_s_unify(var(V) := Val, CS, CSOut, Descs) :-  unify(V, s(':='(Val)), CS, CSOut, Descs).
+var_s_unify(var(V) \= Val, CS, CSOut, Descs) :-  unify(V, s('\\='(Val)), CS, CSOut, Descs).
+var_s_unify(var(V) \== Val, CS, CSOut, Descs) :- unify(V, s('\\=='(Val)), CS, CSOut, Descs).
+
 n_set_value(V, Val, Cs, CsOut, Descs) :-
   (search(Cs, V, ValOrCSet) ->
     (ValOrCSet = val(BoundVal) ->
@@ -714,6 +754,9 @@ s_new_value(Val, '\\=='(var(X)), Cs, Cs, set.init) :-
 % Ignore. (Shouldn't happen.)
 s_new_value(_Val, ':='(_), Cs, Cs, set.init).
 
+f_constraint_to_string(V, C) = n_constraint_to_string(V, C).
+i_constraint_to_string(V, C) = n_constraint_to_string(V, C).
+
 n_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V), s(to_string(Val))]).
 n_constraint_to_string(V, '\\='(X)) =           format("(<> (var %i) %s)", [i(V), s(to_string(X))]).
 n_constraint_to_string(V, '\\=='(var(X))) =     format("(<> (var %i) (var %i))", [i(V), i(X)]).
@@ -740,8 +783,19 @@ s_constraint_to_string(V, ':='(Val)) =      format("(= (var %i) %s)", [i(V), s(V
 s_constraint_to_string(V, '\\='(X)) =       format("(<> (var %i) %s)", [i(V), s(X)]).
 s_constraint_to_string(V, '\\=='(var(X))) = format("(<> (var %i) (var %i))", [i(V), i(X)]).
 
-f_constraint_to_string(V, C) = n_constraint_to_string(V, C).
-i_constraint_to_string(V, C) = n_constraint_to_string(V, C).
+var_f_constraint_to_string(C) = var_n_constraint_to_string(C).
+var_i_constraint_to_string(C) = var_n_constraint_to_string(C).
+
+var_n_constraint_to_string(var(V) := Val) =       format("(= (var %i) %s)", [i(V), s(to_string(Val))]).
+var_n_constraint_to_string(var(V) \= Val) =       format("(<> (var %i) %s)", [i(V), s(to_string(Val))]).
+var_n_constraint_to_string(var(V) \== var(Val)) = format("(<> (var %i) (var %i))", [i(V), i(Val)]).
+var_n_constraint_to_string(var(V) >= Val) =       format("(>= (var %i) %s)", [i(V), s(to_string(Val))]).
+var_n_constraint_to_string(var(V) =< Val) =       format("(<= (var %i) %s)", [i(V), s(to_string(Val))]).
+var_n_constraint_to_string(var(V) = C) =          n_constraint_to_string(V, C).
+
+var_s_constraint_to_string(var(V) := Val) =       format("(= (var %i) %s)", [i(V), s(Val)]).
+var_s_constraint_to_string(var(V) \= Val) =       format("(<> (var %i) %s)", [i(V), s(Val)]).
+var_s_constraint_to_string(var(V) \== var(Val)) = format("(<> (var %i) (var %i))", [i(V), i(Val)]).
 
 to_string(constraint_store(FCs, ICs, SCs, BCs)) = F ++ I ++ S ++ B :-
   (is_empty(FCs) -> F = "" ; F = "  float\n" ++ n_to_string(FCs)),

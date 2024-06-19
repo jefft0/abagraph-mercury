@@ -915,21 +915,9 @@ membership(S, SSet, CS) = b_reduce(C, CS) :-
             SSet, f).
 
 % Syntactic sugar.
-unify(f(var(V) := Val), CS, CSOut, Descs) :- unify(V, f(':='(Val)), CS, CSOut, Descs).
-unify(f(var(V) \= Val), CS, CSOut, Descs) :- unify(V, f('\\='(Val)), CS, CSOut, Descs).
-unify(f(var(V) \== Val), CS, CSOut, Descs) :- unify(V, f('\\=='(Val)), CS, CSOut, Descs).
-unify(f(var(V) >= Val), CS, CSOut, Descs) :- unify(V, f('>='(Val)), CS, CSOut, Descs).
-unify(f(var(V) =< Val), CS, CSOut, Descs) :- unify(V, f('=<'(Val)), CS, CSOut, Descs).
-unify(f(var(V) = C), CS, CSOut, Descs) :- unify(V, f(C), CS, CSOut, Descs).
-unify(i(var(V) := Val), CS, CSOut, Descs) :- unify(V, i(':='(Val)), CS, CSOut, Descs).
-unify(i(var(V) \= Val), CS, CSOut, Descs) :- unify(V, i('\\='(Val)), CS, CSOut, Descs).
-unify(i(var(V) \== Val), CS, CSOut, Descs) :- unify(V, i('\\=='(Val)), CS, CSOut, Descs).
-unify(i(var(V) >= Val), CS, CSOut, Descs) :- unify(V, i('>='(Val)), CS, CSOut, Descs).
-unify(i(var(V) =< Val), CS, CSOut, Descs) :- unify(V, i('=<'(Val)), CS, CSOut, Descs).
-unify(i(var(V) = C), CS, CSOut, Descs) :- unify(V, i(C), CS, CSOut, Descs).
-unify(s(var(V) := Val), CS, CSOut, Descs) :- unify(V, s(':='(Val)), CS, CSOut, Descs).
-unify(s(var(V) \= Val), CS, CSOut, Descs) :- unify(V, s('\\='(Val)), CS, CSOut, Descs).
-unify(s(var(V) \== Val), CS, CSOut, Descs) :- unify(V, s('\\=='(Val)), CS, CSOut, Descs).
+unify(f(C), CS, CSOut, Descs) :- var_f_unify(C, CS, CSOut, Descs).
+unify(i(C), CS, CSOut, Descs) :- var_i_unify(C, CS, CSOut, Descs).
+unify(s(C), CS, CSOut, Descs) :- var_s_unify(C, CS, CSOut, Descs).
 
 :- pragma no_inline(next_step_all_branches_int/1).
 :- pragma foreign_proc("C",
