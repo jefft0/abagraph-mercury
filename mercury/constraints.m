@@ -66,6 +66,9 @@
    ;    var(T) =< T
    ;    var(T) = n_constraint(T).
 
+:- type var_f_constraint == var_n_constraint(float).
+:- type var_i_constraint == var_n_constraint(int).
+
 :- type var_s_constraint
    ---> var(string) := string
    ;    var(string) \= string
@@ -107,8 +110,8 @@
 :- func i_get(int, constraint_store) = maybe(int).
 :- func s_get(int, constraint_store) = maybe(string).
 % Syntactic sugar.
-:- pred var_f_unify(var_n_constraint(float)::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
-:- pred var_i_unify(var_n_constraint(int)::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
+:- pred var_f_unify(var_f_constraint::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
+:- pred var_i_unify(var_i_constraint::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
 :- pred var_s_unify(var_s_constraint::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
 % Return a string representation of the constraint_store, indented (so that you can prefix a label). Example:
 %   int
@@ -123,8 +126,8 @@
 :- func i_constraint_to_string(int, n_constraint(int)) = string is det.
 :- func s_constraint_to_string(int, s_constraint) = string is det.
 
-:- func var_f_constraint_to_string(var_n_constraint(float)) = string is det.
-:- func var_i_constraint_to_string(var_n_constraint(int)) = string is det.
+:- func var_f_constraint_to_string(var_f_constraint) = string is det.
+:- func var_i_constraint_to_string(var_i_constraint) = string is det.
 :- func var_s_constraint_to_string(var_s_constraint) = string is det.
 
 % A helper function to return a binary constraint expression for the conditions
