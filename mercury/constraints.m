@@ -770,7 +770,7 @@ s_new_value(_Val, ':='(_), Cs, Cs, set.init).
 f_constraint_to_string(V, C) = n_constraint_to_string(V, C).
 i_constraint_to_string(V, C) = n_constraint_to_string(V, C).
 
-n_constraint_to_string(V, ':='(Val)) =          format("(= (var %i) %s)", [i(V), s(to_string(Val))]).
+n_constraint_to_string(V, ':='(Val)) =          format("(:= (var %i) %s)", [i(V), s(to_string(Val))]).
 n_constraint_to_string(V, '\\='(X)) =           format("(<> (var %i) %s)", [i(V), s(to_string(X))]).
 n_constraint_to_string(V, '\\=='(var(X))) =     format("(<> (var %i) (var %i))", [i(V), i(X)]).
 n_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %s)", [i(V), i(X1), s(to_string(X2))]).
@@ -792,21 +792,21 @@ b_constraint_to_string(and(X, Y)) = format("(and %s %s)", [s(b_constraint_to_str
 b_constraint_to_string(or(X, Y)) =  format("(or %s %s)", [s(b_constraint_to_string(X)), s(b_constraint_to_string(Y))]).
 b_constraint_to_string(not(X)) =    format("(not %s)", [s(b_constraint_to_string(X))]).
 
-s_constraint_to_string(V, ':='(Val)) =      format("(= (var %i) %s)", [i(V), s(Val)]).
+s_constraint_to_string(V, ':='(Val)) =      format("(:= (var %i) %s)", [i(V), s(Val)]).
 s_constraint_to_string(V, '\\='(X)) =       format("(<> (var %i) %s)", [i(V), s(X)]).
 s_constraint_to_string(V, '\\=='(var(X))) = format("(<> (var %i) (var %i))", [i(V), i(X)]).
 
 var_f_constraint_to_string(C) = var_n_constraint_to_string(C).
 var_i_constraint_to_string(C) = var_n_constraint_to_string(C).
 
-var_n_constraint_to_string(var(V) := Val) =       format("(= (var %i) %s)", [i(V), s(to_string(Val))]).
+var_n_constraint_to_string(var(V) := Val) =       format("(:= (var %i) %s)", [i(V), s(to_string(Val))]).
 var_n_constraint_to_string(var(V) \= Val) =       format("(<> (var %i) %s)", [i(V), s(to_string(Val))]).
 var_n_constraint_to_string(var(V) \== var(Val)) = format("(<> (var %i) (var %i))", [i(V), i(Val)]).
 var_n_constraint_to_string(var(V) >= Val) =       format("(>= (var %i) %s)", [i(V), s(to_string(Val))]).
 var_n_constraint_to_string(var(V) =< Val) =       format("(<= (var %i) %s)", [i(V), s(to_string(Val))]).
 var_n_constraint_to_string(var(V) = C) =          n_constraint_to_string(V, C).
 
-var_s_constraint_to_string(var(V) := Val) =       format("(= (var %i) %s)", [i(V), s(Val)]).
+var_s_constraint_to_string(var(V) := Val) =       format("(:= (var %i) %s)", [i(V), s(Val)]).
 var_s_constraint_to_string(var(V) \= Val) =       format("(<> (var %i) %s)", [i(V), s(Val)]).
 var_s_constraint_to_string(var(V) \== var(Val)) = format("(<> (var %i) (var %i))", [i(V), i(Val)]).
 
