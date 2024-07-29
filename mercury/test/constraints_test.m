@@ -1,3 +1,5 @@
+% rm -rf Mercury && mmc --grade hlc.gc --make constraints_test && ./constraints_test.exe
+
 :- module constraints_test.
 :- interface.
 
@@ -328,7 +330,15 @@ main(!IO) :-
   run_test((pred(!.CS::in, !:CS::out) is semidet :-
     b_unify(or(s(1 = "a"), s(2 = "b")), !CS),
     unify(1, s(':='("a")), !CS, _),
-    unify(2, s(':='("b")), !.CS, _, _))).
+    unify(2, s(':='("b")), !.CS, _, _))),
+
+  % Test general b_unify reduction.
+  run_test((pred(!.CS::in, !:CS::out) is semidet :-
+    b_unify(i(1 = 10), !CS),
+    \+ b_unify(not(i(1 = 10)), !.CS, _))),
+  run_test((pred(!.CS::in, !:CS::out) is semidet :-
+    b_unify(not(i(1 = 10)), !CS),
+    \+ b_unify(i(1 = 10), !.CS, _))).
 
 run_test(Test) :- (Test(constraints.init, _) -> format("pass\n", []) ; format("FAIL\n", [])).
 

@@ -540,9 +540,19 @@ s_unify(V, '\\=='(var(X)), Cs, CsOut, Descs) :-
 
 b_unify(C, BCs, FCs, ICs, SCs, BCsOut) :-
   C1 = b_reduce(C, constraint_store(FCs, ICs, SCs, set.init)),
-  (C1 = f -> fail
-  ; (C1 = t -> BCsOut = BCs
-  ; BCsOut = insert(BCs, C1))).
+  (C1 = f ->
+    fail
+  ;
+    (C1 = t -> 
+      BCsOut = BCs
+    ;
+      (C1 = not(NotC1) ->
+        % Can't add not(C). Already have C.
+        \+ member(NotC1, BCs)
+      ;
+        % Can't add C. Already have not(C).
+        \+ member(not(C1), BCs)),
+      BCsOut = insert(BCs, C1))).
 
 b_reduce(t, _) = t.
 b_reduce(f, _) = f.
