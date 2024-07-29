@@ -782,11 +782,11 @@ n_constraint_to_string(V, '=<'(X)) =            format("(<= (var %i) %s)", [i(V)
 
 b_constraint_to_string(t) =         format("t", []). % NOTE: We don't expect to ever print this.
 b_constraint_to_string(f) =         format("f", []). % NOTE: We don't expect to ever print this.
-b_constraint_to_string(f(X = Y)) =  format("(f= (var %i) %s)", [i(X), s(to_string(Y))]).
+b_constraint_to_string(f(X = Y)) =  format("(= (var %i) %s)", [i(X), s(to_string(Y))]).
 b_constraint_to_string(f(X == Y)) = format("(f= (var %i) (var %i))", [i(X), i(Y)]).
-b_constraint_to_string(i(X = Y)) =  format("(i= (var %i) %s)", [i(X), s(to_string(Y))]).
+b_constraint_to_string(i(X = Y)) =  format("(= (var %i) %s)", [i(X), s(to_string(Y))]).
 b_constraint_to_string(i(X == Y)) = format("(i= (var %i) (var %i))", [i(X), i(Y)]).
-b_constraint_to_string(s(X = Y)) =  format("(s= (var %i) %s)", [i(X), s(Y)]).
+b_constraint_to_string(s(X = Y)) =  format("(= (var %i) %s)", [i(X), s(Y)]).
 b_constraint_to_string(s(X == Y)) = format("(s= (var %i) (var %i))", [i(X), i(Y)]).
 b_constraint_to_string(and(X, Y)) = format("(and %s %s)", [s(b_constraint_to_string(X)), s(b_constraint_to_string(Y))]).
 b_constraint_to_string(or(X, Y)) =  format("(or %s %s)", [s(b_constraint_to_string(X)), s(b_constraint_to_string(Y))]).
