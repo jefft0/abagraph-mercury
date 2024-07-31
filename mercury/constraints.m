@@ -552,7 +552,12 @@ b_unify(C, BCs, FCs, ICs, SCs, BCsOut) :-
       ;
         % Can't add C. Already have not(C).
         \+ member(not(C1), BCs)),
-      BCsOut = insert(BCs, C1))).
+      (C1 = and(X, Y) ->
+        % Add X and Y separately.
+        b_unify(X, BCs,  FCs, ICs, SCs, BCs1),
+        b_unify(Y, BCs1, FCs, ICs, SCs, BCsOut)
+      ;
+        BCsOut = insert(BCs, C1)))).
 
 b_reduce(t, _) = t.
 b_reduce(f, _) = f.
