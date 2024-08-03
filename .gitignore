@@ -34,3 +34,7 @@ contrib/abagraph/temp
 mercury/test/constraints.m
 mercury/test/abagraph.m
 mercury/test/number.m
+
+# backup files
+mercury/loading.m.*
+
