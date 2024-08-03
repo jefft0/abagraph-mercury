@@ -193,7 +193,7 @@ unify(V, s(SC), constraint_store(FCs, ICs, SCs, BCs), constraint_store(FCs, ICs,
        b_unify(C, BCsIn, map.init, map.init, SCsOut, BCsOut1)),
     BCs, set.init, BCsOut).
 
-b_unify(FC, constraint_store(FCs, ICs, SCs, BCs), constraint_store(FCs, ICs, SCs, BCsOut)) :- b_unify(FC, BCs, FCs, ICs, SCs, BCsOut).
+b_unify(C, constraint_store(FCs, ICs, SCs, BCs), constraint_store(FCs, ICs, SCs, BCsOut)) :- b_unify(C, BCs, FCs, ICs, SCs, BCsOut).
 
 n_unify(V, ':='(Val), Cs, CsOut, Descs) :- n_set_value(V, Val, Cs, CsOut, Descs).
 n_unify(V, '\\='(X), Cs, CsOut, Descs) :-
