@@ -135,10 +135,10 @@
 :- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet.
 :- pred select(T::out, list(T)::in, list(T)::out) is nondet.
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
-% membership(S, SSet, CS) = C.
+% membership(S, SSet) = C.
 % Return a boolean constraint expression for the conditions when S matches any sentence in SSet.
 % If no match is possible, return f.
-:- func membership(sentence, set(sentence), constraint_store) = b_constraint is det.
+:- func membership(sentence, set(sentence)) = b_constraint is det.
 :- pred unify(sentence::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
 :- pred next_step_all_branches_int(int::out) is det.
 
@@ -312,7 +312,7 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS,
     rule_choice(S, Body, prop_info(D, PropGr), IdsIn, Ids1)),
   %\+ (member(X, Body), member(X, fst(C))),
   foldl((pred(X::in, CSIn-Debug1In::in, CSOut1-Debug1Out::out) is semidet :-
-           MemberXC = membership(X, fst(C), CS1),
+           MemberXC = membership(X, fst(C)),
            b_unify(not(MemberXC), CSIn, CSOut1),
            (MemberXC = f ->
              Debug1Out = Debug1In
@@ -365,12 +365,12 @@ opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P
   (verbose ->
     format_append(runtime_out_path, "%s Step %i: Case 2 start A: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(A))])
   ; true),
-  MemberAD = membership(A, D, CS),
+  MemberAD = membership(A, D),
   (verbose ->
     format_append(runtime_out_path, "%s Step %i: MemberAD: %s\n", [s(now), i(fst(IdsIn)), s(b_constraint_to_string(MemberAD))])
   ; true),
   ( b_unify(not(MemberAD), CS, CS1),
-    MemberAC = membership(A, fst(C), CS1),
+    MemberAC = membership(A, fst(C)),
     (verbose ->
       format_append(runtime_out_path, "%s Step %i: MemberAC: %s\n", [s(now), i(fst(IdsIn)), s(b_constraint_to_string(MemberAC))])
     ; true),
@@ -412,7 +412,7 @@ opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
   (gb_derivation ->
     CSOut = CS
   ;
-    MemberAC = membership(A, fst(C), CS),  % also sound for gb? CHECK in general
+    MemberAC = membership(A, fst(C)),  % also sound for gb? CHECK in general
     b_unify(not(MemberAC), CS, CSOut),
     (verbose ->
       (MemberAC = f -> true ; format_append(runtime_out_path, "%s Step ?: not(MemberAC): %s\n", [s(now), s(b_constraint_to_string(not(MemberAC)))]))
@@ -599,7 +599,7 @@ filter_marked([], _, CS, CS, [], []).
 filter_marked([S|RestBody], Proved, CS, CSOut, InUnproved, InUnprovedAs) :-
   (assumption(S) ->
     A = S,
-    MemberAProved = membership(A, Proved, CS),
+    MemberAProved = membership(A, Proved),
     ( b_unify(MemberAProved, CS, CS1),
       InUnproved = OutUnproved,
       InUnprovedAs = OutUnprovedAs,
@@ -610,7 +610,7 @@ filter_marked([S|RestBody], Proved, CS, CSOut, InUnproved, InUnprovedAs) :-
       InUnprovedAs = [A|OutUnprovedAs],
       filter_marked(RestBody, Proved, CS1, CSOut, OutUnproved, OutUnprovedAs))
   ;
-    MemberSProved = membership(S, Proved, CS),
+    MemberSProved = membership(S, Proved),
     ( b_unify(MemberSProved, CS, CS1),
       InUnproved = OutUnproved,
       InUnprovedAs = OutUnprovedAs,
@@ -905,14 +905,13 @@ select3_(Tail, Head, Head, Tail).
 select3_([Head2|Tail], Head, X, [Head|Rest]) :-
     select3_(Tail, Head2, X, Rest).
 
-membership(S, SSet, CS) = b_reduce(C, CS) :-
-  C = foldl(func(S2, CIn) = COut :-
-              % TODO: Maybe reduce C1 and check t.
-              (C1 = matches(S, S2) ->
-                COut = or(CIn, C1)
-              ;
-                COut = CIn),
-            SSet, f).
+membership(S, SSet) =
+  foldl(func(S2, CIn) = COut :-
+          (C1 = matches(S, S2) ->
+            COut = or(CIn, C1)
+          ;
+            COut = CIn),
+        SSet, f).
 
 % Syntactic sugar.
 unify(f(C), CS, CSOut, Descs) :- var_f_unify(C, CS, CSOut, Descs).
