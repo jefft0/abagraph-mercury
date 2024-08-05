@@ -100,9 +100,6 @@
 % b_unify(C, CS, CSOut).
 % Add the boolean constraint expression C, reducing it if possible with variable bindings from CS.
 :- pred b_unify(b_constraint::in, constraint_store::in, constraint_store::out) is semidet.
-% b_reduce(C, CS).
-% Reduce the boolean constraint expression C, using variable bindings from CS if possible.
-:- func b_reduce(b_constraint, constraint_store) = b_constraint is det.
 :- pred new_var(var(T)::out) is det.
 % f_get(V, Cs) = Val.
 % Return yes(Val) where Val is the bound value of V, or no if not found.
@@ -145,6 +142,9 @@
 :- pred s_unify(int::in, s_constraint::in, map(int, s_constraints)::in, map(int, s_constraints)::out, set(string)::out) is semidet.
 :- pred b_unify(b_constraint::in, set(b_constraint)::in, map(int, n_constraints(float))::in, map(int, n_constraints(int))::in,
                 map(int, s_constraints)::in, set(b_constraint)::out) is semidet.
+% b_reduce(C, CS).
+% Reduce the boolean constraint expression C, using variable bindings from CS if possible.
+:- func b_reduce(b_constraint, constraint_store) = b_constraint is det.
 :- func nb_reduce(nb_constraint(T), map(int, n_constraints(T))) = b_constraint is det <= number(T).
 % n_set_value(V, Val, Cs, CsOut, Descs).
 % If Cs already has a val for V then confirm it. Otherwise set val(Val). If Cs has constraints, call n_set_value to evaluate them.
