@@ -542,20 +542,29 @@ b_unify(C, CS, CSOut, Descs) :-
       CSOut = CS,
       Descs = set.init
     ;
-      (C1 = not(NotC1) ->
-        % Can't add not(C). Already have C.
-        \+ member(NotC1, BCs)
+      (C1 = f(V = X) ->
+        unify(V, f(':='(X)), CS, CSOut, Descs)
       ;
-        % Can't add C. Already have not(C).
-        \+ member(not(C1), BCs)),
-      (C1 = and(X, Y) ->
-        % Add X and Y separately.
-        b_unify(X, CS, CS1, Descs1),
-        b_unify(Y, CS1, CSOut, Descs2),
-        Descs = union(Descs1, Descs2)
-      ;
-        CSOut = constraint_store(FCs, ICs, SCs, insert(BCs, C1)),
-        Descs = set.init))).
+        (C1 = i(V = X) ->
+          unify(V, i(':='(X)), CS, CSOut, Descs)
+        ;
+          (C1 = s(V = X) ->
+            unify(V, s(':='(X)), CS, CSOut, Descs)
+          ;
+            (C1 = not(NotC1) ->
+              % Can't add not(C). Already have C.
+              \+ member(NotC1, BCs)
+            ;
+              % Can't add C. Already have not(C).
+              \+ member(not(C1), BCs)),
+            (C1 = and(X, Y) ->
+              % Add X and Y separately.
+              b_unify(X, CS, CS1, Descs1),
+              b_unify(Y, CS1, CSOut, Descs2),
+              Descs = union(Descs1, Descs2)
+            ;
+              CSOut = constraint_store(FCs, ICs, SCs, insert(BCs, C1)),
+              Descs = set.init)))))).
 
 b_reduce(t, _) = t.
 b_reduce(f, _) = f.
