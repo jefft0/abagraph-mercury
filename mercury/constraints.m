@@ -97,9 +97,10 @@
 % If there is a binding for V, confirm the constraint and set Descs to "",
 % else if the constraint is not confirmed then fail.
 :- pred unify(int::in, constraint::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
-% b_unify(C, CS, CSOut).
+% b_unify(C, CS, CSOut, Descs).
 % Add the boolean constraint expression C, reducing it if possible with variable bindings from CS.
-:- pred b_unify(b_constraint::in, constraint_store::in, constraint_store::out) is semidet.
+% If some of the constraints are passed to unify, return its Descs.
+:- pred b_unify(b_constraint::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
 :- pred new_var(var(T)::out) is det.
 % f_get(V, Cs) = Val.
 % Return yes(Val) where Val is the bound value of V, or no if not found.
@@ -170,23 +171,23 @@ init = constraint_store(map.init, map.init, map.init, set.init).
 
 % Dispatch unify to n_unify, s_unify, etc.
 unify(V, f(FC), constraint_store(FCs, ICs, SCs, BCs), CSOut, Descs) :-
-  n_unify(V, FC, FCs, FCsOut, Descs),
+  n_unify(V, FC, FCs, FCsOut, Descs1),
   % Use the new values to possibly reduce each boolean expression.
   foldl(
-    (pred(C::in, CSIn::in, CSOut1::out) is semidet :- b_unify(C, CSIn, CSOut1)),
-    BCs, constraint_store(FCsOut, ICs, SCs, set.init), CSOut).
+    (pred(C::in, CSIn-DescsIn::in, CSOut1-union(DescsIn, DescsOut1)::out) is semidet :- b_unify(C, CSIn, CSOut1, DescsOut1)),
+    BCs, constraint_store(FCsOut, ICs, SCs, set.init)-Descs1, CSOut-Descs).
 unify(V, i(IC), constraint_store(FCs, ICs, SCs, BCs), CSOut, Descs) :-
-  n_unify(V, IC, ICs, ICsOut, Descs),
+  n_unify(V, IC, ICs, ICsOut, Descs1),
   % Use the new values to possibly reduce each boolean expression.
   foldl(
-    (pred(C::in, CSIn::in, CSOut1::out) is semidet :- b_unify(C, CSIn, CSOut1)),
-    BCs, constraint_store(FCs, ICsOut, SCs, set.init), CSOut).
+    (pred(C::in, CSIn-DescsIn::in, CSOut1-union(DescsIn, DescsOut1)::out) is semidet :- b_unify(C, CSIn, CSOut1, DescsOut1)),
+    BCs, constraint_store(FCs, ICsOut, SCs, set.init)-Descs1, CSOut-Descs).
 unify(V, s(SC), constraint_store(FCs, ICs, SCs, BCs), CSOut, Descs) :-
-  s_unify(V, SC, SCs, SCsOut, Descs),
+  s_unify(V, SC, SCs, SCsOut, Descs1),
   % Use the new values to possibly reduce each boolean expression.
   foldl(
-    (pred(C::in, CSIn::in, CSOut1::out) is semidet :- b_unify(C, CSIn, CSOut1)),
-    BCs, constraint_store(FCs, ICs, SCsOut, set.init), CSOut).
+    (pred(C::in, CSIn-DescsIn::in, CSOut1-union(DescsIn, DescsOut1)::out) is semidet :- b_unify(C, CSIn, CSOut1, DescsOut1)),
+    BCs, constraint_store(FCs, ICs, SCsOut, set.init)-Descs1, CSOut-Descs).
 
 n_unify(V, ':='(Val), Cs, CsOut, Descs) :- n_set_value(V, Val, Cs, CsOut, Descs).
 n_unify(V, '\\='(X), Cs, CsOut, Descs) :-
@@ -531,14 +532,15 @@ s_unify(V, '\\=='(var(X)), Cs, CsOut, Descs) :-
       CsOut = CsOut1,
       Descs = set.init)).
 
-b_unify(C, CS, CSOut) :-
+b_unify(C, CS, CSOut, Descs) :-
   constraint_store(FCs, ICs, SCs, BCs) = CS,
   C1 = b_reduce(C, CS),
   (C1 = f ->
     fail
   ;
     (C1 = t -> 
-      CSOut = CS
+      CSOut = CS,
+      Descs = set.init
     ;
       (C1 = not(NotC1) ->
         % Can't add not(C). Already have C.
@@ -548,10 +550,12 @@ b_unify(C, CS, CSOut) :-
         \+ member(not(C1), BCs)),
       (C1 = and(X, Y) ->
         % Add X and Y separately.
-        b_unify(X, CS, CS1),
-        b_unify(Y, CS1, CSOut)
+        b_unify(X, CS, CS1, Descs1),
+        b_unify(Y, CS1, CSOut, Descs2),
+        Descs = union(Descs1, Descs2)
       ;
-        CSOut = constraint_store(FCs, ICs, SCs, insert(BCs, C1))))).
+        CSOut = constraint_store(FCs, ICs, SCs, insert(BCs, C1)),
+        Descs = set.init))).
 
 b_reduce(t, _) = t.
 b_reduce(f, _) = f.

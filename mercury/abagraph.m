@@ -313,7 +313,7 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS,
   %\+ (member(X, Body), member(X, fst(C))),
   foldl((pred(X::in, CSIn-Debug1In::in, CSOut1-Debug1Out::out) is semidet :-
            MemberXC = membership(X, fst(C)),
-           b_unify(not(MemberXC), CSIn, CSOut1),
+           b_unify(not(MemberXC), CSIn, CSOut1, _),
            (MemberXC = f ->
              Debug1Out = Debug1In
            ;
@@ -369,12 +369,12 @@ opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P
   (verbose ->
     format_append(runtime_out_path, "%s Step %i: MemberAD: %s\n", [s(now), i(fst(IdsIn)), s(b_constraint_to_string(MemberAD))])
   ; true),
-  ( b_unify(not(MemberAD), CS, CS1),
+  ( b_unify(not(MemberAD), CS, CS1, _),
     MemberAC = membership(A, fst(C)),
     (verbose ->
       format_append(runtime_out_path, "%s Step %i: MemberAC: %s\n", [s(now), i(fst(IdsIn)), s(b_constraint_to_string(MemberAC))])
     ; true),
-    ( b_unify(MemberAC, CS1, CS2),
+    ( b_unify(MemberAC, CS1, CS2, _),
       opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS2), T1),
       poss_print_case("2.(ib)", A),
       (verbose ->
@@ -388,11 +388,11 @@ opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P
       ; 
         IdsOut = IdsIn)
     ;
-      b_unify(not(MemberAC), CS1, CS2),
+      b_unify(not(MemberAC), CS1, CS2, _),
       opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS2), T1, IdsIn, IdsOut),
       poss_print_case("2.(ic)", A))
   ;
-    b_unify(MemberAD, CS, CS1),
+    b_unify(MemberAD, CS, CS1, _),
     opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS1), T1),
     poss_print_case("2.(ia)", A),
     (verbose ->
@@ -413,7 +413,7 @@ opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
     CSOut = CS
   ;
     MemberAC = membership(A, fst(C)),  % also sound for gb? CHECK in general
-    b_unify(not(MemberAC), CS, CSOut),
+    b_unify(not(MemberAC), CS, CSOut, _),
     (verbose ->
       (MemberAC = f -> true ; format_append(runtime_out_path, "%s Step ?: not(MemberAC): %s\n", [s(now), s(b_constraint_to_string(not(MemberAC)))]))
     ; true)),
@@ -600,23 +600,23 @@ filter_marked([S|RestBody], Proved, CS, CSOut, InUnproved, InUnprovedAs) :-
   (assumption(S) ->
     A = S,
     MemberAProved = membership(A, Proved),
-    ( b_unify(MemberAProved, CS, CS1),
+    ( b_unify(MemberAProved, CS, CS1, _),
       InUnproved = OutUnproved,
       InUnprovedAs = OutUnprovedAs,
       filter_marked(RestBody, Proved, CS1, CSOut, OutUnproved, OutUnprovedAs)
     ;
-      b_unify(not(MemberAProved), CS, CS1),
+      b_unify(not(MemberAProved), CS, CS1, _),
       InUnproved = [A|OutUnproved], 
       InUnprovedAs = [A|OutUnprovedAs],
       filter_marked(RestBody, Proved, CS1, CSOut, OutUnproved, OutUnprovedAs))
   ;
     MemberSProved = membership(S, Proved),
-    ( b_unify(MemberSProved, CS, CS1),
+    ( b_unify(MemberSProved, CS, CS1, _),
       InUnproved = OutUnproved,
       InUnprovedAs = OutUnprovedAs,
       filter_marked(RestBody, Proved, CS1, CSOut, OutUnproved, OutUnprovedAs)
     ;
-      b_unify(not(MemberSProved), CS, CS1),
+      b_unify(not(MemberSProved), CS, CS1, _),
       InUnproved = [S|OutUnproved],
       InUnprovedAs = OutUnprovedAs,
       filter_marked(RestBody, Proved, CS1, CSOut, OutUnproved, OutUnprovedAs))).
