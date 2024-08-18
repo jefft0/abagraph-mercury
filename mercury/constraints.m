@@ -16,8 +16,6 @@
 
 :- type n_constraint(T)
    ---> ':='(T)
-   ;    '\\='(T)
-   ;    '\\=='(var(T))
    ;    '+'(var(T), T)
    ;    '++'(var(T), var(T))
    ;    '-'(T, var(T)) % NOTE: We don't have '-'(var(T), T) because it's the same as '+'(var(T), -T)
@@ -29,9 +27,7 @@
 :- type i_constraint == n_constraint(int).
 
 :- type s_constraint
-   ---> ':='(string)
-   ;    '\\='(string)
-   ;    '\\=='(var(string)).
+   ---> ':='(string).
 
 :- type nb_constraint(T)
    ---> '='(int, T)
@@ -114,9 +110,6 @@
 % Return a string representation of the constraint_store, indented (so that you can prefix a label). Example:
 %   int
 %   (= (var 2) 10)
-%   string
-%   (<> (var 1) (var 2))
-%   (<> (var 2) (var 1))
 :- func to_string(constraint_store) = string is det.
 :- func b_constraint_to_string(b_constraint) = string is det.
 
@@ -190,44 +183,6 @@ unify(V, s(SC), constraint_store(FCs, ICs, SCs, BCs), CSOut, Descs) :-
     BCs, constraint_store(FCs, ICs, SCsOut, set.init)-Descs1, CSOut-Descs).
 
 n_unify(V, ':='(Val), Cs, CsOut, Descs) :- n_set_value(V, Val, Cs, CsOut, Descs).
-n_unify(V, '\\='(X), Cs, CsOut, Descs) :-
-  C = '\\='(X),
-  (search(Cs, V, ValOrCSet) ->
-    (ValOrCSet = val(BoundVal) ->
-      % Just confirm the constraint with the existing value.
-      BoundVal \= X,
-      CsOut = Cs,
-      Descs = set.init
-    ;
-      ValOrCSet = cs(CSet),
-      (member(C, CSet) ->
-        % We already added the constraint. Do nothing. This also prevents loops.
-        CsOut = Cs,
-        Descs = set.init
-      ;
-        CsOut = set(Cs, V, cs(insert(CSet, C))),
-        (verbose ->
-          Descs = make_singleton_set(n_constraint_to_string(V, C))
-        ; 
-          Descs = set.init)))
-  ;  
-    % Create the entry for V.
-    CsOut = set(Cs, V, cs(make_singleton_set(C))),
-    (verbose ->
-      Descs = make_singleton_set(n_constraint_to_string(V, C))
-    ; 
-      Descs = set.init)).
-n_unify(V, '\\=='(var(X)), Cs, CsOut, Descs) :-
-  (search(Cs, X, val(XVal)) ->
-    % We already know the value. Treat this like the simpler \= .
-    n_unify(V, '\\='(XVal), Cs, CsOut, Descs)
-  ;
-    n_add_transformable_constraint(V, '\\=='(var(X)), Cs, CsOut1, AddTransformed),
-    (AddTransformed = yes ->
-      n_unify(X, '\\=='(var(V)), CsOut1, CsOut, Descs)
-    ;
-      CsOut = CsOut1,
-      Descs = set.init)).
 n_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
   (search(Cs, X, val(XVal)) ->
     % We already know the value. Treat this like assignment.
@@ -493,44 +448,6 @@ s_unify(V, ':='(Val), Cs, CsOut, Descs) :-
       Descs = make_singleton_set(s_constraint_to_string(V, ':='(Val)))
     ; 
       Descs = set.init)).
-s_unify(V, '\\='(X), Cs, CsOut, Descs) :-
-  C = '\\='(X),
-  (search(Cs, V, ValOrCSet) ->
-    (ValOrCSet = val(BoundVal) ->
-      % Just confirm the constraint with the existing value.
-      BoundVal \= X,
-      CsOut = Cs,
-      Descs = set.init
-    ;
-      ValOrCSet = cs(CSet),
-      (member(C, CSet) ->
-        % We already added the constraint. Do nothing. This also prevents loops.
-        CsOut = Cs,
-        Descs = set.init
-      ;
-        CsOut = set(Cs, V, cs(insert(CSet, C))),
-        (verbose ->
-          Descs = make_singleton_set(s_constraint_to_string(V, C))
-        ; 
-          Descs = set.init)))
-  ;  
-    % Create the entry for V.
-    CsOut = set(Cs, V, cs(make_singleton_set(C))),
-    (verbose ->
-      Descs = make_singleton_set(s_constraint_to_string(V, C))
-    ; 
-      Descs = set.init)).
-s_unify(V, '\\=='(var(X)), Cs, CsOut, Descs) :-
-  (search(Cs, X, val(XVal)) ->
-    % We already know the value. Treat this like the simpler \= .
-    s_unify(V, '\\='(XVal), Cs, CsOut, Descs)
-  ;
-    s_add_transformable_constraint(V, '\\=='(var(X)), Cs, CsOut1, AddTransformed),
-    (AddTransformed = yes ->
-      s_unify(X, '\\=='(var(V)), CsOut1, CsOut, Descs)
-    ;
-      CsOut = CsOut1,
-      Descs = set.init)).
 
 b_unify(C, CS, CSOut, Descs) :-
   constraint_store(FCs, ICs, SCs, BCs) = CS,
@@ -650,20 +567,20 @@ s_get(V, constraint_store(_, _, Cs, _)) = Val :-
     Val = no).
 
 var_f_unify(var(V) := Val, CS, CSOut, Descs) :-  unify(V, f(':='(Val)), CS, CSOut, Descs).
-var_f_unify(var(V) \= Val, CS, CSOut, Descs) :-  unify(V, f('\\='(Val)), CS, CSOut, Descs).
-var_f_unify(var(V) \== Val, CS, CSOut, Descs) :- unify(V, f('\\=='(Val)), CS, CSOut, Descs).
+var_f_unify(var(V) \= Val, CS, CSOut, Descs) :-  b_unify(not(f(V = Val)), CS, CSOut, Descs).
+var_f_unify(var(V) \== var(Val), CS, CSOut, Descs) :- b_unify(not(f(V == Val)), CS, CSOut, Descs).
 var_f_unify(var(V) >= Val, CS, CSOut, Descs) :-  unify(V, f('>='(Val)), CS, CSOut, Descs).
 var_f_unify(var(V) =< Val, CS, CSOut, Descs) :-  unify(V, f('=<'(Val)), CS, CSOut, Descs).
 var_f_unify(var(V) = C, CS, CSOut, Descs) :-     unify(V, f(C), CS, CSOut, Descs).
 var_i_unify(var(V) := Val, CS, CSOut, Descs) :-  unify(V, i(':='(Val)), CS, CSOut, Descs).
-var_i_unify(var(V) \= Val, CS, CSOut, Descs) :-  unify(V, i('\\='(Val)), CS, CSOut, Descs).
-var_i_unify(var(V) \== Val, CS, CSOut, Descs) :- unify(V, i('\\=='(Val)), CS, CSOut, Descs).
+var_i_unify(var(V) \= Val, CS, CSOut, Descs) :-  b_unify(not(i(V = Val)), CS, CSOut, Descs).
+var_i_unify(var(V) \== var(Val), CS, CSOut, Descs) :- b_unify(not(i(V == Val)), CS, CSOut, Descs).
 var_i_unify(var(V) >= Val, CS, CSOut, Descs) :-  unify(V, i('>='(Val)), CS, CSOut, Descs).
 var_i_unify(var(V) =< Val, CS, CSOut, Descs) :-  unify(V, i('=<'(Val)), CS, CSOut, Descs).
 var_i_unify(var(V) = C, CS, CSOut, Descs) :-     unify(V, i(C), CS, CSOut, Descs).
 var_s_unify(var(V) := Val, CS, CSOut, Descs) :-  unify(V, s(':='(Val)), CS, CSOut, Descs).
-var_s_unify(var(V) \= Val, CS, CSOut, Descs) :-  unify(V, s('\\='(Val)), CS, CSOut, Descs).
-var_s_unify(var(V) \== Val, CS, CSOut, Descs) :- unify(V, s('\\=='(Val)), CS, CSOut, Descs).
+var_s_unify(var(V) \= Val, CS, CSOut, Descs) :-  b_unify(not(s(V = Val)), CS, CSOut, Descs).
+var_s_unify(var(V) \== var(Val), CS, CSOut, Descs) :- b_unify(not(s(V == Val)), CS, CSOut, Descs).
 
 n_set_value(V, Val, Cs, CsOut, Descs) :-
   (search(Cs, V, ValOrCSet) ->
@@ -721,12 +638,6 @@ n_new_value(Val, var(X) -- var(Y), Cs, CsOut, Descs) :-
   ;
     CsOut = Cs, Descs = set.init)).
 % Boolean constraints.
-n_new_value(Val, '\\='(X), Cs, Cs, set.init) :- Val \= X.
-n_new_value(Val, '\\=='(var(X)), Cs, Cs, set.init) :-
-  (search(Cs, X, val(XVal)) ->
-    Val \= XVal
-  ;
-    true).
 n_new_value(Val, '>='(X), Cs, Cs, set.init) :- Val >= X.
 n_new_value(Val, '=<'(X), Cs, Cs, set.init) :- Val =< X.
 % Ignore. (Shouldn't happen.)
@@ -769,13 +680,6 @@ s_add_transformable_constraint(V, C, Cs, CsOut, AddTransformed) :-
     CsOut = set(Cs, V, cs(make_singleton_set(C))),
     AddTransformed = yes).
 
-% Boolean constraints.
-s_new_value(Val, '\\='(X), Cs, Cs, set.init) :- Val \= X.
-s_new_value(Val, '\\=='(var(X)), Cs, Cs, set.init) :-
-  (search(Cs, X, val(XVal)) ->
-    Val \= XVal
-  ;
-    true).
 % Ignore. (Shouldn't happen.)
 s_new_value(_Val, ':='(_), Cs, Cs, set.init).
 
@@ -783,8 +687,6 @@ f_constraint_to_string(V, C) = n_constraint_to_string(V, C).
 i_constraint_to_string(V, C) = n_constraint_to_string(V, C).
 
 n_constraint_to_string(V, ':='(Val)) =          format("(:= (var %i) %s)", [i(V), s(to_string(Val))]).
-n_constraint_to_string(V, '\\='(X)) =           format("(<> (var %i) %s)", [i(V), s(to_string(X))]).
-n_constraint_to_string(V, '\\=='(var(X))) =     format("(<> (var %i) (var %i))", [i(V), i(X)]).
 n_constraint_to_string(V, var(X1) + X2) =       format("(= (var %i) (+ (var %i) %s)", [i(V), i(X1), s(to_string(X2))]).
 n_constraint_to_string(V, var(X1) ++ var(X2)) = format("(= (var %i) (+ (var %i) (var %i))", [i(V), i(X1), i(X2)]).
 n_constraint_to_string(V, X1 - var(X2)) =       format("(= (var %i) (- %s (var %i))", [i(V), s(to_string(X1)), i(X2)]).
@@ -805,8 +707,6 @@ b_constraint_to_string(or(X, Y)) =  format("(or %s %s)", [s(b_constraint_to_stri
 b_constraint_to_string(not(X)) =    format("(not %s)", [s(b_constraint_to_string(X))]).
 
 s_constraint_to_string(V, ':='(Val)) =      format("(:= (var %i) %s)", [i(V), s(Val)]).
-s_constraint_to_string(V, '\\='(X)) =       format("(<> (var %i) %s)", [i(V), s(X)]).
-s_constraint_to_string(V, '\\=='(var(X))) = format("(<> (var %i) (var %i))", [i(V), i(X)]).
 
 var_f_constraint_to_string(C) = var_n_constraint_to_string(C).
 var_i_constraint_to_string(C) = var_n_constraint_to_string(C).
