@@ -140,6 +140,7 @@
 % If no match is possible, return f.
 :- func membership(sentence, set(sentence)) = b_constraint is det.
 :- pred unify(sentence::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
+:- pred excluded(sentence::in, set(sentence)::in) is semidet.
 :- pred next_step_all_branches_int(int::out) is det.
 
 % ("set some options" moved to options.m.)
@@ -488,7 +489,7 @@ opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, oppone
       Bodies = [])
   ;
     CS1 = CS,
-    solutions((pred(Body::out) is nondet :- rule(S, Body)), Bodies)),
+    solutions((pred(Body::out) is nondet :- rule(S, Body), \+ (member(A, Body), excluded(A, D))), Bodies)),
   iterate_bodies(Bodies, S-GId, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, C, CS1, CSOut,
                  OppUnMrkMinus1-OppMrk1, IdsIn, IdsOut).
 
@@ -704,10 +705,10 @@ find_first_constraint(SList, SOut, SListMinus) :-
 % proponent's derivations.
 % Omit "proponent" since it is not used.
 %rule_choice(Head, Body, proponent, PropInfo) :-
-rule_choice(Head, Body, PropInfo, IdsIn, IdsOut) :-
-  solutions(pred(B::out) is nondet :- rule(Head, B), RuleBodies),
+rule_choice(Head, Body, prop_info(D, PropGr), IdsIn, IdsOut) :-
+  solutions((pred(B::out) is nondet :- rule(Head, B), \+ (member(A, B), excluded(A, D))), RuleBodies),
   get_proponent_rule_choice(PropRuleStrategy),
-  sort_rule_pairs(PropRuleStrategy, PropInfo, RuleBodies, SortedRuleBodies),
+  sort_rule_pairs(PropRuleStrategy, prop_info(D, PropGr), RuleBodies, SortedRuleBodies),
   % Note: The cut is not needed since the above predicates are det.
   % !,
   (verbose ->
@@ -912,6 +913,10 @@ membership(S, SSet) =
           ;
             COut = CIn),
         SSet, f).
+
+excluded(A, D) :-
+  (\+ (member(ExistingA, D), (exclusive(ExistingA, A) ; exclusive(A, ExistingA))) ->
+    fail ; true).
 
 % Syntactic sugar.
 unify(f(C), CS, CSOut, Descs) :- var_f_unify(C, CS, CSOut, Descs).
