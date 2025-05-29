@@ -325,7 +325,11 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS,
   ; true),
   update_argument_graph(S, Body, PropMrk-PropGr, CS2, CSOut, BodyUnMrk, BodyUnMrkAs, PropMrk1-PropGr1),
   append_elements_nodup(BodyUnMrk, PropUnMrkMinus, PropUnMrk1),
-  union(list_to_set(BodyUnMrkAs), D, D1),
+  % union(list_to_set(BodyUnMrkAs), D, D1),
+  foldl((pred(UnMrkA::in, DIn::in, DOut::out) is semidet :-
+          % TODO: Use membership?
+          DOut = insert(DIn, UnMrkA)),
+        BodyUnMrkAs, D, D1),
   % TODO: Support GB. gb_acyclicity_check(G, S, Body, G1),
   (verbose ->
     (constraint(S) ->
@@ -673,17 +677,31 @@ choose_turn(P, O, Player) :-
   ;(O = []-_ ->
     Player = proponent
   ;
-    get_turn_choice(TurnStrategy),
-    turn_choice(TurnStrategy, P, O, Player))).
+    % get_turn_choice(TurnStrategy),
+    % turn_choice(TurnStrategy, P, O, Player))).
+    O = OppUnMrk-_,
+    (find_first((pred(_-_-([_]-set.init-_)::in) is semidet), OppUnMrk, _, _) ->
+      % There is a new opponent. Do its first expansion next (with opponent_abagraph_choice s).
+      Player = opponent
+    ;
+      get_turn_choice(TurnStrategy),
+      turn_choice(TurnStrategy, P, O, Player)))).
 
 proponent_sentence_choice(P, S, Pminus) :-
   % Process a constraint if available.
   (find_first_constraint(P, S1, Pminus1) ->
     S = S1, Pminus = Pminus1
   ;
-    % No constraint. Use the sentence choice.
-    get_proponent_sentence_choice(PropSentenceStrategy),
-    sentence_choice(PropSentenceStrategy, P, S, Pminus)).
+    % % No constraint. Use the sentence choice.
+    % get_proponent_sentence_choice(PropSentenceStrategy),
+    % sentence_choice(PropSentenceStrategy, P, S, Pminus)).
+    % No constraint. Check for the head of a rule where some body has a constraint.
+    (find_first((pred(H::in) is semidet :- rule(H, Body), find_first_constraint(Body, _, _)), P, S1, Pminus1) ->
+      S = S1, Pminus = Pminus1
+    ;
+      % No constraint. Use the sentence choice.
+      get_proponent_sentence_choice(PropSentenceStrategy),
+      sentence_choice(PropSentenceStrategy, P, S, Pminus))).
 
 opponent_abagraph_choice(O, JC, Ominus) :-
   get_opponent_abagraph_choice(OppJCStrategy),
