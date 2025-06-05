@@ -96,10 +96,8 @@
 :- pred opponent_ii(sentence::in, focussed_pot_arg_graph::in, opponent_arg_graph_set::in,
           opponent_step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred iterate_bodies(list(list(sentence))::in, pair(sentence, int)::in, focussed_pot_arg_graph::in,
-          pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::in,
-          pair(set(sentence), map(sentence, int))::in, constraint_store::in, constraint_store::out,
-          pair(list(focussed_pot_arg_graph), set(focussed_pot_arg_graph))::out,
-          id_map::in, id_map::out) is nondet.
+          opponent_arg_graph_set::in, pair(set(sentence), map(sentence, int))::in, constraint_store::in,
+          constraint_store::out, opponent_arg_graph_set::out, id_map::in, id_map::out) is nondet.
 :- pred update_argument_graph(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           constraint_store::in, constraint_store::out, list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out) is nondet.
 :- pred filter_marked(list(sentence)::in, set(sentence)::in, constraint_store::in, constraint_store::out, list(sentence)::out, list(sentence)::out) is nondet.
@@ -202,6 +200,7 @@ initial_derivation_tuple(
 % Move the step number into Ids
 derivation(T, Result, InN-IdsIn, N-IdsOut) :-
   next_step_all_branches_int(StepAllBranches),
+  format("*** Step %i (all branches)\n", [i(StepAllBranches - 1)]), % Debug
   (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
     format("*** Step %i (all branches), %0.0f%% extra\n", [i(StepAllBranches - 1), f(100.0 * float((StepAllBranches - 1) - (InN - 1)) / float(InN - 1))]),
     Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
