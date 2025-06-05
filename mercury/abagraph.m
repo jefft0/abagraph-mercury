@@ -75,7 +75,7 @@
    ---> prop_info(set(sentence), digraph(sentence)).
 
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
-:- pred derivation(step_tuple::in, derivation_result::out, id_map::in, id_map::out) is nondet.
+:- pred derivation(step_tuple::in, derivation_result::out, id_map::in) is nondet.
 :- pred derivation_step(step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred proponent_step(step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
 :- pred opponent_step(step_tuple::in, step_tuple::out, id_map::in, id_map::out) is nondet.
@@ -166,11 +166,8 @@ derive(S, Result) :-
     Ids1 = 0-set(map.init, -1, map.init)),
   %retractall(sols(_)),
   %assert(sols(1)),
-  derivation(InitTuple, Result, 1-snd(Ids1), _),
-  print_result(S, Result),
-  open(runtime_out_path, "a", Fd2),
-  format(Fd2, "%s ABA solution found\n", [s(now)]),
-  close(Fd2).
+  derivation(InitTuple, Result, 1-snd(Ids1)),
+  print_result(S, Result).
   %incr_sols.
 
 initial_derivation_tuple(
@@ -196,17 +193,18 @@ initial_derivation_tuple(
 %
 % DERIVATION CONTROL: basic control structure
 
-% derivation(T, InN, Result, N, IdsIn, IdsOut) :-
+% derivation(T, Result, InN-IdsIn) :-
 % Move the step number into Ids
-derivation(T, Result, InN-IdsIn, N-IdsOut) :-
+derivation(T, Result, InN-IdsIn) :-
   next_step_all_branches_int(StepAllBranches),
   format("*** Step %i (all branches)\n", [i(StepAllBranches - 1)]), % Debug
   (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
     format("*** Step %i (all branches), %0.0f%% extra\n", [i(StepAllBranches - 1), f(100.0 * float((StepAllBranches - 1) - (InN - 1)) / float(InN - 1))]),
     Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
-    ((option(show_solution, "true"), \+ verbose) -> PreviousN = N - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
-    N = InN,
-    IdsOut = IdsIn
+    ((option(show_solution, "true"), \+ verbose) -> PreviousN = InN - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
+    open(runtime_out_path, "a", Fd2),
+    format(Fd2, "%s ABA solution found\n", [s(now)]),
+    close(Fd2)
   ;
     derivation_step(T, T1, InN-IdsIn, _-Ids1),
     (verbose ->
@@ -216,7 +214,7 @@ derivation(T, Result, InN-IdsIn, N-IdsOut) :-
       close(Fd)
     ; true),
     OutN = InN + 1,
-    derivation(T1, Result, OutN-Ids1, N-IdsOut)).
+    derivation(T1, Result, OutN-Ids1)).
 
 derivation_step(step_tuple(P, O, D, C, Att, CS), T1, IdsIn, IdsOut) :-
   (verbose ->
