@@ -53,7 +53,8 @@
                           set(attack),                            % Att
                           constraint_store).                      % CS
 
-:- pred derive(sentence::in, derivation_result::out) is nondet.
+% derive(S, MaxResults, Results).
+:- pred derive(sentence::in, int::in, list(derivation_result)::out) is det.
 
 :- implementation.
 
@@ -77,7 +78,7 @@
 :- type step_and_id_map ---> step_and_id_map(step_tuple, id_map).
 
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
-:- pred derivation(step_tuple::in, derivation_result::out, id_map::in) is nondet.
+:- pred derivation(list(step_and_id_map)::in, list(derivation_result)::in, sentence::in, int::in, list(derivation_result)::out) is det.
 :- pred derivation_step(step_tuple::in, id_map::in, step_and_id_map::out) is nondet.
 :- pred proponent_step(step_tuple::in, id_map::in, step_and_id_map::out) is nondet.
 :- pred opponent_step(step_tuple::in, id_map::in, step_and_id_map::out) is nondet.
@@ -150,7 +151,7 @@
 %
 % DERIVATION CONTROL: entry predicates
 
-derive(S, Result) :-
+derive(S, MaxResults, Results) :-
   %retractall(proving(_)),
   %assert(proving(S)),
   initial_derivation_tuple(make_singleton_set(S), InitTuple),
@@ -168,8 +169,7 @@ derive(S, Result) :-
     Ids1 = 0-set(map.init, -1, map.init)),
   %retractall(sols(_)),
   %assert(sols(1)),
-  derivation(InitTuple, Result, 1-snd(Ids1)),
-  print_result(S, Result).
+  derivation([step_and_id_map(InitTuple, 1-snd(Ids1))], [], S, MaxResults, Results).
   %incr_sols.
 
 initial_derivation_tuple(
@@ -195,9 +195,13 @@ initial_derivation_tuple(
 %
 % DERIVATION CONTROL: basic control structure
 
-% derivation(T, Result, InN-IdsIn) :-
-% Move the step number into Ids
-derivation(T, Result, InN-IdsIn) :-
+% derivation(ListOfSolutions, ResultsIn, S, MaxResults, Results) :-
+% S is the claim sentence (only for printing).
+derivation([], Results, _, _, Results).
+derivation([step_and_id_map(T, InN-IdsIn)|RestIn], ResultsIn, S, MaxResults, Results) :-
+  (length(ResultsIn) >= MaxResults ->
+    Results = ResultsIn
+  ;
   next_step_all_branches_int(StepAllBranches),
   format("*** Step %i (all branches)\n", [i(StepAllBranches - 1)]), % Debug
   (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
@@ -206,17 +210,28 @@ derivation(T, Result, InN-IdsIn) :-
     ((option(show_solution, "true"), \+ verbose) -> PreviousN = InN - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
     open(runtime_out_path, "a", Fd2),
     format(Fd2, "%s ABA solution found\n", [s(now)]),
-    close(Fd2)
+    close(Fd2),
+    % Add to the results and process remaining solutions (if any).
+    print_result(S, Result),
+    derivation(RestIn, [Result|ResultsIn], S, MaxResults, Results)
   ;
-    derivation_step(T, InN-IdsIn, step_and_id_map(T1, _-Ids1)),
-    (verbose ->
-      print_step(InN, T1),
-      open(decompiled_path, "a", Fd),
-      format(Fd, "; ^^^ Step %d\n\n", [i(InN)]),
-      close(Fd)
-    ; true),
-    OutN = InN + 1,
-    derivation(T1, Result, OutN-Ids1)).
+    solutions((pred(Solution::out) is nondet :-
+                derivation_step(T, InN-IdsIn, Solution)),
+              Solutions),
+    ([step_and_id_map(T1, _-Ids1)|Rest] = Solutions ->
+      (verbose ->
+        print_step(InN, T1),
+        open(decompiled_path, "a", Fd),
+        format(Fd, "; ^^^ Step %d\n\n", [i(InN)]),
+        close(Fd)
+      ; true),
+      OutN = InN + 1,
+      % Replace the head of the solutions and continue processing.
+      % If Rest is not [], it means that derivation_step added solutions.
+      derivation(append([step_and_id_map(T1, OutN-Ids1)|Rest], RestIn), ResultsIn, S, MaxResults, Results)
+    ;
+      % derivation_step returned no solutions for the head. Try remaining solutions.
+      derivation(RestIn, ResultsIn, S, MaxResults, Results)))).
 
 derivation_step(step_tuple(P, O, D, C, Att, CS), IdsIn, step_and_id_map(T1, IdsOut)) :-
   (verbose ->

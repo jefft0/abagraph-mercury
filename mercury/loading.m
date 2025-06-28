@@ -42,7 +42,7 @@
 :- import_module solutions.
 
 main(!IO) :-
-  unsorted_solutions((pred(R::out) is nondet :- derive(fact("a"), R)), _).
+  derive(fact("a"), 1, _Results).
 
 assumption(fact("a")).
 assumption(fact("b")).
