@@ -75,7 +75,9 @@
 :- type prop_info
    ---> prop_info(set(sentence), digraph(sentence)).
 
-:- type step_and_id_map ---> step_and_id_map(step_tuple, id_map).
+% step_and_id_map(StepTuple, Ids, RuntimeOut).
+% Print RuntimeOut to runtime_out_path before calling derivation_step again with the StepTuple.
+:- type step_and_id_map ---> step_and_id_map(step_tuple, id_map, string).
 
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
 :- pred derivation(list(step_and_id_map)::in, list(derivation_result)::in, sentence::in, int::in, list(derivation_result)::out) is det.
@@ -100,7 +102,7 @@
           opponent_step_tuple::in, id_map::in, step_and_id_map::out) is nondet.
 :- pred iterate_bodies(list(list(sentence))::in, pair(sentence, int)::in, focussed_pot_arg_graph::in,
           opponent_arg_graph_set::in, pair(set(sentence), map(sentence, int))::in, constraint_store::in,
-          constraint_store::out, opponent_arg_graph_set::out, id_map::in, id_map::out) is nondet.
+          constraint_store::out, opponent_arg_graph_set::out, id_map::in, string::in, id_map::out, string::out) is nondet.
 :- pred update_argument_graph(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           constraint_store::in, constraint_store::out, list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out) is nondet.
 :- pred filter_marked(list(sentence)::in, set(sentence)::in, constraint_store::in, constraint_store::out, list(sentence)::out, list(sentence)::out) is nondet.
@@ -114,7 +116,7 @@
           list(focussed_pot_arg_graph)::out) is det.
 :- pred opponent_sentence_choice(focussed_pot_arg_graph::in, sentence::out, focussed_pot_arg_graph::out) is nondet.
 :- pred find_first_constraint(list(sentence)::in, sentence::out, list(sentence)::out) is semidet.
-:- pred rule_choice(sentence::in, list(sentence)::out, prop_info::in, id_map::in, id_map::out) is nondet.
+:- pred rule_choice(sentence::in, list(sentence)::out, prop_info::in, id_map::in, id_map::out, string::out) is nondet.
 :- pred turn_choice(turn_choice::in, pot_arg_graph::in, opponent_arg_graph_set::in, turn::out) is det.
 :- pred sentence_choice(proponent_sentence_choice::in, list(sentence)::in, sentence::out,
           list(sentence)::out) is det.
@@ -169,7 +171,7 @@ derive(S, MaxResults, Results) :-
     Ids1 = 0-set(map.init, -1, map.init)),
   %retractall(sols(_)),
   %assert(sols(1)),
-  derivation([step_and_id_map(InitTuple, 1-snd(Ids1))], [], S, MaxResults, Results).
+  derivation([step_and_id_map(InitTuple, 1-snd(Ids1), "")], [], S, MaxResults, Results).
   %incr_sols.
 
 initial_derivation_tuple(
@@ -198,51 +200,54 @@ initial_derivation_tuple(
 % derivation(ListOfSolutions, ResultsIn, S, MaxResults, Results) :-
 % S is the claim sentence (only for printing).
 derivation([], Results, _, _, Results).
-derivation([step_and_id_map(T, InN-IdsIn)|RestIn], ResultsIn, S, MaxResults, Results) :-
+derivation([step_and_id_map(T, InN-IdsIn, RuntimeOut)|RestIn], ResultsIn, S, MaxResults, Results) :-
   (length(ResultsIn) >= MaxResults ->
     Results = ResultsIn
   ;
-  next_step_all_branches_int(StepAllBranches),
-  format("*** Step %i (all branches)\n", [i(StepAllBranches - 1)]), % Debug
-  (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
-    format("*** Step %i (all branches), %0.0f%% extra\n", [i(StepAllBranches - 1), f(100.0 * float((StepAllBranches - 1) - (InN - 1)) / float(InN - 1))]),
-    Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
-    ((option(show_solution, "true"), \+ verbose) -> PreviousN = InN - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
-    open(runtime_out_path, "a", Fd2),
-    format(Fd2, "%s ABA solution found\n", [s(now)]),
-    close(Fd2),
-    % Add to the results and process remaining solutions (if any).
-    print_result(S, Result),
-    derivation(RestIn, [Result|ResultsIn], S, MaxResults, Results)
-  ;
-    derivation_step(T, InN-IdsIn, Solutions),
-    ([step_and_id_map(T1, _-Ids1)|Rest] = Solutions ->
-      (verbose ->
-        print_step(InN, T1),
-        open(decompiled_path, "a", Fd),
-        format(Fd, "; ^^^ Step %d\n\n", [i(InN)]),
-        close(Fd)
-      ; true),
-      OutN = InN + 1,
-      % Replace the head of the solutions and continue processing.
-      % If Rest is not [], it means that derivation_step added solutions.
-      derivation(append([step_and_id_map(T1, OutN-Ids1)|Rest], RestIn), ResultsIn, S, MaxResults, Results)
+    next_step_all_branches_int(StepAllBranches),
+    format("*** Step %i (all branches)\n", [i(StepAllBranches - 1)]), % Debug
+    (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
+      format("*** Step %i (all branches), %0.0f%% extra\n", [i(StepAllBranches - 1), f(100.0 * float((StepAllBranches - 1) - (InN - 1)) / float(InN - 1))]),
+      Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
+      ((option(show_solution, "true"), \+ verbose) -> PreviousN = InN - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
+      format_append(runtime_out_path, RuntimeOut, []),
+      format_append(runtime_out_path, "%s ABA solution found\n", [s(now)]),
+      % Add to the results and process remaining solutions (if any).
+      print_result(S, Result),
+      derivation(RestIn, [Result|ResultsIn], S, MaxResults, Results)
     ;
-      % derivation_step returned no solutions for the head. Try remaining solutions.
-      derivation(RestIn, ResultsIn, S, MaxResults, Results)))).
+      format_append(runtime_out_path, RuntimeOut, []),
+      derivation_step(T, InN-IdsIn, Solutions),
+      ([step_and_id_map(T1, _-Ids1, RuntimeOut1)|Rest] = Solutions ->
+        (verbose ->
+          print_step(InN, T1),
+          open(decompiled_path, "a", Fd),
+          format(Fd, "; ^^^ Step %d\n\n", [i(InN)]),
+          close(Fd)
+        ; true),
+        OutN = InN + 1,
+        % Replace the head of the solutions and continue processing.
+        % If Rest is not [], it means that derivation_step added solutions.
+        derivation(append([step_and_id_map(T1, OutN-Ids1, RuntimeOut1)|Rest], RestIn), ResultsIn, S, MaxResults, Results)
+      ;
+        % derivation_step returned no solutions for the head. Try remaining solutions.
+        derivation(RestIn, ResultsIn, S, MaxResults, Results)))).
 
 derivation_step(step_tuple(P, O, D, C, Att, CS), IdsIn, Solutions) :-
   (verbose ->
     puts("\n"),
-    format_append(runtime_out_path,
+    RuntimeOut1 = format(
       "%s Step %i start\n  D: %s\n  C: %s\n%s",
       [s(now), i(fst(IdsIn)), s(sentence_set_to_string(D)), s(sentence_set_to_string(fst(C))), s(to_string(CS))])
-  ; true),
+  ;
+    RuntimeOut1 = ""),
   choose_turn(P, O, Turn),
   (Turn = proponent ->
-    proponent_step(step_tuple(P, O, D, C, Att, CS), IdsIn, Solutions)
+    proponent_step(step_tuple(P, O, D, C, Att, CS), IdsIn, Solutions1)
   ;
-    opponent_step(step_tuple(P, O, D, C, Att, CS), IdsIn, Solutions)).
+    opponent_step(step_tuple(P, O, D, C, Att, CS), IdsIn, Solutions1)),
+  % Prepend RuntimeOut1.
+  Solutions = map(func(step_and_id_map(T, Ids, R)) = step_and_id_map(T, Ids, RuntimeOut1 ++ R), Solutions1).
 
 proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn, Solutions) :-
   proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
@@ -254,22 +259,26 @@ proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn, So
       Solutions = [])
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
-    solutions((pred(StepAndIdMap::out) is nondet :-
-                 proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn, StepAndIdMap),
-                 poss_print_case("1.(ii)", S)),
-              Solutions)).
+    promise_equivalent_solutions[SolutionsR] (
+      unsorted_solutions((pred(Solution::out) is nondet :-
+                            proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn, Solution),
+                            poss_print_case("1.(ii)", S)),
+                         SolutionsR)),
+    Solutions = reverse(SolutionsR)).
 
 opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn, Solutions) :-
   opponent_abagraph_choice(OppUnMrk, OppArg, OppUnMrkMinus),
-  solutions((pred(StepAndIdMap::out) is nondet :-
-               opponent_sentence_choice(OppArg, S, OppArgMinus),
-               (assumption(S) ->
-                 opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn, StepAndIdMap)
-               ;
-                 %TODO: Do we need to compute and explicitly check? non_assumption(S),
-                 opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn, StepAndIdMap))),
-                 %Move to opponent_ii. poss_print_case("2.(ii)", S)).
-            Solutions).
+  promise_equivalent_solutions[SolutionsR] (
+    unsorted_solutions((pred(Solution::out) is nondet :-
+                          opponent_sentence_choice(OppArg, S, OppArgMinus),
+                          (assumption(S) ->
+                            opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn, Solution)
+                          ;
+                            %TODO: Do we need to compute and explicitly check? non_assumption(S),
+                            opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn, Solution),
+                            poss_print_case("2.(ii)", S))),
+                       SolutionsR)),
+  Solutions = reverse(SolutionsR). 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -279,11 +288,11 @@ opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn, Solutions) :
 %%%%%%%%%% proponent
 
 proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att, CS, IdsIn,
-              step_and_id_map(step_tuple(PropUnMrkMinus-PropMrk1-PropGr, OppUnMrk1-OppMrk, D, C, Att1, CS),
-                              IdsOut)) :-
+              step_and_id_map(step_tuple(PropUnMrkMinus-PropMrk1-PropGr, OppUnMrk1-OppMrk, D, C, Att1, CS), IdsOut, RuntimeOut)) :-
   (verbose ->
-    format_append(runtime_out_path, "%s Step %i: Case 1.(i) start A: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(A))])
-  ; true),
+    RuntimeOut1 = format("%s Step %i: Case 1.(i) start A: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(A))])
+  ;
+    RuntimeOut1 = ""),
   contrary(A, Contrary),
   ((\+ (member(Member1, OppUnMrk), Member1 = Contrary-_-(_-_-_)),
     \+ (member(Member2, OppMrk),   Member2 = Contrary-_-(_-_-_))) ->
@@ -309,26 +318,30 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att, CS,
     close(Fd),
     (solutions((pred(X::out) is nondet :- rule(Contrary, X)), []) -> % Debug: We only need to check for one solution.
       HasBody = "N" ; HasBody = "Y"),
-    format_append(runtime_out_path,
+    RuntimeOut = RuntimeOut1 ++ format(
       "%s Step %i: Case 1.(i): A: %i, Contrary %i has body? %s, NewGId %i\n  A: %s\n  Contrary: %s\n",
       [s(now), i(fst(IdsIn)), i(Id), i(ContraryId), s(HasBody), i(NewGId),
        s(sentence_to_string(A)), s(sentence_to_string(Contrary))])
   ;
-    IdsOut = IdsIn).
+    IdsOut = IdsIn,
+    RuntimeOut = RuntimeOut1).
 
 proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
-                 step_and_id_map(step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att, CSOut), IdsOut)) :-
+                 step_and_id_map(step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att, CSOut), IdsOut, RuntimeOut)) :-
   (verbose ->
-    format_append(runtime_out_path, "%s Step %i: Case 1.(ii) start S: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(S))])
-  ; true),
+    RuntimeOut1 = format("%s Step %i: Case 1.(ii) start S: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(S))])
+  ;
+    RuntimeOut1 = ""),
   (constraint(S) ->
     unify(S, CS, CS1, Descs),
     Body = [],
-    Ids1 = IdsIn
+    Ids1 = IdsIn,
+    RuntimeOut2 = RuntimeOut1
   ;
     Descs = set.init,
     CS1 = CS,
-    rule_choice(S, Body, prop_info(D, PropGr), IdsIn, Ids1)),
+    rule_choice(S, Body, prop_info(D, PropGr), IdsIn, Ids1, RuntimeOutrule_choice),
+    RuntimeOut2 = RuntimeOut1 ++ RuntimeOutrule_choice),
   %\+ (member(X, Body), member(X, fst(C))),
   foldl((pred(X::in, CSIn-Debug1In::in, CSOut1-Debug1Out::out) is semidet :-
            MemberXC = membership(X, fst(C)),
@@ -352,9 +365,9 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
   (verbose ->
     (constraint(S) ->
       IdsOut = Ids1,
-      _ = foldl(func(Desc, _) = 0 :- format_append(runtime_out_path, "%s Step %i: Case 1.(iii): %s\n  S: %s\n", 
+      RuntimeOut = RuntimeOut2 ++ foldl(func(Desc, In) = In ++ format("%s Step %i: Case 1.(iii): %s\n  S: %s\n", 
                  [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
-            Descs, 0)
+            Descs, "")
     ;
       MarkedBody = intersect(list_to_set(Body), PropMrk),
       UnMarkedBodyAs = list_to_set(BodyUnMrkAs),
@@ -369,7 +382,7 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
       write_sentence_set(NewUnMarkedNonAs, 0, Fd, NewUnMarkedNonAsIds, Ids3, Ids4),
       write_sentence_set(ExistingBody, 0, Fd, ExistingBodyIds, Ids4, IdsOut),
       close(Fd),
-      format_append(runtime_out_path,
+      RuntimeOut = RuntimeOut2 ++ format(
         "%s Step %i: Case 1.(ii): S: %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  S: %s\n  NewUnMarkedAs: %s\n  NewUnMarkedNonAs: %s\n  ExistingBody: %s\n",
         [s(now), i(fst(IdsIn)), i(Id),
          s(join_list(" ", map(int_to_string, NewUnMarkedAsIds))),
@@ -380,66 +393,79 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
          s(sentence_set_to_string(NewUnMarkedNonAs)),
          s(sentence_set_to_string(ExistingBody))]))
   ;
-    IdsOut = Ids1).
+    IdsOut = Ids1,
+    RuntimeOut = RuntimeOut2).
 
 %%%%%%%%%% opponent
 
-opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS), IdsIn, StepAndIdMap) :-
+opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS), IdsIn, step_and_id_map(T, IdsOut, RuntimeOut)) :-
   (verbose ->
-    format_append(runtime_out_path, "%s Step %i: Case 2 start A: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(A))])
-  ; true),
+    RuntimeOut1 = format("%s Step %i: Case 2 start A: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(A))])
+  ;
+    RuntimeOut1 = ""),
   MemberAD = membership(A, D),
   (verbose ->
-    format_append(runtime_out_path, "%s Step %i: MemberAD: %s\n", [s(now), i(fst(IdsIn)), s(b_constraint_to_string(MemberAD))])
-  ; true),
+    RuntimeOut2 = RuntimeOut1 ++ format("%s Step %i: MemberAD: %s\n", [s(now), i(fst(IdsIn)), s(b_constraint_to_string(MemberAD))])
+  ;
+    RuntimeOut2 = RuntimeOut1),
   ( b_unify(not(MemberAD), CS, CS1, _),
     MemberAC = membership(A, fst(C)),
     (verbose ->
-      format_append(runtime_out_path, "%s Step %i: MemberAC: %s\n", [s(now), i(fst(IdsIn)), s(b_constraint_to_string(MemberAC))])
-    ; true),
+      RuntimeOut3 = RuntimeOut2 ++ format("%s Step %i: MemberAC: %s\n", [s(now), i(fst(IdsIn)), s(b_constraint_to_string(MemberAC))])
+    ;
+      RuntimeOut3 = RuntimeOut2),
     ( b_unify(MemberAC, CS1, CS2, _),
-      opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS2), IdsIn, StepAndIdMap),
+      opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS2), IdsIn, step_and_id_map(T, IdsOut, RuntimeOutib)),
+      RuntimeOut = RuntimeOut3 ++ RuntimeOutib,
       poss_print_case("2.(ib)", A)
     ;
       b_unify(not(MemberAC), CS1, CS2, _),
-      opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS2), IdsIn, StepAndIdMap),
+      opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS2), IdsIn, step_and_id_map(T, IdsOut, RuntimeOutic)),
+      RuntimeOut = RuntimeOut3 ++ RuntimeOutic,
       poss_print_case("2.(ic)", A))
   ;
     b_unify(MemberAD, CS, CS1, _),
-    opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS1), IdsIn, StepAndIdMap),
+    opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS1), IdsIn, step_and_id_map(T, IdsOut, RuntimeOutia)),
+    RuntimeOut = RuntimeOut2 ++ RuntimeOutia,
     poss_print_case("2.(ia)", A)).
 
 opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
-            opponent_step_tuple(P, D, C, Att, CS), IdsIn,
-            step_and_id_map(step_tuple(P, OppUnMrkMinus1-OppMrk, D, C, Att, CSOut), IdsOut)) :-
+            opponent_step_tuple(P, D, C, Att, CS), IdsIn, 
+            step_and_id_map(step_tuple(P, OppUnMrkMinus1-OppMrk, D, C, Att, CSOut), IdsOut, RuntimeOut)) :-
   (verbose ->
-    format_append(runtime_out_path, "%s Step ?: Case 2.(ia) start\n", [s(now)])
-  ; true),
+    RuntimeOut1 = format("%s Step ?: Case 2.(ia) start\n", [s(now)])
+  ;
+    RuntimeOut1 = ""),
   (gb_derivation ->
-    CSOut = CS
+    CSOut = CS,
+    RuntimeOut2 = RuntimeOut1
   ;
     MemberAC = membership(A, fst(C)),  % also sound for gb? CHECK in general
     b_unify(not(MemberAC), CS, CSOut, _),
     (verbose ->
-      (MemberAC = f -> true ; format_append(runtime_out_path, "%s Step ?: not(MemberAC): %s\n", [s(now), s(b_constraint_to_string(not(MemberAC)))]))
-    ; true)),
+      (MemberAC = f -> RuntimeOut2 = RuntimeOut1 ; RuntimeOut2 = RuntimeOut1 ++ format("%s Step ?: not(MemberAC): %s\n", [s(now), s(b_constraint_to_string(not(MemberAC)))]))
+    ;
+      RuntimeOut2 = RuntimeOut1)),
   insert(A, Marked, Marked1),
   append_element_nodup(OppUnMrkMinus, Claim-GId-(UnMrkMinus-Marked1-Graph), OppUnMrkMinus1),
   (verbose ->
     open(decompiled_path, "a", Fd),
     write_sentence(A, GId, Fd, Id, IdsIn, IdsOut),
     close(Fd),
-    format_append(runtime_out_path, "%s Step %i: Case 2.(ia): A: %i, GId %i\n  A: %s\n",
+    RuntimeOut = RuntimeOut2 ++ format("%s Step %i: Case 2.(ia): A: %i, GId %i\n  A: %s\n",
       [s(now), i(fst(IdsIn)), i(Id), i(GId), s(sentence_to_string(A))])
   ; 
-    IdsOut = IdsIn).
+    IdsOut = IdsIn,
+    RuntimeOut = RuntimeOut2).
+
 
 opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
             opponent_step_tuple(P, D, C, Att, CS), IdsIn,
-            step_and_id_map(step_tuple(P, OppUnMrkMinus-OppMrk1, D, C, Att, CS), IdsOut)) :-
+            step_and_id_map(step_tuple(P, OppUnMrkMinus-OppMrk1, D, C, Att, CS), IdsOut, RuntimeOut)) :-
   (verbose ->
-    format_append(runtime_out_path, "%s Step ?: Case 2.(ib) start\n", [s(now)])
-  ; true),
+    RuntimeOut1 = format("%s Step ?: Case 2.(ib) start\n", [s(now)])
+  ;
+    RuntimeOut1 = ""),
   % TODO: Support GB. contrary(A, Contrary),
   % TODO: Support GB. gb_acyclicity_check(G, Claim, [Contrary], G1),
   insert(A, Marked, Marked1),
@@ -450,18 +476,20 @@ opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
     close(Fd),
     % Get the ID of the original culprit. (This is why we pass around C as a pair with the Ids.)
     (FoundId = search(snd(C), A) -> CulpritId = FoundId ; CulpritId = 0),
-    format_append(runtime_out_path, "%s Step %i: Case 2.(ib): A: %i, GId %i, Culprit %i\n  A: %s\n",
+    RuntimeOut = RuntimeOut1 ++ format("%s Step %i: Case 2.(ib): A: %i, GId %i, Culprit %i\n  A: %s\n",
       [s(now), i(fst(IdsIn)), i(Id), i(GId), i(CulpritId), s(sentence_to_string(A))])
   ; 
-    IdsOut = IdsIn).
+    IdsOut = IdsIn,
+    RuntimeOut = RuntimeOut1).
+
 
 opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
             opponent_step_tuple(PropUnMrk-PropMrk-PropGr, D, C, Att, CS), IdsIn, 
-            step_and_id_map(step_tuple(PropUnMrk1-PropMrk-PropGr1, OppUnMrkMinus-OppMrk1, D1, C1, Att1, CS),
-                            IdsOut)) :-
+            step_and_id_map(step_tuple(PropUnMrk1-PropMrk-PropGr1, OppUnMrkMinus-OppMrk1, D1, C1, Att1, CS), IdsOut, RuntimeOut)) :-
   (verbose ->
-    format_append(runtime_out_path, "%s Step %i: Case 2.(ic) start\n", [s(now), i(fst(IdsIn))])
-  ; true),
+    RuntimeOut1 = format("%s Step %i: Case 2.(ic) start\n", [s(now), i(fst(IdsIn))])
+  ;
+    RuntimeOut1 = ""),
   contrary(A, Contrary),
   %(search_key(PropGr, Contrary, _) ->
   %  PropUnMrk = PropUnMrk1,
@@ -476,13 +504,14 @@ opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
     write_sentence(A, GId, Fd, Id, IdsIn, Ids1),
     write_sentence(Contrary, 0, Fd, ContraryId, Ids1, IdsOut),
     close(Fd),
-    format_append(runtime_out_path,
+    RuntimeOut = RuntimeOut1 ++ format(
       "%s Step %i: Case 2.(ic): A: %i, GId %i, Contrary %i new? %s\n  A: %s\n  Contrary: %s\n",
       [s(now), i(fst(IdsIn)), i(Id), i(GId), i(ContraryId), s(IsNewContrary),
        s(sentence_to_string(A)), s(sentence_to_string(Contrary))])
   ; 
     Id = 0,
-    IdsOut = IdsIn),
+    IdsOut = IdsIn,
+    RuntimeOut = RuntimeOut1),
   (assumption(Contrary) ->
     insert(Contrary, D, D1)
   ;
@@ -494,43 +523,43 @@ opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
   % TODO: Support GB. gb_acyclicity_check(G, Claim, [Contrary], G1).
 
 opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn,
-            StepAndIdMap) :-
+            step_and_id_map(step_tuple(P, OppUnMrkMinus1-OppMrk1, D, C, Att, CSOut), IdsOut, RuntimeOut)) :-
   (verbose ->
-    format_append(runtime_out_path, "%s Step %i: Case 2.(ii) start S: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(S))])
-  ; true),
+    RuntimeOut1 = format("%s Step %i: Case 2.(ii) start S: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(S))])
+  ;
+    RuntimeOut1 = ""),
   (constraint(S) ->
     (unify(S, CS, CSOutLocal, Descs) ->
       CS1 = CSOutLocal,
       Bodies = [[]],
       (verbose ->
-        _ = foldl(func(Desc, _) = 0 :- format_append(runtime_out_path, "%s Step %i: Case 2.(iii): %s\n  S: %s\n", 
+        RuntimeOut2 = RuntimeOut1 ++ foldl(func(Desc, R) = R ++ format("%s Step %i: Case 2.(iii): %s\n  S: %s\n", 
                    [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
-              Descs, 0)
+              Descs, "")
       ;
-        true)
+        RuntimeOut2 = RuntimeOut1)
     ;
       CS1 = CS,
-      Bodies = [])
+      Bodies = [],
+      RuntimeOut2 = RuntimeOut1)
   ;
     CS1 = CS,
-    solutions((pred(Body::out) is nondet :- rule(S, Body), \+ (member(A, Body), excluded(A, D))), Bodies)),
+    solutions((pred(Body::out) is nondet :- rule(S, Body), \+ (member(A, Body), excluded(A, D))), Bodies),
+    RuntimeOut2 = RuntimeOut1),
 
-  solutions((pred(step_and_id_map(step_tuple(LocalP, OppUnMrkMinus1-OppMrk1, LocalD, LocalC, LocalAtt, CSOut), IdsOut)::out) is nondet :-
-                    LocalP = P, LocalD = D, LocalC = C, LocalAtt = Att,
-                    iterate_bodies(Bodies, S-GId, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, C, CS1, CSOut,
-                       OppUnMrkMinus1-OppMrk1, IdsIn, IdsOut),
-                    poss_print_case("2.(ii)", S)),
-            Solutions),
-  member(StepAndIdMap, Solutions).
+  iterate_bodies(Bodies, S-GId, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, C, CS1, CSOut,
+                 OppUnMrkMinus1-OppMrk1, IdsIn, "", IdsOut, RuntimeOut3),
+  RuntimeOut = RuntimeOut2 ++ RuntimeOut3.
 
 % SGId is the graph ID that S came from.
-iterate_bodies([], _, _, OppUnMrkMinus-OppMrk, _, CS, CS, OppUnMrkMinus-OppMrk, Ids, Ids).
+iterate_bodies([], _, _, OppUnMrkMinus-OppMrk, _, CS, CS, OppUnMrkMinus-OppMrk, Ids, RuntimeOut, Ids, RuntimeOut).
 iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), InOppUnMrkMinus-InOppMrk, C, CS, CSOut,
-               OppUnMrkMinus1-OppMrk1, IdsIn, IdsOut) :-
+               OppUnMrkMinus1-OppMrk1, IdsIn, RuntimeOut1, IdsOut, RuntimeOut) :-
   (verbose ->
-    format_append(runtime_out_path, "%s Step %i: Case 2.(ii) Rest: %i Body: %s\n", 
+    RuntimeOut2 = RuntimeOut1 ++ format("%s Step %i: Case 2.(ii) Rest: %i Body: %s\n", 
                   [s(now), i(fst(IdsIn)), i(length(RestBodies)), s(sentence_list_to_string(Body))])
-  ; true),
+  ;
+    RuntimeOut2 = RuntimeOut1),
   update_argument_graph(S, Body, Marked-Graph, CS, CS1, UnMarked, UnMarkedAs, Marked1-Graph1),
   append_elements_nodup(UnMarked, UnMrkMinus, UnMrk1),
   (GId = 0 ->
@@ -578,10 +607,11 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
     write_sentence_set(ExistingBody, NewGId, Fd, ExistingBodyIds, Ids4, Ids5),
     close(Fd),
     (MarkS = yes ->
-      format_append(runtime_out_path, "%s Step %i: Case 2.(ii): S: %i, GId %i, mark graph? %s\n  S: %s\n",
+      RuntimeOut3 = RuntimeOut2 ++ format("%s Step %i: Case 2.(ii): S: %i, GId %i, mark graph? %s\n  S: %s\n",
         [s(now), i(fst(IdsIn)), i(Id), i(SGId), s(MarkGraph), s(sentence_to_string(S))])
-    ; true),
-    format_append(runtime_out_path,
+    ;
+      RuntimeOut3 = RuntimeOut2),
+    RuntimeOut4 = RuntimeOut3 ++ format(
       "%s Step %i: Case 2.(ii): S: %i, NewGId %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  S: %s\n  NewUnMarkedAs: %s\n  NewUnMarkedNonAs: %s\n  ExistingBody: %s\n",
       [s(now), i(fst(IdsIn)), i(Id), i(NewGId),
        s(join_list(" ", map(int_to_string, NewUnMarkedAsIds))),
@@ -592,11 +622,12 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
        s(sentence_set_to_string(NewUnMarkedNonAs)),
        s(sentence_set_to_string(ExistingBody))])
   ;
-    Ids5 = Ids1),
+    Ids5 = Ids1,
+    RuntimeOut4 = RuntimeOut2),
 
   % For further iterations, set GId to 0 so that we mint new IDs for added graphs.
   iterate_bodies(RestBodies, S-SGId, Claim-0-(UnMrkMinus-Marked-Graph), OutOppUnMrkMinus-OutOppMrk, C, CS1, CSOut,
-                 OppUnMrkMinus1-OppMrk1, Ids5, IdsOut).
+                 OppUnMrkMinus1-OppMrk1, Ids5, RuntimeOut4, IdsOut, RuntimeOut).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -749,7 +780,7 @@ find_first_constraint(SList, SOut, SListMinus) :-
 % proponent's derivations.
 % Omit "proponent" since it is not used.
 %rule_choice(Head, Body, proponent, PropInfo) :-
-rule_choice(Head, Body, prop_info(D, PropGr), IdsIn, IdsOut) :-
+rule_choice(Head, Body, prop_info(D, PropGr), IdsIn, IdsOut, RuntimeOut) :-
   solutions((pred(B::out) is nondet :- rule(Head, B), \+ (member(A, B), excluded(A, D))), RuleBodies),
   get_proponent_rule_choice(PropRuleStrategy),
   sort_rule_pairs(PropRuleStrategy, prop_info(D, PropGr), RuleBodies, SortedRuleBodies),
@@ -762,11 +793,12 @@ rule_choice(Head, Body, prop_info(D, PropGr), IdsIn, IdsOut) :-
         write_sentence_list(B, 0, Fd, IdsList, IdsIn1, IdsOut1),
         Text = format(" [%s]", [s(join_list(" ", map(int_to_string, IdsList)))])),
       SortedRuleBodies, IdsIn-""),
-    format_append(runtime_out_path, "%s Step %i: Head %s Potential bodies: [%s]\n", 
-      [s(now), i(fst(IdsIn)), s(sentence_to_string(Head)), s(BodiesText)]),
-    close(Fd)
+    close(Fd),
+    RuntimeOut = format("%s Step %i: Head %s Potential bodies: [%s]\n", 
+      [s(now), i(fst(IdsIn)), s(sentence_to_string(Head)), s(BodiesText)])
   ;
-    IdsOut = IdsIn),
+    IdsOut = IdsIn,
+    RuntimeOut = ""),
   member(Body, SortedRuleBodies).
   %rule(Head, Body).              % added to fix Fan's first bug
 
