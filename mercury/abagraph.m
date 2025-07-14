@@ -138,12 +138,10 @@
 :- pred find_first(pred(T)::in(pred(in) is semidet), list(T)::in, T::out, list(T)::out) is semidet.
 :- pred select(T::out, list(T)::in, list(T)::out) is nondet.
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
-% membership(S, SSet) = C.
-% Return a boolean constraint expression for the conditions when S matches any sentence in SSet.
-% If no match is possible, return f.
 :- func membership(sentence, set(sentence)) = b_constraint is det.
 :- pred unify(sentence::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
 :- pred excluded(sentence::in, set(sentence)::in) is semidet.
+:- pred filter_constraints(list(sentence)::in, constraint_store::in, list(sentence)::out, constraint_store::out, set(string)::out) is semidet.
 :- pred next_step_all_branches_int(int::out) is det.
 
 % ("set some options" moved to options.m.)
@@ -252,9 +250,9 @@ derivation_step(step_tuple(P, O, D, C, Att, CS), IdsIn, Solutions) :-
 proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn, Solutions) :-
   proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
   (assumption(S) ->
-    (proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn, StepAndIdMap) ->
+    (proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn, Solution) ->
       poss_print_case("1.(i)", S),
-      Solutions = [StepAndIdMap]
+      Solutions = [Solution]
     ;
       Solutions = [])
   ;
@@ -332,16 +330,9 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
     RuntimeOut1 = format("%s Step %i: Case 1.(ii) start S: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(S))])
   ;
     RuntimeOut1 = ""),
-  (constraint(S) ->
-    unify(S, CS, CS1, Descs),
-    Body = [],
-    Ids1 = IdsIn,
-    RuntimeOut2 = RuntimeOut1
-  ;
-    Descs = set.init,
-    CS1 = CS,
-    rule_choice(S, Body, prop_info(D, PropGr), IdsIn, Ids1, RuntimeOutrule_choice),
-    RuntimeOut2 = RuntimeOut1 ++ RuntimeOutrule_choice),
+  rule_choice(S, Body1, prop_info(D, PropGr), IdsIn, Ids1, RuntimeOutrule_choice),
+  filter_constraints(Body1, CS, Body, CS1, Descs),
+  RuntimeOut2 = RuntimeOut1 ++ RuntimeOutrule_choice,
   %\+ (member(X, Body), member(X, fst(C))),
   foldl((pred(X::in, CSIn-Debug1In::in, CSOut1-Debug1Out::out) is semidet :-
            MemberXC = membership(X, fst(C)),
@@ -363,35 +354,32 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
         BodyUnMrkAs, D, D1),
   % TODO: Support GB. gb_acyclicity_check(G, S, Body, G1),
   (verbose ->
-    (constraint(S) ->
-      IdsOut = Ids1,
-      RuntimeOut = RuntimeOut2 ++ foldl(func(Desc, In) = In ++ format("%s Step %i: Case 1.(iii): %s\n  S: %s\n", 
-                 [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
-            Descs, "")
-    ;
-      MarkedBody = intersect(list_to_set(Body), PropMrk),
-      UnMarkedBodyAs = list_to_set(BodyUnMrkAs),
-      UnMarkedBodyNonAs = difference(list_to_set(BodyUnMrk), UnMarkedBodyAs),
-      divide_by_set(list_to_set(PropUnMrkMinus), UnMarkedBodyAs, ExistingUnMarkedAs, NewUnMarkedAs),
-      divide_by_set(list_to_set(PropUnMrkMinus), UnMarkedBodyNonAs, ExistingUnMarkedNonAs, NewUnMarkedNonAs),
-      ExistingBody = union(union(MarkedBody, ExistingUnMarkedAs), ExistingUnMarkedNonAs),
+    MarkedBody = intersect(list_to_set(Body), PropMrk),
+    UnMarkedBodyAs = list_to_set(BodyUnMrkAs),
+    UnMarkedBodyNonAs = difference(list_to_set(BodyUnMrk), UnMarkedBodyAs),
+    divide_by_set(list_to_set(PropUnMrkMinus), UnMarkedBodyAs, ExistingUnMarkedAs, NewUnMarkedAs),
+    divide_by_set(list_to_set(PropUnMrkMinus), UnMarkedBodyNonAs, ExistingUnMarkedNonAs, NewUnMarkedNonAs),
+    ExistingBody = union(union(MarkedBody, ExistingUnMarkedAs), ExistingUnMarkedNonAs),
 
-      open(decompiled_path, "a", Fd),
-      write_sentence(S, 0, Fd, Id, Ids1, Ids2),
-      write_sentence_set(NewUnMarkedAs, 0, Fd, NewUnMarkedAsIds, Ids2, Ids3),
-      write_sentence_set(NewUnMarkedNonAs, 0, Fd, NewUnMarkedNonAsIds, Ids3, Ids4),
-      write_sentence_set(ExistingBody, 0, Fd, ExistingBodyIds, Ids4, IdsOut),
-      close(Fd),
-      RuntimeOut = RuntimeOut2 ++ format(
-        "%s Step %i: Case 1.(ii): S: %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  S: %s\n  NewUnMarkedAs: %s\n  NewUnMarkedNonAs: %s\n  ExistingBody: %s\n",
-        [s(now), i(fst(IdsIn)), i(Id),
-         s(join_list(" ", map(int_to_string, NewUnMarkedAsIds))),
-         s(join_list(" ", map(int_to_string, NewUnMarkedNonAsIds))),
-         s(join_list(" ", map(int_to_string, ExistingBodyIds))), 
-         s(sentence_to_string(S)),
-         s(sentence_set_to_string(NewUnMarkedAs)),
-         s(sentence_set_to_string(NewUnMarkedNonAs)),
-         s(sentence_set_to_string(ExistingBody))]))
+    open(decompiled_path, "a", Fd),
+    write_sentence(S, 0, Fd, Id, Ids1, Ids2),
+    write_sentence_set(NewUnMarkedAs, 0, Fd, NewUnMarkedAsIds, Ids2, Ids3),
+    write_sentence_set(NewUnMarkedNonAs, 0, Fd, NewUnMarkedNonAsIds, Ids3, Ids4),
+    write_sentence_set(ExistingBody, 0, Fd, ExistingBodyIds, Ids4, IdsOut),
+    close(Fd),
+    ConstraintsRuntimeOut = foldl(func(Desc, In) = In ++ format("%s Step %i: Case 1.(iii): %s\n  S: %s\n", 
+                                    [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
+                                  Descs, ""),
+    RuntimeOut = RuntimeOut2 ++ ConstraintsRuntimeOut ++ format(
+      "%s Step %i: Case 1.(ii): S: %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  S: %s\n  NewUnMarkedAs: %s\n  NewUnMarkedNonAs: %s\n  ExistingBody: %s\n",
+      [s(now), i(fst(IdsIn)), i(Id),
+       s(join_list(" ", map(int_to_string, NewUnMarkedAsIds))),
+       s(join_list(" ", map(int_to_string, NewUnMarkedNonAsIds))),
+       s(join_list(" ", map(int_to_string, ExistingBodyIds))), 
+       s(sentence_to_string(S)),
+       s(sentence_set_to_string(NewUnMarkedAs)),
+       s(sentence_set_to_string(NewUnMarkedNonAs)),
+       s(sentence_set_to_string(ExistingBody))])
   ;
     IdsOut = Ids1,
     RuntimeOut = RuntimeOut2).
@@ -528,25 +516,25 @@ opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, oppone
     RuntimeOut1 = format("%s Step %i: Case 2.(ii) start S: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(S))])
   ;
     RuntimeOut1 = ""),
-  (constraint(S) ->
-    (unify(S, CS, CSOutLocal, Descs) ->
-      CS1 = CSOutLocal,
-      Bodies = [[]],
-      (verbose ->
-        RuntimeOut2 = RuntimeOut1 ++ foldl(func(Desc, R) = R ++ format("%s Step %i: Case 2.(iii): %s\n  S: %s\n", 
-                   [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
-              Descs, "")
+  solutions((pred(Body::out) is nondet :- rule(S, Body), \+ (member(A, Body), excluded(A, D))), Bodies1),
+  % Filter constraints in each body.
+  Bodies-CS1-RuntimeOut2 = foldl((
+    func(Body1, BodiesIn1-CSIn1-RunOut1) = Bodies2-CS2-RunOut2 :-
+      (filter_constraints(Body1, CSIn1, Body2, LocalCS2, Descs) ->
+        Bodies2 = append(BodiesIn1, [Body2]),
+        CS2 = LocalCS2,
+        (verbose ->
+          RunOut2 = RunOut1 ++ foldl(func(Desc, R) = R ++ format("%s Step %i: Case 2.(iii): %s\n  S: %s\n", 
+                     [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
+                Descs, "")
+        ;
+          RunOut2 = RunOut1)
       ;
-        RuntimeOut2 = RuntimeOut1)
-    ;
-      CS1 = CS,
-      Bodies = [],
-      RuntimeOut2 = RuntimeOut1)
-  ;
-    CS1 = CS,
-    solutions((pred(Body::out) is nondet :- rule(S, Body), \+ (member(A, Body), excluded(A, D))), Bodies),
-    RuntimeOut2 = RuntimeOut1),
-
+        % Constraint unify failed, so skip this body
+        Bodies2 = BodiesIn1,
+        CS2 = CSIn1,
+        RunOut2 = RunOut1)),
+      Bodies1, []-CS-RuntimeOut1),
   iterate_bodies(Bodies, S-GId, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, C, CS1, CSOut,
                  OppUnMrkMinus1-OppMrk1, IdsIn, "", IdsOut, RuntimeOut3),
   RuntimeOut = RuntimeOut2 ++ RuntimeOut3.
@@ -982,6 +970,8 @@ select3_(Tail, Head, Head, Tail).
 select3_([Head2|Tail], Head, X, [Head|Rest]) :-
     select3_(Tail, Head2, X, Rest).
 
+% Return a boolean constraint expression for the conditions when S matches any sentence in SSet.
+% If no match is possible, return f.
 membership(S, SSet) =
   foldl(func(S2, CIn) = COut :-
           (C1 = matches(S, S2) ->
@@ -993,6 +983,19 @@ membership(S, SSet) =
 excluded(A, D) :-
   (\+ (member(ExistingA, D), (exclusive(ExistingA, A) ; exclusive(A, ExistingA))) ->
     fail ; true).
+
+% Filter constraints from the body by unifying with the constraint store. unify may fail.
+filter_constraints(Body, CS, BodyOut, CSOut, Descs) :-
+  foldl((pred(S::in, Body1-CS1-Descs1::in, Body2-CS2-Descs2::out) is semidet :-
+           (constraint(S) ->
+             unify(S, CS1, CS2, Descs3),
+             Body2 = Body1,
+             Descs2 = union(Descs1, Descs3)
+           ;
+             CS2 = CS1,
+             Body2 = append(Body1, [S]),
+             Descs2 = Descs1)),
+        Body, []-CS-set.init, BodyOut-CSOut-Descs).
 
 % Syntactic sugar.
 unify(f(C), CS, CSOut, Descs) :- var_f_unify(C, CS, CSOut, Descs).
