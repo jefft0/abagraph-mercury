@@ -733,33 +733,21 @@ choose_turn(P, O, Player) :-
       turn_choice(TurnStrategy, P, O, Player)))).
 
 proponent_sentence_choice(P, S, Pminus) :-
-  % Process a constraint if available.
-  (find_first_constraint(P, S1, Pminus1) ->
+  % Check for the head of a rule where some body has a constraint.
+  (find_first((pred(H::in) is semidet :- rule(H, Body), find_first_constraint(Body, _, _)), P, S1, Pminus1) ->
     S = S1, Pminus = Pminus1
   ;
-    % % No constraint. Use the sentence choice.
-    % get_proponent_sentence_choice(PropSentenceStrategy),
-    % sentence_choice(PropSentenceStrategy, P, S, Pminus)).
-    % No constraint. Check for the head of a rule where some body has a constraint.
-    (find_first((pred(H::in) is semidet :- rule(H, Body), find_first_constraint(Body, _, _)), P, S1, Pminus1) ->
-      S = S1, Pminus = Pminus1
-    ;
-      % No constraint. Use the sentence choice.
-      get_proponent_sentence_choice(PropSentenceStrategy),
-      sentence_choice(PropSentenceStrategy, P, S, Pminus))).
+    % No constraint. Use the sentence choice.
+    get_proponent_sentence_choice(PropSentenceStrategy),
+    sentence_choice(PropSentenceStrategy, P, S, Pminus)).
 
 opponent_abagraph_choice(O, JC, Ominus) :-
   get_opponent_abagraph_choice(OppJCStrategy),
   opponent_abagraph_choice(OppJCStrategy, O, JC, Ominus).
 
 opponent_sentence_choice(Claim-(Ss-Marked-OGraph), Se, Claim-(Ssminus-Marked-OGraph)) :-
-  % Process a constraint if available.
-  (find_first_constraint(Ss, Se1, Ssminus1) ->
-    Se = Se1, Ssminus = Ssminus1
-  ;
-    % No constraint. Use the sentence choice.
-    get_opponent_sentence_choice(OppSentenceStrategy),
-    sentence_choice_backtrack(OppSentenceStrategy, Ss, Se, Ssminus)).
+  get_opponent_sentence_choice(OppSentenceStrategy),
+  sentence_choice_backtrack(OppSentenceStrategy, Ss, Se, Ssminus).
 
 find_first_constraint(SList, SOut, SListMinus) :-
   find_first((pred(S::in) is semidet :- constraint(S)), SList, SOut, SListMinus).
