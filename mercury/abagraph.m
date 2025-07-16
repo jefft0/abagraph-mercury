@@ -370,7 +370,7 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
     ConstraintsRuntimeOut = foldl(func(Desc, In) = In ++ format("%s Step %i: Case 1.(iii): %s\n  S: %s\n", 
                                     [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
                                   Descs, ""),
-    RuntimeOut = RuntimeOut2 ++ ConstraintsRuntimeOut ++ format(
+    RuntimeOut = RuntimeOut2 ++ format(
       "%s Step %i: Case 1.(ii): S: %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  S: %s\n  NewUnMarkedAs: %s\n  NewUnMarkedNonAs: %s\n  ExistingBody: %s\n",
       [s(now), i(fst(IdsIn)), i(Id),
        s(join_list(" ", map(int_to_string, NewUnMarkedAsIds))),
@@ -380,6 +380,7 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
        s(sentence_set_to_string(NewUnMarkedAs)),
        s(sentence_set_to_string(NewUnMarkedNonAs)),
        s(sentence_set_to_string(ExistingBody))])
+      ++ ConstraintsRuntimeOut
   ;
     IdsOut = Ids1,
     RuntimeOut = RuntimeOut2).
@@ -518,7 +519,7 @@ opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, oppone
     RuntimeOut1 = ""),
   solutions((pred(Body::out) is nondet :- rule(S, Body), \+ (member(A, Body), excluded(A, D))), Bodies1),
   % Filter constraints in each body.
-  Bodies-CS1-RuntimeOut2 = foldl((
+  Bodies-CS1-ConstraintsRuntimeOut = foldl((
     func(Body1, BodiesIn1-CSIn1-RunOut1) = Bodies2-CS2-RunOut2 :-
       (filter_constraints(Body1, CSIn1, Body2, LocalCS2, Descs) ->
         Bodies2 = append(BodiesIn1, [Body2]),
@@ -534,10 +535,10 @@ opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, oppone
         Bodies2 = BodiesIn1,
         CS2 = CSIn1,
         RunOut2 = RunOut1)),
-      Bodies1, []-CS-RuntimeOut1),
+      Bodies1, []-CS-""),
   iterate_bodies(Bodies, S-GId, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, C, CS1, CSOut,
-                 OppUnMrkMinus1-OppMrk1, IdsIn, "", IdsOut, RuntimeOut3),
-  RuntimeOut = RuntimeOut2 ++ RuntimeOut3.
+                 OppUnMrkMinus1-OppMrk1, IdsIn, RuntimeOut1, IdsOut, RuntimeOut2),
+  RuntimeOut = RuntimeOut2 ++ ConstraintsRuntimeOut.
 
 % SGId is the graph ID that S came from.
 iterate_bodies([], _, _, OppUnMrkMinus-OppMrk, _, CS, CS, OppUnMrkMinus-OppMrk, Ids, RuntimeOut, Ids, RuntimeOut).
