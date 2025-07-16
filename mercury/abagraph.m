@@ -215,18 +215,20 @@ derivation([step_and_id_map(T, InN-IdsIn, RuntimeOut)|RestIn], ResultsIn, S, Max
       derivation(RestIn, [Result|ResultsIn], S, MaxResults, Results)
     ;
       format_append(runtime_out_path, RuntimeOut, []),
-      derivation_step(T, InN-IdsIn, Solutions),
-      ([step_and_id_map(T1, _-Ids1, RuntimeOut1)|Rest] = Solutions ->
+      derivation_step(T, InN-IdsIn, Solutions1),
+      % Set the next step number for all solutions.
+      OutN = InN + 1,
+      Solutions = map(func(step_and_id_map(T2, Ids2, R2)) = step_and_id_map(T2, OutN-snd(Ids2), R2), Solutions1),
+      ([step_and_id_map(T1, Ids1, RuntimeOut1)|Rest] = Solutions ->
         (verbose ->
           print_step(InN, T1),
           open(decompiled_path, "a", Fd),
           format(Fd, "; ^^^ Step %d\n\n", [i(InN)]),
           close(Fd)
         ; true),
-        OutN = InN + 1,
         % Replace the head of the solutions and continue processing.
         % If Rest is not [], it means that derivation_step added solutions.
-        derivation(append([step_and_id_map(T1, OutN-Ids1, RuntimeOut1)|Rest], RestIn), ResultsIn, S, MaxResults, Results)
+        derivation(append([step_and_id_map(T1, Ids1, RuntimeOut1)|Rest], RestIn), ResultsIn, S, MaxResults, Results)
       ;
         % derivation_step returned no solutions for the head. Try remaining solutions.
         derivation(RestIn, ResultsIn, S, MaxResults, Results)))).
