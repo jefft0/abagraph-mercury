@@ -104,8 +104,8 @@
           opponent_arg_graph_set::in, pair(set(sentence), map(sentence, int))::in, constraint_store::in,
           constraint_store::out, opponent_arg_graph_set::out, id_map::in, string::in, id_map::out, string::out) is nondet.
 :- pred update_argument_graph(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
-          constraint_store::in, constraint_store::out, list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out) is nondet.
-:- pred filter_marked(list(sentence)::in, set(sentence)::in, constraint_store::in, constraint_store::out, list(sentence)::out, list(sentence)::out) is nondet.
+          constraint_store::in, constraint_store::out, list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out, set(string)::out) is nondet.
+:- pred filter_marked(list(sentence)::in, set(sentence)::in, constraint_store::in, set(string)::in, constraint_store::out, list(sentence)::out, list(sentence)::out, set(string)::out) is nondet.
 :- pred acyclic(digraph(sentence)::in) is semidet.
 :- pred graph_union(digraph(sentence)::in, digraph(sentence)::in, digraph(sentence)::out) is det.
 :- pred append_element_nodup(list(T)::in, T::in, list(T)::out) is det.
@@ -333,7 +333,7 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
   ;
     RuntimeOut1 = ""),
   rule_choice(S, Body1, prop_info(D, PropGr), IdsIn, Ids1, RuntimeOutrule_choice),
-  filter_constraints(Body1, CS, Body, CS1, Descs),
+  filter_constraints(Body1, CS, Body, CS1, Descs1),
   RuntimeOut2 = RuntimeOut1 ++ RuntimeOutrule_choice,
   %\+ (member(X, Body), member(X, fst(C))),
   foldl((pred(X::in, CSIn-Debug1In::in, CSOut1-Debug1Out::out) is semidet :-
@@ -347,7 +347,8 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
   (verbose ->
     (Debug1 = "" -> true ; format_append(runtime_out_path, "%s Step %i: not(MemberXC):\n%s", [s(now), i(fst(IdsIn)), s(Debug1)]))
   ; true),
-  update_argument_graph(S, Body, PropMrk-PropGr, CS2, CSOut, BodyUnMrk, BodyUnMrkAs, PropMrk1-PropGr1),
+  update_argument_graph(S, Body, PropMrk-PropGr, CS2, CSOut, BodyUnMrk, BodyUnMrkAs, PropMrk1-PropGr1, Descs2),
+  Descs = union(Descs1, Descs2),
   append_elements_nodup(BodyUnMrk, PropUnMrkMinus, PropUnMrk1),
   % union(list_to_set(BodyUnMrkAs), D, D1),
   foldl((pred(UnMrkA::in, DIn::in, DOut::out) is semidet :-
@@ -528,8 +529,8 @@ opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, oppone
         CS2 = LocalCS2,
         (verbose ->
           RunOut2 = RunOut1 ++ foldl(func(Desc, R) = R ++ format("%s Step %i: Case 2.(iii): %s\n  S: %s\n", 
-                     [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
-                Descs, "")
+                                       [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
+                                     Descs, "")
         ;
           RunOut2 = RunOut1)
       ;
@@ -551,7 +552,7 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
                   [s(now), i(fst(IdsIn)), i(length(RestBodies)), s(sentence_list_to_string(Body))])
   ;
     RuntimeOut2 = RuntimeOut1),
-  update_argument_graph(S, Body, Marked-Graph, CS, CS1, UnMarked, UnMarkedAs, Marked1-Graph1),
+  update_argument_graph(S, Body, Marked-Graph, CS, CS1, UnMarked, UnMarkedAs, Marked1-Graph1, Descs),
   append_elements_nodup(UnMarked, UnMrkMinus, UnMrk1),
   (GId = 0 ->
     % We are on iteration >= 2 and need a new GId.
@@ -602,6 +603,9 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
         [s(now), i(fst(IdsIn)), i(Id), i(SGId), s(MarkGraph), s(sentence_to_string(S))])
     ;
       RuntimeOut3 = RuntimeOut2),
+    ConstraintsRuntimeOut = foldl(func(Desc, In) = In ++ format("%s Step %i: Case 2.(iii): %s\n  S: %s\n", 
+                                    [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
+                                  Descs, ""),
     RuntimeOut4 = RuntimeOut3 ++ format(
       "%s Step %i: Case 2.(ii): S: %i, NewGId %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  S: %s\n  NewUnMarkedAs: %s\n  NewUnMarkedNonAs: %s\n  ExistingBody: %s\n",
       [s(now), i(fst(IdsIn)), i(Id), i(NewGId),
@@ -612,6 +616,7 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
        s(sentence_set_to_string(NewUnMarkedAs)),
        s(sentence_set_to_string(NewUnMarkedNonAs)),
        s(sentence_set_to_string(ExistingBody))])
+      ++ ConstraintsRuntimeOut
   ;
     Ids5 = Ids1,
     RuntimeOut4 = RuntimeOut2),
@@ -625,12 +630,12 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
 %
 % SUBSIDIARY FUNCTIONS
 
-% update_argument_graph(S, Body, Marked-Graph, CS, CSOut, Unproved, UnprovedAs, Marked1-Graph1)
+% update_argument_graph(S, Body, Marked-Graph, CS, CSOut, Unproved, UnprovedAs, Marked1-Graph1, Descs)
 % - update graph representation of an argument with rule(S, Body)
 % - check updated version for acyclicity
 % - record the previously unproved sentences and assumptions from body
-update_argument_graph(S, Body, Marked-Graph, CS, CSOut, UnMarked, UnMarkedAs, Marked1-Graph1) :-
-  filter_marked(Body, Marked, CS, CSOut, UnMarked, UnMarkedAs),
+update_argument_graph(S, Body, Marked-Graph, CS, CSOut, UnMarked, UnMarkedAs, Marked1-Graph1, Descs) :-
+  filter_marked(Body, Marked, CS, set.init, CSOut, UnMarked, UnMarkedAs, Descs),
   %ord_del_element(Graph, S-[], GraphMinus),
   GraphMinus = Graph, % Note: We don't need to  delete S because it will be added again below.
   insert(S, Marked, Marked1),
@@ -647,32 +652,32 @@ update_argument_graph(S, Body, Marked-Graph, CS, CSOut, UnMarked, UnMarkedAs, Ma
   graph_union(GraphMinus1, BodyUnMarkedGraph, Graph1).
   %TODO: Check acyclic under constraints (acyclic(Graph1) -> true ; unexpected($file, $pred, "Graph1 not acyclic")).
 
-% filter_marked(Body, AlreadyProved, CS, CSOut, Unproved, UnprovedAs)
-filter_marked([], _, CS, CS, [], []).
-filter_marked([S|RestBody], Proved, CS, CSOut, InUnproved, InUnprovedAs) :-
+% filter_marked(Body, AlreadyProved, CS, DescsIn, CSOut, Unproved, UnprovedAs, Descs)
+filter_marked([], _, CS, Descs, CS, [], [], Descs).
+filter_marked([S|RestBody], Proved, CS, DescsIn, CSOut, InUnproved, InUnprovedAs, Descs) :-
   (assumption(S) ->
     A = S,
     MemberAProved = membership(A, Proved),
-    ( b_unify(MemberAProved, CS, CS1, _),
+    ( b_unify(MemberAProved, CS, CS1, Descs1),
       InUnproved = OutUnproved,
       InUnprovedAs = OutUnprovedAs,
-      filter_marked(RestBody, Proved, CS1, CSOut, OutUnproved, OutUnprovedAs)
+      filter_marked(RestBody, Proved, CS1, union(DescsIn, Descs1), CSOut, OutUnproved, OutUnprovedAs, Descs)
     ;
-      b_unify(not(MemberAProved), CS, CS1, _),
+      b_unify(not(MemberAProved), CS, CS1, Descs1),
       InUnproved = [A|OutUnproved], 
       InUnprovedAs = [A|OutUnprovedAs],
-      filter_marked(RestBody, Proved, CS1, CSOut, OutUnproved, OutUnprovedAs))
+      filter_marked(RestBody, Proved, CS1, union(DescsIn, Descs1), CSOut, OutUnproved, OutUnprovedAs, Descs))
   ;
     MemberSProved = membership(S, Proved),
-    ( b_unify(MemberSProved, CS, CS1, _),
+    ( b_unify(MemberSProved, CS, CS1, Descs1),
       InUnproved = OutUnproved,
       InUnprovedAs = OutUnprovedAs,
-      filter_marked(RestBody, Proved, CS1, CSOut, OutUnproved, OutUnprovedAs)
+      filter_marked(RestBody, Proved, CS1, union(DescsIn, Descs1), CSOut, OutUnproved, OutUnprovedAs, Descs)
     ;
-      b_unify(not(MemberSProved), CS, CS1, _),
+      b_unify(not(MemberSProved), CS, CS1, Descs1),
       InUnproved = [S|OutUnproved],
       InUnprovedAs = OutUnprovedAs,
-      filter_marked(RestBody, Proved, CS1, CSOut, OutUnproved, OutUnprovedAs))).
+      filter_marked(RestBody, Proved, CS1, union(DescsIn, Descs1), CSOut, OutUnproved, OutUnprovedAs, Descs))).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
