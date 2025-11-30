@@ -84,6 +84,8 @@
 :- func derivation_step(step_tuple, id_map) = list(step_and_id_map) is det.
 :- func proponent_step(step_tuple, id_map) = list(step_and_id_map) is det.
 :- func opponent_step(step_tuple, id_map) = list(step_and_id_map) is det.
+:- func step_runtime_out(set(sentence), pair(set(sentence), map(sentence, int)), constraint_store, id_map) = string is det.
+:- func prepend_runtime_out(list(step_and_id_map), string) = list(step_and_id_map) is det.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, pair(set(sentence), map(sentence, int))::in,
           set(attack)::in, constraint_store::in, id_map::in, step_and_id_map::out) is semidet.
@@ -234,29 +236,21 @@ derivation([step_and_id_map(T, InN-IdsIn, RuntimeOut)|RestIn], ResultsIn, S, Max
         Results = derivation(RestIn, ResultsIn, S, MaxResults)))).
 
 derivation_step(step_tuple(P, O, D, C, Att, CS), IdsIn) = Solutions :-
-  (verbose ->
-    puts("\n"),
-    RuntimeOut1 = format(
-      "%s Step %i start\n  D: %s\n  C: %s\n%s",
-      [s(now), i(fst(IdsIn)), s(sentence_set_to_string(D)), s(sentence_set_to_string(fst(C))), s(to_string(CS))])
-  ;
-    RuntimeOut1 = ""),
   choose_turn(P, O, Turn),
   (Turn = proponent ->
-    Solutions1 = proponent_step(step_tuple(P, O, D, C, Att, CS), IdsIn)
+    Solutions = proponent_step(step_tuple(P, O, D, C, Att, CS), IdsIn)
   ;
-    Solutions1 = opponent_step(step_tuple(P, O, D, C, Att, CS), IdsIn)),
-  % Prepend RuntimeOut1.
-  Solutions = map(func(step_and_id_map(T, Ids, R)) = step_and_id_map(T, Ids, RuntimeOut1 ++ R), Solutions1).
+    Solutions = opponent_step(step_tuple(P, O, D, C, Att, CS), IdsIn)).
 
 proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn) = Solutions :-
   proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
+  RuntimeOut1 = step_runtime_out(D, C, CS, IdsIn),
   (assumption(S) ->
     (proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn, Solution) ->
       poss_print_case("1.(i)", S),
-      Solutions = [Solution]
+      Solutions1 = [Solution]
     ;
-      Solutions = [])
+      Solutions1 = [])
   ;
     %TODO: Do we need to compute and explicitly check? non_assumption(S),
     promise_equivalent_solutions[SolutionsR] (
@@ -264,10 +258,12 @@ proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn) = 
                             proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn, Solution),
                             poss_print_case("1.(ii)", S)),
                          SolutionsR)),
-    Solutions = reverse(SolutionsR)).
+    Solutions1 = reverse(SolutionsR)),
+  Solutions = prepend_runtime_out(Solutions1, RuntimeOut1).
 
 opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn) = Solutions :-
   opponent_abagraph_choice(OppUnMrk, OppArg, OppUnMrkMinus),
+  RuntimeOut1 = step_runtime_out(D, C, CS, IdsIn),
   promise_equivalent_solutions[SolutionsR] (
     unsorted_solutions((pred(Solution::out) is nondet :-
                           opponent_sentence_choice(OppArg, S, OppArgMinus),
@@ -278,7 +274,21 @@ opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn) = Solutions 
                             opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn, Solution),
                             poss_print_case("2.(ii)", S))),
                        SolutionsR)),
-  Solutions = reverse(SolutionsR). 
+  Solutions1 = reverse(SolutionsR),
+  Solutions = prepend_runtime_out(Solutions1, RuntimeOut1).
+
+% This is a helper for proponent_step and opponent_step.
+step_runtime_out(D, C, CS, IdsIn) = RuntimeOut :-
+  (verbose ->
+    puts("\n"),
+    RuntimeOut = format(
+      "%s Step %i start\n  D: %s\n  C: %s\n%s",
+      [s(now), i(fst(IdsIn)), s(sentence_set_to_string(D)), s(sentence_set_to_string(fst(C))), s(to_string(CS))])
+  ;
+    RuntimeOut = "").
+
+% This is a helper for proponent_step and opponent_step.
+prepend_runtime_out(Solutions1, RuntimeOut) = map(func(step_and_id_map(T, Ids, R)) = step_and_id_map(T, Ids, RuntimeOut ++ R), Solutions1).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
