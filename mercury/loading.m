@@ -42,7 +42,7 @@
 :- import_module solutions.
 
 main(!IO) :-
-  derive(fact("a"), 1, _Results).
+  _Results = derive(fact("a"), 1).
 
 assumption(fact("a")).
 assumption(fact("b")).

@@ -53,8 +53,8 @@
                           set(attack),                            % Att
                           constraint_store).                      % CS
 
-% derive(S, MaxResults, Results).
-:- pred derive(sentence::in, int::in, list(derivation_result)::out) is det.
+% derive(S, MaxResults) = Results.
+:- func derive(sentence, int) = list(derivation_result) is det.
 
 :- implementation.
 
@@ -80,10 +80,10 @@
 :- type step_and_id_map ---> step_and_id_map(step_tuple, id_map, string).
 
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
-:- pred derivation(list(step_and_id_map)::in, list(derivation_result)::in, sentence::in, int::in, list(derivation_result)::out) is det.
-:- pred derivation_step(step_tuple::in, id_map::in, list(step_and_id_map)::out) is det.
-:- pred proponent_step(step_tuple::in, id_map::in, list(step_and_id_map)::out) is det.
-:- pred opponent_step(step_tuple::in, id_map::in, list(step_and_id_map)::out) is det.
+:- func derivation(list(step_and_id_map), list(derivation_result), sentence, int) = list(derivation_result) is det.
+:- func derivation_step(step_tuple, id_map) = list(step_and_id_map) is det.
+:- func proponent_step(step_tuple, id_map) = list(step_and_id_map) is det.
+:- func opponent_step(step_tuple, id_map) = list(step_and_id_map) is det.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
           opponent_arg_graph_set::in, set(sentence)::in, pair(set(sentence), map(sentence, int))::in,
           set(attack)::in, constraint_store::in, id_map::in, step_and_id_map::out) is semidet.
@@ -151,7 +151,7 @@
 %
 % DERIVATION CONTROL: entry predicates
 
-derive(S, MaxResults, Results) :-
+derive(S, MaxResults) = Results :-
   %retractall(proving(_)),
   %assert(proving(S)),
   initial_derivation_tuple(make_singleton_set(S), InitTuple),
@@ -169,7 +169,7 @@ derive(S, MaxResults, Results) :-
     Ids1 = 0-set(map.init, -1, map.init)),
   %retractall(sols(_)),
   %assert(sols(1)),
-  derivation([step_and_id_map(InitTuple, 1-snd(Ids1), "")], [], S, MaxResults, Results).
+  Results = derivation([step_and_id_map(InitTuple, 1-snd(Ids1), "")], [], S, MaxResults).
   %incr_sols.
 
 initial_derivation_tuple(
@@ -195,10 +195,10 @@ initial_derivation_tuple(
 %
 % DERIVATION CONTROL: basic control structure
 
-% derivation(ListOfSolutions, ResultsIn, S, MaxResults, Results) :-
+% derivation(ListOfSolutions, ResultsIn, S, MaxResults) = Results.
 % S is the claim sentence (only for printing).
-derivation([], Results, _, _, Results).
-derivation([step_and_id_map(T, InN-IdsIn, RuntimeOut)|RestIn], ResultsIn, S, MaxResults, Results) :-
+derivation([], Results, _, _) = Results.
+derivation([step_and_id_map(T, InN-IdsIn, RuntimeOut)|RestIn], ResultsIn, S, MaxResults) = Results :-
   (length(ResultsIn) >= MaxResults ->
     Results = ResultsIn
   ;
@@ -212,10 +212,10 @@ derivation([step_and_id_map(T, InN-IdsIn, RuntimeOut)|RestIn], ResultsIn, S, Max
       format_append(runtime_out_path, "%s ABA solution found\n", [s(now)]),
       % Add to the results and process remaining solutions (if any).
       print_result(S, Result),
-      derivation(RestIn, [Result|ResultsIn], S, MaxResults, Results)
+      Results = derivation(RestIn, [Result|ResultsIn], S, MaxResults)
     ;
       format_append(runtime_out_path, RuntimeOut, []),
-      derivation_step(T, InN-IdsIn, Solutions1),
+      Solutions1 = derivation_step(T, InN-IdsIn),
       % Set the next step number for all solutions.
       OutN = InN + 1,
       Solutions = map(func(step_and_id_map(T2, Ids2, R2)) = step_and_id_map(T2, OutN-snd(Ids2), R2), Solutions1),
@@ -228,12 +228,12 @@ derivation([step_and_id_map(T, InN-IdsIn, RuntimeOut)|RestIn], ResultsIn, S, Max
         ; true),
         % Replace the head of the solutions and continue processing.
         % If Rest is not [], it means that derivation_step added solutions.
-        derivation(append([step_and_id_map(T1, Ids1, RuntimeOut1)|Rest], RestIn), ResultsIn, S, MaxResults, Results)
+        Results = derivation(append([step_and_id_map(T1, Ids1, RuntimeOut1)|Rest], RestIn), ResultsIn, S, MaxResults)
       ;
         % derivation_step returned no solutions for the head. Try remaining solutions.
-        derivation(RestIn, ResultsIn, S, MaxResults, Results)))).
+        Results = derivation(RestIn, ResultsIn, S, MaxResults)))).
 
-derivation_step(step_tuple(P, O, D, C, Att, CS), IdsIn, Solutions) :-
+derivation_step(step_tuple(P, O, D, C, Att, CS), IdsIn) = Solutions :-
   (verbose ->
     puts("\n"),
     RuntimeOut1 = format(
@@ -243,13 +243,13 @@ derivation_step(step_tuple(P, O, D, C, Att, CS), IdsIn, Solutions) :-
     RuntimeOut1 = ""),
   choose_turn(P, O, Turn),
   (Turn = proponent ->
-    proponent_step(step_tuple(P, O, D, C, Att, CS), IdsIn, Solutions1)
+    Solutions1 = proponent_step(step_tuple(P, O, D, C, Att, CS), IdsIn)
   ;
-    opponent_step(step_tuple(P, O, D, C, Att, CS), IdsIn, Solutions1)),
+    Solutions1 = opponent_step(step_tuple(P, O, D, C, Att, CS), IdsIn)),
   % Prepend RuntimeOut1.
   Solutions = map(func(step_and_id_map(T, Ids, R)) = step_and_id_map(T, Ids, RuntimeOut1 ++ R), Solutions1).
 
-proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn, Solutions) :-
+proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn) = Solutions :-
   proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
   (assumption(S) ->
     (proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn, Solution) ->
@@ -266,7 +266,7 @@ proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn, So
                          SolutionsR)),
     Solutions = reverse(SolutionsR)).
 
-opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn, Solutions) :-
+opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn) = Solutions :-
   opponent_abagraph_choice(OppUnMrk, OppArg, OppUnMrkMinus),
   promise_equivalent_solutions[SolutionsR] (
     unsorted_solutions((pred(Solution::out) is nondet :-
