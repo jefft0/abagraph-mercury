@@ -125,6 +125,11 @@
 % when two var(string) lists match. Fail if cannot match.
 :- func var_string_list_matches(list(var(string)), list(var(string))) = b_constraint is semidet.
 
+% append_nodups(L1, L2) = L
+% A helper function to append each element of L2 to L1, avoiding duplicates.
+% This does not check if L1 has duplicates.
+:- func append_nodups(list(T), list(T)) = list(T).
+
 :- implementation.
 
 :- import_module bool.
@@ -167,19 +172,19 @@ unify(V, f(FC), constraint_store(FCs, ICs, SCs, BCs), CSOut, Descs) :-
   n_unify(V, FC, FCs, FCsOut, Descs1),
   % Use the new values to possibly reduce each boolean expression.
   foldl(
-    (pred(C::in, CSIn-DescsIn::in, CSOut1-remove_dups(append(DescsIn, DescsOut1))::out) is semidet :- b_unify(C, CSIn, CSOut1, DescsOut1)),
+    (pred(C::in, CSIn-DescsIn::in, CSOut1-append_nodups(DescsIn, DescsOut1)::out) is semidet :- b_unify(C, CSIn, CSOut1, DescsOut1)),
     BCs, constraint_store(FCsOut, ICs, SCs, set.init)-Descs1, CSOut-Descs).
 unify(V, i(IC), constraint_store(FCs, ICs, SCs, BCs), CSOut, Descs) :-
   n_unify(V, IC, ICs, ICsOut, Descs1),
   % Use the new values to possibly reduce each boolean expression.
   foldl(
-    (pred(C::in, CSIn-DescsIn::in, CSOut1-remove_dups(append(DescsIn, DescsOut1))::out) is semidet :- b_unify(C, CSIn, CSOut1, DescsOut1)),
+    (pred(C::in, CSIn-DescsIn::in, CSOut1-append_nodups(DescsIn, DescsOut1)::out) is semidet :- b_unify(C, CSIn, CSOut1, DescsOut1)),
     BCs, constraint_store(FCs, ICsOut, SCs, set.init)-Descs1, CSOut-Descs).
 unify(V, s(SC), constraint_store(FCs, ICs, SCs, BCs), CSOut, Descs) :-
   s_unify(V, SC, SCs, SCsOut, Descs1),
   % Use the new values to possibly reduce each boolean expression.
   foldl(
-    (pred(C::in, CSIn-DescsIn::in, CSOut1-remove_dups(append(DescsIn, DescsOut1))::out) is semidet :- b_unify(C, CSIn, CSOut1, DescsOut1)),
+    (pred(C::in, CSIn-DescsIn::in, CSOut1-append_nodups(DescsIn, DescsOut1)::out) is semidet :- b_unify(C, CSIn, CSOut1, DescsOut1)),
     BCs, constraint_store(FCs, ICs, SCsOut, set.init)-Descs1, CSOut-Descs).
 
 n_unify(V, ':='(Val), Cs, CsOut, Descs) :- n_set_value(V, Val, Cs, CsOut, Descs).
@@ -200,12 +205,12 @@ n_unify(V, var(X) + Y, Cs, CsOut, Descs) :-
               % We have var(V) - Y = var(X) and also var(X) >= XVal, so add
               % var(V) - Y >= XVal -> var(V) >= XVal + Y.
               n_unify(V, '>='(XVal + Y), CsIn, CsOut3, Descs2),
-              Descs3 = remove_dups(append(DescsIn, Descs2))
+              Descs3 = append_nodups(DescsIn, Descs2)
             ;(XC = '=<'(XVal) ->
               % We have var(V) - Y = var(X) and also var(X) =< XVal, so add
               % var(V) - Y =< XVal -> var(V) =< XVal + Y.
               n_unify(V, '=<'(XVal + Y), CsIn, CsOut3, Descs2),
-              Descs3 = remove_dups(append(DescsIn, Descs2))
+              Descs3 = append_nodups(DescsIn, Descs2)
             ;
               CsOut3 = CsIn,
               Descs3 = DescsIn))),
@@ -233,7 +238,7 @@ n_unify(V, var(X) ++ var(Y), Cs, CsOut, Descs) :-
       (AddTransformed = yes ->
         n_unify(X, var(V) -- var(Y), CsOut1, CsOut2, Descs1),
         n_unify(Y, var(V) -- var(X), CsOut2, CsOut, Descs2),
-        Descs = remove_dups(append(Descs1, Descs2))
+        Descs = append_nodups(Descs1, Descs2)
       ;
         CsOut = CsOut1,
         Descs = []))).
@@ -254,12 +259,12 @@ n_unify(V, X - var(Y), Cs, CsOut, Descs) :-
               % We have X - var(V) = var(Y) and also var(Y) >= YVal, so add
               % X - var(V) >= YVal -> -var(V) >= YVal - X -> var(V) =< X - YVal.
               n_unify(V, '=<'(X - YVal), CsIn, CsOut3, Descs2),
-              Descs3 = remove_dups(append(DescsIn, Descs2))
+              Descs3 = append_nodups(DescsIn, Descs2)
             ;(YC = '=<'(YVal) ->
               % We have X - var(V) = var(Y) and also var(Y) =< YVal, so add
               % X - var(V) =< YVal -> -var(V) =< YVal - X -> var(V) >= X - YVal.
               n_unify(V, '>='(X - YVal), CsIn, CsOut3, Descs2),
-              Descs3 = remove_dups(append(DescsIn, Descs2))
+              Descs3 = append_nodups(DescsIn, Descs2)
             ;
               CsOut3 = CsIn,
               Descs3 = DescsIn))),
@@ -287,7 +292,7 @@ n_unify(V, var(X) -- var(Y), Cs, CsOut, Descs) :-
       (AddTransformed = yes ->
         n_unify(X, var(V) ++ var(Y), CsOut1, CsOut2, Descs1),
         n_unify(Y, var(X) -- var(V), CsOut2, CsOut, Descs2),
-        Descs = remove_dups(append(Descs1, Descs2))
+        Descs = append_nodups(Descs1, Descs2)
       ;
         CsOut = CsOut1,
         Descs = []))).
@@ -439,7 +444,7 @@ s_unify(V, ':='(Val), Cs, CsOut, Descs) :-
       foldl(
         (pred(C::in, CsIn-DescsIn::in, CsOut1-DescsOut1::out) is semidet :-
           s_new_value(Val, C, CsIn, CsOut1, Descs2),
-          DescsOut1 = remove_dups(append(DescsIn, Descs2))),
+          DescsOut1 = append_nodups(DescsIn, Descs2)),
         CSet, Cs1-Descs1, CsOut-Descs))
   ;  
     % Create the entry for V.
@@ -478,7 +483,7 @@ b_unify(C, CS, CSOut, Descs) :-
               % Add X and Y separately.
               b_unify(X, CS, CS1, Descs1),
               b_unify(Y, CS1, CSOut, Descs2),
-              Descs = remove_dups(append(Descs1, Descs2))
+              Descs = append_nodups(Descs1, Descs2)
             ;
               CSOut = constraint_store(FCs, ICs, SCs, insert(BCs, C1)),
               Descs = [])))))).
@@ -603,7 +608,7 @@ n_set_value(V, Val, Cs, CsOut, Descs) :-
       foldl(
         (pred(C::in, CsIn-DescsIn::in, CsOut1-DescsOut1::out) is semidet :-
           n_new_value(Val, C, CsIn, CsOut1, Descs2),
-          DescsOut1 = remove_dups(append(DescsIn, Descs2))),
+          DescsOut1 = append_nodups(DescsIn, Descs2)),
         CSet, Cs1-Descs1, CsOut-Descs))
   ;  
     % Create the entry for V.
@@ -762,6 +767,14 @@ var_string_list_matches(XList, YList) = C :-
     YList = [var(Y1)|RestY],
     foldl(pred(var(XIn)::in, CIn-[var(YIn)|RestYIn]::in, and(CIn, s(XIn == YIn))-RestYIn::out) is semidet,
                RestX, s(X1 == Y1)-RestY, C-_)).
+
+append_nodups(L1, L2) =
+  foldl(func(X, LIn) = L :-
+          (member(X, LIn) ->
+            L = LIn
+          ;
+            L = append(LIn, [X])),
+        L2, L1).
 
 :- pragma no_inline(next_var_int/1).
 :- pragma foreign_proc("C",

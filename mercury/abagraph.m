@@ -358,7 +358,7 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
     (Debug1 = "" -> true ; format_append(runtime_out_path, "%s Step %i: not(MemberXC):\n%s", [s(now), i(fst(IdsIn)), s(Debug1)]))
   ; true),
   update_argument_graph(S, Body, PropMrk-PropGr, CS2, CSOut, BodyUnMrk, BodyUnMrkAs, PropMrk1-PropGr1, Descs2),
-  Descs = remove_dups(append(Descs1, Descs2)),
+  Descs = append_nodups(Descs1, Descs2),
   append_elements_nodup(BodyUnMrk, PropUnMrkMinus, PropUnMrk1),
   % union(list_to_set(BodyUnMrkAs), D, D1),
   foldl((pred(UnMrkA::in, DIn::in, DOut::out) is semidet :-
@@ -671,23 +671,23 @@ filter_marked([S|RestBody], Proved, CS, DescsIn, CSOut, InUnproved, InUnprovedAs
     ( b_unify(MemberAProved, CS, CS1, Descs1),
       InUnproved = OutUnproved,
       InUnprovedAs = OutUnprovedAs,
-      filter_marked(RestBody, Proved, CS1, remove_dups(append(DescsIn, Descs1)), CSOut, OutUnproved, OutUnprovedAs, Descs)
+      filter_marked(RestBody, Proved, CS1, append_nodups(DescsIn, Descs1), CSOut, OutUnproved, OutUnprovedAs, Descs)
     ;
       b_unify(not(MemberAProved), CS, CS1, Descs1),
       InUnproved = [A|OutUnproved], 
       InUnprovedAs = [A|OutUnprovedAs],
-      filter_marked(RestBody, Proved, CS1, remove_dups(append(DescsIn, Descs1)), CSOut, OutUnproved, OutUnprovedAs, Descs))
+      filter_marked(RestBody, Proved, CS1, append_nodups(DescsIn, Descs1), CSOut, OutUnproved, OutUnprovedAs, Descs))
   ;
     MemberSProved = membership(S, Proved),
     ( b_unify(MemberSProved, CS, CS1, Descs1),
       InUnproved = OutUnproved,
       InUnprovedAs = OutUnprovedAs,
-      filter_marked(RestBody, Proved, CS1, remove_dups(append(DescsIn, Descs1)), CSOut, OutUnproved, OutUnprovedAs, Descs)
+      filter_marked(RestBody, Proved, CS1, append_nodups(DescsIn, Descs1), CSOut, OutUnproved, OutUnprovedAs, Descs)
     ;
       b_unify(not(MemberSProved), CS, CS1, Descs1),
       InUnproved = [S|OutUnproved],
       InUnprovedAs = OutUnprovedAs,
-      filter_marked(RestBody, Proved, CS1, remove_dups(append(DescsIn, Descs1)), CSOut, OutUnproved, OutUnprovedAs, Descs))).
+      filter_marked(RestBody, Proved, CS1, append_nodups(DescsIn, Descs1), CSOut, OutUnproved, OutUnprovedAs, Descs))).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -996,7 +996,7 @@ filter_constraints(Body, CS, BodyOut, CSOut, Descs) :-
            (constraint(S) ->
              unify(S, CS1, CS2, Descs3),
              Body2 = Body1,
-             Descs2 = remove_dups(append(Descs1, Descs3))
+             Descs2 = append_nodups(Descs1, Descs3)
            ;
              CS2 = CS1,
              Body2 = append(Body1, [S]),
