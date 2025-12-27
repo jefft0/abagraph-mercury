@@ -106,8 +106,8 @@
           opponent_arg_graph_set::in, pair(set(sentence), map(sentence, int))::in, constraint_store::in,
           constraint_store::out, opponent_arg_graph_set::out, id_map::in, string::in, id_map::out, string::out) is nondet.
 :- pred update_argument_graph(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
-          constraint_store::in, constraint_store::out, list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out, set(string)::out) is nondet.
-:- pred filter_marked(list(sentence)::in, set(sentence)::in, constraint_store::in, set(string)::in, constraint_store::out, list(sentence)::out, list(sentence)::out, set(string)::out) is nondet.
+          constraint_store::in, constraint_store::out, list(sentence)::out, list(sentence)::out, pair(set(sentence), digraph(sentence))::out, list(string)::out) is nondet.
+:- pred filter_marked(list(sentence)::in, set(sentence)::in, constraint_store::in, list(string)::in, constraint_store::out, list(sentence)::out, list(sentence)::out, list(string)::out) is nondet.
 :- pred acyclic(digraph(sentence)::in) is semidet.
 :- pred graph_union(digraph(sentence)::in, digraph(sentence)::in, digraph(sentence)::out) is det.
 :- pred append_element_nodup(list(T)::in, T::in, list(T)::out) is det.
@@ -141,9 +141,9 @@
 :- pred select(T::out, list(T)::in, list(T)::out) is nondet.
 :- pred select3_(list(T)::in, T::in, T::out, list(T)::out) is multi.
 :- func membership(sentence, set(sentence)) = b_constraint is det.
-:- pred unify(sentence::in, constraint_store::in, constraint_store::out, set(string)::out) is semidet.
+:- pred unify(sentence::in, constraint_store::in, constraint_store::out, list(string)::out) is semidet.
 :- pred excluded(sentence::in, set(sentence)::in) is semidet.
-:- pred filter_constraints(list(sentence)::in, constraint_store::in, list(sentence)::out, constraint_store::out, set(string)::out) is semidet.
+:- pred filter_constraints(list(sentence)::in, constraint_store::in, list(sentence)::out, constraint_store::out, list(string)::out) is semidet.
 :- pred next_step_all_branches_int(int::out) is det.
 
 % ("set some options" moved to options.m.)
@@ -358,7 +358,7 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
     (Debug1 = "" -> true ; format_append(runtime_out_path, "%s Step %i: not(MemberXC):\n%s", [s(now), i(fst(IdsIn)), s(Debug1)]))
   ; true),
   update_argument_graph(S, Body, PropMrk-PropGr, CS2, CSOut, BodyUnMrk, BodyUnMrkAs, PropMrk1-PropGr1, Descs2),
-  Descs = union(Descs1, Descs2),
+  Descs = remove_dups(append(Descs1, Descs2)),
   append_elements_nodup(BodyUnMrk, PropUnMrkMinus, PropUnMrk1),
   % union(list_to_set(BodyUnMrkAs), D, D1),
   foldl((pred(UnMrkA::in, DIn::in, DOut::out) is semidet :-
@@ -645,7 +645,7 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
 % - check updated version for acyclicity
 % - record the previously unproved sentences and assumptions from body
 update_argument_graph(S, Body, Marked-Graph, CS, CSOut, UnMarked, UnMarkedAs, Marked1-Graph1, Descs) :-
-  filter_marked(Body, Marked, CS, set.init, CSOut, UnMarked, UnMarkedAs, Descs),
+  filter_marked(Body, Marked, CS, [], CSOut, UnMarked, UnMarkedAs, Descs),
   %ord_del_element(Graph, S-[], GraphMinus),
   GraphMinus = Graph, % Note: We don't need to  delete S because it will be added again below.
   insert(S, Marked, Marked1),
@@ -671,23 +671,23 @@ filter_marked([S|RestBody], Proved, CS, DescsIn, CSOut, InUnproved, InUnprovedAs
     ( b_unify(MemberAProved, CS, CS1, Descs1),
       InUnproved = OutUnproved,
       InUnprovedAs = OutUnprovedAs,
-      filter_marked(RestBody, Proved, CS1, union(DescsIn, Descs1), CSOut, OutUnproved, OutUnprovedAs, Descs)
+      filter_marked(RestBody, Proved, CS1, remove_dups(append(DescsIn, Descs1)), CSOut, OutUnproved, OutUnprovedAs, Descs)
     ;
       b_unify(not(MemberAProved), CS, CS1, Descs1),
       InUnproved = [A|OutUnproved], 
       InUnprovedAs = [A|OutUnprovedAs],
-      filter_marked(RestBody, Proved, CS1, union(DescsIn, Descs1), CSOut, OutUnproved, OutUnprovedAs, Descs))
+      filter_marked(RestBody, Proved, CS1, remove_dups(append(DescsIn, Descs1)), CSOut, OutUnproved, OutUnprovedAs, Descs))
   ;
     MemberSProved = membership(S, Proved),
     ( b_unify(MemberSProved, CS, CS1, Descs1),
       InUnproved = OutUnproved,
       InUnprovedAs = OutUnprovedAs,
-      filter_marked(RestBody, Proved, CS1, union(DescsIn, Descs1), CSOut, OutUnproved, OutUnprovedAs, Descs)
+      filter_marked(RestBody, Proved, CS1, remove_dups(append(DescsIn, Descs1)), CSOut, OutUnproved, OutUnprovedAs, Descs)
     ;
       b_unify(not(MemberSProved), CS, CS1, Descs1),
       InUnproved = [S|OutUnproved],
       InUnprovedAs = OutUnprovedAs,
-      filter_marked(RestBody, Proved, CS1, union(DescsIn, Descs1), CSOut, OutUnproved, OutUnprovedAs, Descs))).
+      filter_marked(RestBody, Proved, CS1, remove_dups(append(DescsIn, Descs1)), CSOut, OutUnproved, OutUnprovedAs, Descs))).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -996,12 +996,12 @@ filter_constraints(Body, CS, BodyOut, CSOut, Descs) :-
            (constraint(S) ->
              unify(S, CS1, CS2, Descs3),
              Body2 = Body1,
-             Descs2 = union(Descs1, Descs3)
+             Descs2 = remove_dups(append(Descs1, Descs3))
            ;
              CS2 = CS1,
              Body2 = append(Body1, [S]),
              Descs2 = Descs1)),
-        Body, []-CS-set.init, BodyOut-CSOut-Descs).
+        Body, []-CS-[], BodyOut-CSOut-Descs).
 
 % Syntactic sugar.
 unify(f(C), CS, CSOut, Descs) :- var_f_unify(C, CS, CSOut, Descs).
