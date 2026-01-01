@@ -934,7 +934,8 @@ sort_rule_pairs(l1, PropInfo, RuleBodies, SortedRuleBodies) :-
   sort((pred(X::in, Y::in, R::out) is det :- rule_sort_look_ahead_1(PropInfo, X, Y, R)), RuleBodies, SortedRuleBodies).
 
 rule_sort_small_bodies(Body1, Body2, Result) :-
-  builtin.compare(Result, length(Body1) + 0, length(Body2) + 0).
+  % Only count non-constraints
+  builtin.compare(Result, length(negated_filter(constraint, Body1)) + 0, length(negated_filter(constraint, Body2)) + 0).
 
 % here we minimize (Body - (D \cup JsP))
 rule_sort_look_ahead_1(prop_info(D, P_Graph), Body1, Body2, Result) :-
