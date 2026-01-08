@@ -200,10 +200,11 @@ initial_derivation_tuple(
 % derivation(ListOfSolutions, ResultsIn, S, MaxResults) = Results.
 % S is the claim sentence (only for printing).
 derivation([], Results, _, _) = Results.
-derivation([step_and_id_map(T, InN-IdsIn, RuntimeOut)|RestIn], ResultsIn, S, MaxResults) = Results :-
+derivation([step_and_id_map(T, IdsIn, RuntimeOut)|RestIn], ResultsIn, S, MaxResults) = Results :-
   (length(ResultsIn) >= MaxResults ->
     Results = ResultsIn
   ;
+    InN-_ = IdsIn,
     next_step_all_branches_int(StepAllBranches),
     format("*** Step %i (all branches)\n", [i(StepAllBranches - 1)]), % Debug
     (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
@@ -217,7 +218,7 @@ derivation([step_and_id_map(T, InN-IdsIn, RuntimeOut)|RestIn], ResultsIn, S, Max
       Results = derivation(RestIn, [Result|ResultsIn], S, MaxResults)
     ;
       format_append(runtime_out_path, RuntimeOut, []),
-      Solutions1 = derivation_step(T, InN-IdsIn),
+      Solutions1 = derivation_step(T, IdsIn),
       % Set the next step number for all solutions.
       OutN = InN + 1,
       Solutions = map(func(step_and_id_map(T2, Ids2, R2)) = step_and_id_map(T2, OutN-snd(Ids2), R2), Solutions1),
