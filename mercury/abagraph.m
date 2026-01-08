@@ -82,8 +82,8 @@
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
 :- func derivation(list(step_and_id_map), list(derivation_result), sentence, int) = list(derivation_result) is det.
 :- func derivation_step(step_tuple, id_map) = list(step_and_id_map) is det.
-:- func proponent_step(step_tuple, id_map) = list(step_and_id_map) is det.
-:- func opponent_step(step_tuple, id_map) = list(step_and_id_map) is det.
+:- func proponent_step(sentence, step_tuple, id_map) = list(step_and_id_map) is det.
+:- func opponent_step(focussed_pot_arg_graph, step_tuple, id_map) = list(step_and_id_map) is det.
 :- func step_runtime_out(set(sentence), pair(set(sentence), map(sentence, int)), constraint_store, id_map) = string is det.
 :- func prepend_runtime_out(list(step_and_id_map), string) = list(step_and_id_map) is det.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
@@ -239,45 +239,59 @@ derivation([step_and_id_map(T, IdsIn, RuntimeOut)|RestIn], ResultsIn, S, MaxResu
 derivation_step(step_tuple(P, O, D, C, Att, CS), IdsIn) = Solutions :-
   choose_turn(P, O, Turn),
   (Turn = proponent ->
-    Solutions = proponent_step(step_tuple(P, O, D, C, Att, CS), IdsIn)
+    PropUnMrk-_-_ = P,
+    % Ignore PropUnMrkMinus. proponent_step will make it.
+    proponent_sentence_choice(PropUnMrk, S, _),
+    Solutions = proponent_step(S, step_tuple(P, O, D, C, Att, CS), IdsIn)
   ;
-    Solutions = opponent_step(step_tuple(P, O, D, C, Att, CS), IdsIn)).
+    OppUnMrk-_ = O,
+    % Ignore OppUnMrkMinus. opponent_step will make it.
+    opponent_abagraph_choice(OppUnMrk, OppArg, _),
+    Solutions = opponent_step(OppArg, step_tuple(P, O, D, C, Att, CS), IdsIn)).
 
-proponent_step(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn) = Solutions :-
-  proponent_sentence_choice(PropUnMrk, S, PropUnMrkMinus),
-  RuntimeOut1 = step_runtime_out(D, C, CS, IdsIn),
-  (assumption(S) ->
-    (proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn, Solution) ->
-      poss_print_case("1.(i)", S),
-      Solutions1 = [Solution]
+% S should be a sentence in PropUnMrk.
+proponent_step(S, step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn) = Solutions :-
+  (delete_first(PropUnMrk, S, PropUnMrkMinus) ->
+    RuntimeOut1 = step_runtime_out(D, C, CS, IdsIn),
+    (assumption(S) ->
+      (proponent_asm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn, Solution) ->
+        poss_print_case("1.(i)", S),
+        Solutions1 = [Solution]
+      ;
+        Solutions1 = [])
     ;
-      Solutions1 = [])
+      %TODO: Do we need to compute and explicitly check? non_assumption(S),
+      promise_equivalent_solutions[SolutionsR] (
+        unsorted_solutions((pred(Solution::out) is nondet :-
+                              proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn, Solution),
+                              poss_print_case("1.(ii)", S)),
+                           SolutionsR)),
+      Solutions1 = reverse(SolutionsR)),
+    Solutions = prepend_runtime_out(Solutions1, RuntimeOut1)
   ;
-    %TODO: Do we need to compute and explicitly check? non_assumption(S),
+    % S was not in PropUnMrk so do nothing. (We don't expect this.)
+    Solutions = [step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn, "")]).
+
+% OppArg should be a sentence in OppUnMrk.
+opponent_step(OppArg, step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn) = Solutions :-
+  (delete_first(OppUnMrk, OppArg, OppUnMrkMinus) ->
+    RuntimeOut1 = step_runtime_out(D, C, CS, IdsIn),
     promise_equivalent_solutions[SolutionsR] (
       unsorted_solutions((pred(Solution::out) is nondet :-
-                            proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn, Solution),
-                            poss_print_case("1.(ii)", S)),
+                            opponent_sentence_choice(OppArg, S, OppArgMinus),
+                            (assumption(S) ->
+                              opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn, Solution)
+                            ;
+                              %TODO: Do we need to compute and explicitly check? non_assumption(S),
+                              opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn, Solution),
+                              poss_print_case("2.(ii)", S))),
                          SolutionsR)),
-    Solutions1 = reverse(SolutionsR)),
-  Solutions = prepend_runtime_out(Solutions1, RuntimeOut1).
-
-opponent_step(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn) = Solutions :-
-  opponent_abagraph_choice(OppUnMrk, OppArg, OppUnMrkMinus),
-  RuntimeOut1 = step_runtime_out(D, C, CS, IdsIn),
-  promise_equivalent_solutions[SolutionsR] (
-    unsorted_solutions((pred(Solution::out) is nondet :-
-                          opponent_sentence_choice(OppArg, S, OppArgMinus),
-                          (assumption(S) ->
-                            opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn, Solution)
-                          ;
-                            %TODO: Do we need to compute and explicitly check? non_assumption(S),
-                            opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn, Solution),
-                            poss_print_case("2.(ii)", S))),
-                       SolutionsR)),
-  Solutions1 = reverse(SolutionsR),
-  Solutions = prepend_runtime_out(Solutions1, RuntimeOut1).
-
+    Solutions1 = reverse(SolutionsR),
+    Solutions = prepend_runtime_out(Solutions1, RuntimeOut1)
+  ;
+    % OppArg was not in OppUnMrk so do nothing. (We don't expect this.)
+    Solutions = [step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn, "")]).
+  
 % This is a helper for proponent_step and opponent_step.
 step_runtime_out(D, C, CS, IdsIn) = RuntimeOut :-
   (verbose ->
