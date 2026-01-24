@@ -68,6 +68,14 @@
 % Get the initial list of solutions for the sentence.
 :- func initial_solutions(sentence) = list(step_and_id_map) is det.
 
+% proponent_step(S, StepAndIdMap) = Solutions.
+% S should be a sentence in PropUnMrk in StepAndIdMap.
+:- func proponent_step(sentence, step_and_id_map) = list(step_and_id_map) is det.
+
+% opponent_step(OppArg, StepAndIdMap) = Solutions.
+% OppArg should be a sentence in OppUnMrk in StepAndIdMap.
+:- func opponent_step(focussed_pot_arg_graph, step_and_id_map) = list(step_and_id_map) is det.
+
 :- implementation.
 
 :- import_module bool.
@@ -89,8 +97,6 @@
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
 :- func derivation(list(step_and_id_map), list(derivation_result), sentence, int) = list(derivation_result) is det.
 :- func derivation_step(step_and_id_map) = list(step_and_id_map) is det.
-:- func proponent_step(sentence, step_and_id_map) = list(step_and_id_map) is det.
-:- func opponent_step(focussed_pot_arg_graph, step_and_id_map) = list(step_and_id_map) is det.
 :- func step_runtime_out(set(sentence), pair(set(sentence), map(sentence, int)), constraint_store, id_map) = string is det.
 :- func prepend_runtime_out(list(step_and_id_map), string) = list(step_and_id_map) is det.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
@@ -183,6 +189,8 @@ initial_solutions(S) = Solutions :-
     % Put at least one key in IdsIn.
     Ids1 = 0-set(map.init, -1, map.init)),
   Solutions = [step_and_id_map(InitTuple, 1-snd(Ids1), "")].
+
+:- pragma foreign_export("C", initial_solutions(in) = out, "ML_initial_solutions").
 
 initial_derivation_tuple(
     PropUnMrk,
@@ -284,7 +292,8 @@ proponent_step(S, step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, 
     Solutions = [step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn,
                                  "warning: proponent_step: PropUnMrk doesn't have S " ++ sentence_to_string(S) ++ "\n")]).
 
-% OppArg should be a sentence in OppUnMrk.
+:- pragma foreign_export("C", proponent_step(in, in) = out, "ML_proponent_step").
+
 opponent_step(OppArg, step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn, _)) = Solutions :-
   (delete_first(OppUnMrk, OppArg, OppUnMrkMinus) ->
     RuntimeOut1 = step_runtime_out(D, C, CS, IdsIn),
@@ -304,7 +313,9 @@ opponent_step(OppArg, step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, 
     % OppArg was not in OppUnMrk so do nothing. (We don't expect this.)
     Solutions = [step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn,
                                  "warning: opponent_step: OppUnMrk doesn't have the given OppArg\n")]).
-  
+
+:- pragma foreign_export("C", opponent_step(in, in) = out, "ML_opponent_step").
+
 % This is a helper for proponent_step and opponent_step.
 step_runtime_out(D, C, CS, IdsIn) = RuntimeOut :-
   (verbose ->
