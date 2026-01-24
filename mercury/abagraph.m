@@ -81,9 +81,9 @@
 
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
 :- func derivation(list(step_and_id_map), list(derivation_result), sentence, int) = list(derivation_result) is det.
-:- func derivation_step(step_tuple, id_map) = list(step_and_id_map) is det.
-:- func proponent_step(sentence, step_tuple, id_map) = list(step_and_id_map) is det.
-:- func opponent_step(focussed_pot_arg_graph, step_tuple, id_map) = list(step_and_id_map) is det.
+:- func derivation_step(step_and_id_map) = list(step_and_id_map) is det.
+:- func proponent_step(sentence, step_and_id_map) = list(step_and_id_map) is det.
+:- func opponent_step(focussed_pot_arg_graph, step_and_id_map) = list(step_and_id_map) is det.
 :- func step_runtime_out(set(sentence), pair(set(sentence), map(sentence, int)), constraint_store, id_map) = string is det.
 :- func prepend_runtime_out(list(step_and_id_map), string) = list(step_and_id_map) is det.
 :- pred proponent_asm(sentence::in, list(sentence)::in, pair(set(sentence), digraph(sentence))::in,
@@ -218,7 +218,7 @@ derivation([step_and_id_map(T, IdsIn, RuntimeOut)|RestIn], ResultsIn, S, MaxResu
       Results = derivation(RestIn, [Result|ResultsIn], S, MaxResults)
     ;
       format_append(runtime_out_path, RuntimeOut, []),
-      Solutions1 = derivation_step(T, IdsIn),
+      Solutions1 = derivation_step(step_and_id_map(T, IdsIn, "")),
       % Set the next step number for all solutions.
       OutN = InN + 1,
       Solutions = map(func(step_and_id_map(T2, Ids2, R2)) = step_and_id_map(T2, OutN-snd(Ids2), R2), Solutions1),
@@ -236,21 +236,22 @@ derivation([step_and_id_map(T, IdsIn, RuntimeOut)|RestIn], ResultsIn, S, MaxResu
         % derivation_step returned no solutions for the head. Try remaining solutions.
         Results = derivation(RestIn, ResultsIn, S, MaxResults)))).
 
-derivation_step(step_tuple(P, O, D, C, Att, CS), IdsIn) = Solutions :-
+derivation_step(StepAndIdMap) = Solutions :-
+  step_and_id_map(step_tuple(P, O, _, _, _, _), _, _) = StepAndIdMap,
   choose_turn(P, O, Turn),
   (Turn = proponent ->
     PropUnMrk-_-_ = P,
     % Ignore PropUnMrkMinus. proponent_step will make it.
     proponent_sentence_choice(PropUnMrk, S, _),
-    Solutions = proponent_step(S, step_tuple(P, O, D, C, Att, CS), IdsIn)
+    Solutions = proponent_step(S, StepAndIdMap)
   ;
     OppUnMrk-_ = O,
     % Ignore OppUnMrkMinus. opponent_step will make it.
     opponent_abagraph_choice(OppUnMrk, OppArg, _),
-    Solutions = opponent_step(OppArg, step_tuple(P, O, D, C, Att, CS), IdsIn)).
+    Solutions = opponent_step(OppArg, StepAndIdMap)).
 
 % S should be a sentence in PropUnMrk.
-proponent_step(S, step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn) = Solutions :-
+proponent_step(S, step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn, _)) = Solutions :-
   (delete_first(PropUnMrk, S, PropUnMrkMinus) ->
     RuntimeOut1 = step_runtime_out(D, C, CS, IdsIn),
     (assumption(S) ->
@@ -270,10 +271,11 @@ proponent_step(S, step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn)
     Solutions = prepend_runtime_out(Solutions1, RuntimeOut1)
   ;
     % S was not in PropUnMrk so do nothing. (We don't expect this.)
-    Solutions = [step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn, "")]).
+    Solutions = [step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn,
+                                 "warning: proponent_step: PropUnMrk doesn't have S " ++ sentence_to_string(S) ++ "\n")]).
 
 % OppArg should be a sentence in OppUnMrk.
-opponent_step(OppArg, step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn) = Solutions :-
+opponent_step(OppArg, step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn, _)) = Solutions :-
   (delete_first(OppUnMrk, OppArg, OppUnMrkMinus) ->
     RuntimeOut1 = step_runtime_out(D, C, CS, IdsIn),
     promise_equivalent_solutions[SolutionsR] (
@@ -290,7 +292,8 @@ opponent_step(OppArg, step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn) = So
     Solutions = prepend_runtime_out(Solutions1, RuntimeOut1)
   ;
     % OppArg was not in OppUnMrk so do nothing. (We don't expect this.)
-    Solutions = [step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn, "")]).
+    Solutions = [step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn,
+                                 "warning: opponent_step: OppUnMrk doesn't have the given OppArg\n")]).
   
 % This is a helper for proponent_step and opponent_step.
 step_runtime_out(D, C, CS, IdsIn) = RuntimeOut :-
