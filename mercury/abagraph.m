@@ -8,6 +8,7 @@
 
 :- import_module constraints.
 :- import_module digraph.
+:- import_module int.
 :- import_module list.
 % Import sentence from loading.
 :- import_module loading.
@@ -53,14 +54,24 @@
                           set(attack),                            % Att
                           constraint_store).                      % CS
 
+% N-Map where N is the step number (for runtime_out) and map is 
+% GId -> (Map of Sentence -> SentenceId) for write_sentence/5.
+:- type id_map == pair(int, map(int, map(sentence, int))).
+
+% step_and_id_map(StepTuple, Ids, RuntimeOut).
+% Print RuntimeOut to runtime_out_path before calling derivation_step again with the StepTuple.
+:- type step_and_id_map ---> step_and_id_map(step_tuple, id_map, string).
+
 % derive(S, MaxResults) = Results.
 :- func derive(sentence, int) = list(derivation_result) is det.
+
+% Get the initial list of solutions for the sentence.
+:- func initial_solutions(sentence) = list(step_and_id_map) is det.
 
 :- implementation.
 
 :- import_module bool.
 :- import_module float.
-:- import_module int.
 :- import_module maybe.
 :- import_module options.
 :- import_module printing.
@@ -74,10 +85,6 @@
 
 :- type prop_info
    ---> prop_info(set(sentence), digraph(sentence)).
-
-% step_and_id_map(StepTuple, Ids, RuntimeOut).
-% Print RuntimeOut to runtime_out_path before calling derivation_step again with the StepTuple.
-:- type step_and_id_map ---> step_and_id_map(step_tuple, id_map, string).
 
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
 :- func derivation(list(step_and_id_map), list(derivation_result), sentence, int) = list(derivation_result) is det.
@@ -156,6 +163,12 @@
 derive(S, MaxResults) = Results :-
   %retractall(proving(_)),
   %assert(proving(S)),
+  %retractall(sols(_)),
+  %assert(sols(1)),
+  Results = derivation(initial_solutions(S), [], S, MaxResults).
+  %incr_sols.
+
+initial_solutions(S) = Solutions :-
   initial_derivation_tuple(make_singleton_set(S), InitTuple),
   (verbose ->
     IdsIn = 0-map.init,
@@ -169,10 +182,7 @@ derive(S, MaxResults) = Results :-
   ;
     % Put at least one key in IdsIn.
     Ids1 = 0-set(map.init, -1, map.init)),
-  %retractall(sols(_)),
-  %assert(sols(1)),
-  Results = derivation([step_and_id_map(InitTuple, 1-snd(Ids1), "")], [], S, MaxResults).
-  %incr_sols.
+  Solutions = [step_and_id_map(InitTuple, 1-snd(Ids1), "")].
 
 initial_derivation_tuple(
     PropUnMrk,

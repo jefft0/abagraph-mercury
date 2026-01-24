@@ -13,10 +13,6 @@
 :- import_module set.
 :- import_module string.
 
-% N-Map where N is the step number (for runtime_out) and map is 
-% GId -> (Map of Sentence -> SentenceId) for write_sentence/5.
-:- type id_map == pair(int, map(int, map(sentence, int))).
-
 :- pred poss_print_case(string::in, sentence::in) is det.
 :- pred print_step(int::in, step_tuple::in) is det.
 :- pred print_result(sentence::in, derivation_result::in) is det.
