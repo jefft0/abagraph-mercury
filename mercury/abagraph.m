@@ -171,7 +171,12 @@ derive(S, MaxResults) = Results :-
   %assert(proving(S)),
   %retractall(sols(_)),
   %assert(sols(1)),
-  Results = derivation(initial_solutions(S), [], S, MaxResults).
+  Solutions = initial_solutions(S),
+  (verbose, Solutions = [step_and_id_map(InitTuple, _, _)] ->
+    print_step(0, InitTuple)
+  ;
+    true),
+  Results = derivation(Solutions, [], S, MaxResults).
   %incr_sols.
 
 initial_solutions(S) = Solutions :-
@@ -183,8 +188,7 @@ initial_solutions(S) = Solutions :-
     close(Fd),
     format_append(runtime_out_path, 
       "%s Step 0: Case init: S: %i\n  S: %s\n\n",
-      [s(now), i(Id), s(sentence_to_string(S))]),
-    print_step(0, InitTuple)
+      [s(now), i(Id), s(sentence_to_string(S))])
   ;
     % Put at least one key in IdsIn.
     Ids1 = 0-set(map.init, -1, map.init)),
