@@ -219,44 +219,46 @@ initial_derivation_tuple(
 %
 % DERIVATION CONTROL: basic control structure
 
-% derivation(ListOfSolutions, ResultsIn, S, MaxResults) = Results.
+% derivation(SolutionsIn, ResultsIn, S, MaxResults) = Results.
 % S is the claim sentence (only for printing).
-derivation([], Results, _, _) = Results.
-derivation([step_and_id_map(T, IdsIn, RuntimeOut)|RestIn], ResultsIn, S, MaxResults) = Results :-
-  (length(ResultsIn) >= MaxResults ->
-    Results = ResultsIn
-  ;
-    InN-_ = IdsIn,
-    next_step_all_branches_int(StepAllBranches),
-    format("*** Step %i (all branches)\n", [i(StepAllBranches - 1)]), % Debug
-    (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
-      format("*** Step %i (all branches), %0.0f%% extra\n", [i(StepAllBranches - 1), f(100.0 * float((StepAllBranches - 1) - (InN - 1)) / float(InN - 1))]),
-      Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
-      ((option(show_solution, "true"), \+ verbose) -> PreviousN = InN - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
-      format_append(runtime_out_path, RuntimeOut, []),
-      format_append(runtime_out_path, "%s ABA solution found\n", [s(now)]),
-      % Add to the results and process remaining solutions (if any).
-      print_result(S, Result),
-      Results = derivation(RestIn, [Result|ResultsIn], S, MaxResults)
+derivation(SolutionsIn, ResultsIn, S, MaxResults) = Results :-
+  (SolutionsIn = [step_and_id_map(T, IdsIn, RuntimeOut)|RestIn] ->
+    (length(ResultsIn) >= MaxResults ->
+      Results = ResultsIn
     ;
-      format_append(runtime_out_path, RuntimeOut, []),
-      Solutions1 = derivation_step(step_and_id_map(T, IdsIn, "")),
-      % Set the next step number for all solutions.
-      OutN = InN + 1,
-      Solutions = map(func(step_and_id_map(T2, Ids2, R2)) = step_and_id_map(T2, OutN-snd(Ids2), R2), Solutions1),
-      ([step_and_id_map(T1, Ids1, RuntimeOut1)|Rest] = Solutions ->
-        (verbose ->
-          print_step(InN, T1),
-          open(decompiled_path, "a", Fd),
-          format(Fd, "; ^^^ Step %d\n\n", [i(InN)]),
-          close(Fd)
-        ; true),
-        % Replace the head of the solutions and continue processing.
-        % If Rest is not [], it means that derivation_step added solutions.
-        Results = derivation(append([step_and_id_map(T1, Ids1, RuntimeOut1)|Rest], RestIn), ResultsIn, S, MaxResults)
+      InN-_ = IdsIn,
+      next_step_all_branches_int(StepAllBranches),
+      format("*** Step %i (all branches)\n", [i(StepAllBranches - 1)]), % Debug
+      (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
+        format("*** Step %i (all branches), %0.0f%% extra\n", [i(StepAllBranches - 1), f(100.0 * float((StepAllBranches - 1) - (InN - 1)) / float(InN - 1))]),
+        Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
+        ((option(show_solution, "true"), \+ verbose) -> PreviousN = InN - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
+        format_append(runtime_out_path, RuntimeOut, []),
+        format_append(runtime_out_path, "%s ABA solution found\n", [s(now)]),
+        % Add to the results and process remaining solutions (if any).
+        print_result(S, Result),
+        Results = derivation(RestIn, [Result|ResultsIn], S, MaxResults)
       ;
-        % derivation_step returned no solutions for the head. Try remaining solutions.
-        Results = derivation(RestIn, ResultsIn, S, MaxResults)))).
+        format_append(runtime_out_path, RuntimeOut, []),
+        Solutions1 = derivation_step(step_and_id_map(T, IdsIn, "")),
+        % Set the next step number for all solutions.
+        OutN = InN + 1,
+        Solutions = map(func(step_and_id_map(T2, Ids2, R2)) = step_and_id_map(T2, OutN-snd(Ids2), R2), Solutions1),
+        ([step_and_id_map(T1, Ids1, RuntimeOut1)|Rest] = Solutions ->
+          (verbose ->
+            print_step(InN, T1),
+            open(decompiled_path, "a", Fd),
+            format(Fd, "; ^^^ Step %d\n\n", [i(InN)]),
+            close(Fd)
+          ; true),
+          % Replace the head of the solutions and continue processing.
+          % If Rest is not [], it means that derivation_step added solutions.
+          Results = derivation(append([step_and_id_map(T1, Ids1, RuntimeOut1)|Rest], RestIn), ResultsIn, S, MaxResults)
+        ;
+          % derivation_step returned no solutions for the head. Try remaining solutions.
+          Results = derivation(RestIn, ResultsIn, S, MaxResults))))
+  ;
+    Results = ResultsIn).
 
 derivation_step(StepAndIdMap) = Solutions :-
   step_and_id_map(step_tuple(P, O, _, _, _, _), _, _) = StepAndIdMap,
