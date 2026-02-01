@@ -72,9 +72,10 @@
 % S should be a sentence in PropUnMrk in StepAndIdMap.
 :- func proponent_step(sentence, step_and_id_map) = list(step_and_id_map) is det.
 
-% opponent_step(OppArg, StepAndIdMap) = Solutions.
-% OppArg should be a sentence in OppUnMrk in StepAndIdMap.
-:- func opponent_step(focussed_pot_arg_graph, step_and_id_map) = list(step_and_id_map) is det.
+% opponent_step(OppArg, S StepAndIdMap) = Solutions.
+% OppArg should be a graph in OppUnMrk in StepAndIdMap.
+% S should be an unmarked sentence in OppArg. If S is an assumption, then there is a solution for each assumption in OppArg.
+:- func opponent_step(focussed_pot_arg_graph, sentence, step_and_id_map) = list(step_and_id_map) is det.
 
 :- implementation.
 
@@ -129,14 +130,17 @@
 :- pred proponent_sentence_choice(list(sentence)::in, sentence::out, list(sentence)::out) is det.
 :- pred opponent_abagraph_choice(list(focussed_pot_arg_graph)::in, focussed_pot_arg_graph::out,
           list(focussed_pot_arg_graph)::out) is det.
-:- pred opponent_sentence_choice(focussed_pot_arg_graph::in, sentence::out, focussed_pot_arg_graph::out) is nondet.
+:- pred opponent_sentence_choice(focussed_pot_arg_graph, bool, sentence, focussed_pot_arg_graph).
+:- mode opponent_sentence_choice(in, in, out, out) is nondet.
+:- mode opponent_sentence_choice(in, in, in, out) is nondet.
 :- pred find_first_constraint(list(sentence)::in, sentence::out, list(sentence)::out) is semidet.
 :- pred rule_choice(sentence::in, list(sentence)::out, prop_info::in, id_map::in, id_map::out, string::out) is nondet.
 :- pred turn_choice(turn_choice::in, pot_arg_graph::in, opponent_arg_graph_set::in, turn::out) is det.
 :- pred sentence_choice(proponent_sentence_choice::in, list(sentence)::in, sentence::out,
           list(sentence)::out) is det.
-:- pred sentence_choice_backtrack(opponent_sentence_choice::in, list(sentence)::in, sentence::out,
-          list(sentence)::out) is nondet.
+:- pred sentence_choice_backtrack(opponent_sentence_choice, list(sentence), bool, sentence, list(sentence)).
+:- mode sentence_choice_backtrack(in, in, in, out, out) is nondet.
+:- mode sentence_choice_backtrack(in, in, in, in, out) is nondet.
 :- pred opponent_abagraph_choice(opponent_abagraph_choice::in, list(focussed_pot_arg_graph)::in,
           focussed_pot_arg_graph::out, list(focussed_pot_arg_graph)::out) is det.
 :- pred get_smallest_ss(list(focussed_pot_arg_graph)::in, int::in, focussed_pot_arg_graph::in, focussed_pot_arg_graph::out) is det.
@@ -270,7 +274,12 @@ derivation_step(StepAndIdMap) = Solutions :-
     OppUnMrk-_ = O,
     % Ignore OppUnMrkMinus. opponent_step will make it.
     opponent_abagraph_choice(OppUnMrk, OppArg, _),
-    Solutions = opponent_step(OppArg, StepAndIdMap)).
+    promise_equivalent_solutions[SentenceChoicesR] (
+      % Ignore OppArgMinus. opponent_step will make it.
+      unsorted_solutions(pred(S1::out) is nondet :- opponent_sentence_choice(OppArg, no, S1, _),
+                         SentenceChoicesR)),
+    S = det_last(SentenceChoicesR),
+    Solutions = opponent_step(OppArg, S, StepAndIdMap)).
 
 % S should be a sentence in PropUnMrk.
 proponent_step(S, step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn, _)) = Solutions :-
@@ -296,18 +305,34 @@ proponent_step(S, step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, 
     Solutions = [step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn,
                                  "warning: proponent_step: PropUnMrk doesn't have S " ++ sentence_to_string(S) ++ "\n")]).
 
-opponent_step(OppArg, step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn, _)) = Solutions :-
+opponent_step(OppArg, S, step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn, _)) = Solutions :-
   (delete_first(OppUnMrk, OppArg, OppUnMrkMinus) ->
     RuntimeOut1 = step_runtime_out(D, C, CS, IdsIn),
     promise_equivalent_solutions[SolutionsR] (
       unsorted_solutions((pred(Solution::out) is nondet :-
-                            opponent_sentence_choice(OppArg, S, OppArgMinus),
                             (assumption(S) ->
-                              opponent_i(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn, Solution)
+                              % Let opponent_sentence_choice match for each assumption in OppArg.
+                              promise_equivalent_solutions[SentenceChoicesR] (
+                                unsorted_solutions(pred(LocalS-LocalOppArgMinus::out) is nondet :- opponent_sentence_choice(OppArg, yes, LocalS, LocalOppArgMinus),
+                                                   SentenceChoicesR)),
+                              SentenceChoices = reverse(SentenceChoicesR),
+
+                              % Select S first, then the others in SentenceChoices.
+                              % (Maybe we could have opponent_sentence_choice do this, but we don't want to complicate it.)
+                              ( member(S1-OppArgMinus, SentenceChoices), S1 = S
+                              ;
+                                member(S1-OppArgMinus, SentenceChoices), S1 \= S),
+                              opponent_i(S1, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn, Solution)
                             ;
-                              %TODO: Do we need to compute and explicitly check? non_assumption(S),
-                              opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn, Solution),
-                              poss_print_case("2.(ii)", S))),
+                              % S is a non-assumption, so opponent_sentence_choice would simply select it. Use the "in" mode for S.
+                              (opponent_sentence_choice(OppArg, no, S, OppArgMinus) ->
+                                %TODO: Do we need to compute and explicitly check? non_assumption(S),
+                                opponent_ii(S, OppArgMinus, OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn, Solution),
+                                poss_print_case("2.(ii)", S)
+                              ;
+                                % opponent_sentence_choice failed because S was not in OppArg so do nothing. (We don't expect this.)
+                                Solution = step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn,
+                                                           "warning: opponent_step: OppUnMrk doesn't have the given OppArg\n")))),
                          SolutionsR)),
     Solutions1 = reverse(SolutionsR),
     Solutions = prepend_runtime_out(Solutions1, RuntimeOut1)
@@ -802,9 +827,9 @@ opponent_abagraph_choice(O, JC, Ominus) :-
   get_opponent_abagraph_choice(OppJCStrategy),
   opponent_abagraph_choice(OppJCStrategy, O, JC, Ominus).
 
-opponent_sentence_choice(Claim-(Ss-Marked-OGraph), Se, Claim-(Ssminus-Marked-OGraph)) :-
+opponent_sentence_choice(Claim-(Ss-Marked-OGraph), AssumptionsOnly, Se, Claim-(Ssminus-Marked-OGraph)) :-
   get_opponent_sentence_choice(OppSentenceStrategy),
-  sentence_choice_backtrack(OppSentenceStrategy, Ss, Se, Ssminus).
+  sentence_choice_backtrack(OppSentenceStrategy, Ss, AssumptionsOnly, Se, Ssminus).
 
 find_first_constraint(SList, SOut, SListMinus) :-
   find_first((pred(S::in) is semidet :- constraint(S)), SList, SOut, SListMinus).
@@ -874,17 +899,22 @@ sentence_choice(pn, Ss, S, Ssminus) :-
 
 % in the following we only need to backtrack over assumptions
 
-sentence_choice_backtrack(p, Ss, S, Ssminus) :-
-  (find_first((pred(X::in) is semidet :- \+ assumption(X)), Ss, First, SsminusS) ->
+% sentence_choice_backtrack(OppSentenceStrategy, Ss, AssumptionsOnly, S, Ssminus).
+% This matches for each assumption in Ss.
+% If AssumptionsOnly = yes then skip non-assumptions.
+sentence_choice_backtrack(p, Ss, AssumptionsOnly, S, Ssminus) :-
+  (AssumptionsOnly = no, find_first((pred(X::in) is semidet :- \+ assumption(X)), Ss, First, SsminusS) ->
     S = First, Ssminus = SsminusS
   ;
-    select(S, Ss, Ssminus)).
-sentence_choice_backtrack(pn, Ss, S, Ssminus) :-
+    select(S, Ss, Ssminus),
+    assumption(S)).
+sentence_choice_backtrack(pn, Ss, AssumptionsOnly, S, Ssminus) :-
   reverse(Ss, RevSs),
-  (find_first((pred(X::in) is semidet :- \+ assumption(X)), RevSs, First, SsminusS) ->
+  (AssumptionsOnly = no, find_first((pred(X::in) is semidet :- \+ assumption(X)), RevSs, First, SsminusS) ->
     S = First, Ssminus = SsminusS
   ;
-    select(S, RevSs, Ssminus)).
+    select(S, RevSs, Ssminus),
+    assumption(S)).
 
 %
 
