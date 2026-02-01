@@ -194,8 +194,6 @@ initial_solutions(S) = Solutions :-
     Ids1 = 0-set(map.init, -1, map.init)),
   Solutions = [step_and_id_map(InitTuple, 1-snd(Ids1), "")].
 
-:- pragma foreign_export("C", initial_solutions(in) = out, "ML_initial_solutions").
-
 initial_derivation_tuple(
     PropUnMrk,
     step_tuple(O_PropUnMrk-set.init-PropGr, % PropUnMrk-PropM-PropGr
@@ -298,8 +296,6 @@ proponent_step(S, step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, 
     Solutions = [step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), IdsIn,
                                  "warning: proponent_step: PropUnMrk doesn't have S " ++ sentence_to_string(S) ++ "\n")]).
 
-:- pragma foreign_export("C", proponent_step(in, in) = out, "ML_proponent_step").
-
 opponent_step(OppArg, step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn, _)) = Solutions :-
   (delete_first(OppUnMrk, OppArg, OppUnMrkMinus) ->
     RuntimeOut1 = step_runtime_out(D, C, CS, IdsIn),
@@ -319,8 +315,6 @@ opponent_step(OppArg, step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, 
     % OppArg was not in OppUnMrk so do nothing. (We don't expect this.)
     Solutions = [step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), IdsIn,
                                  "warning: opponent_step: OppUnMrk doesn't have the given OppArg\n")]).
-
-:- pragma foreign_export("C", opponent_step(in, in) = out, "ML_opponent_step").
 
 % This is a helper for proponent_step and opponent_step.
 step_runtime_out(D, C, CS, IdsIn) = RuntimeOut :-
