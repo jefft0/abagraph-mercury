@@ -161,6 +161,7 @@
 :- pred unify(sentence::in, constraint_store::in, constraint_store::out, list(string)::out) is semidet.
 :- pred excluded(sentence::in, set(sentence)::in) is semidet.
 :- pred filter_constraints(list(sentence)::in, constraint_store::in, list(sentence)::out, constraint_store::out, list(string)::out) is semidet.
+:- func step_string(int) = string is det.
 :- pred next_step_all_branches_int(int::out) is det.
 
 % ("set some options" moved to options.m.)
@@ -185,17 +186,18 @@ derive(S, MaxResults) = Results :-
 
 initial_solutions(S) = Solutions :-
   initial_derivation_tuple(make_singleton_set(S), InitTuple),
+  N = 0,
   (verbose ->
-    IdsIn = 0-map.init,
+    IdsIn = N-map.init,
     open(decompiled_path, "a", Fd),
     write_sentence(S, 0, Fd, Id, IdsIn, Ids1),
     close(Fd),
     format_append(runtime_out_path, 
-      "%s Step 0: Case init: S: %i\n  S: %s\n\n",
-      [s(now), i(Id), s(sentence_to_string(S))])
+      "%s %s: Case init: S: %i\n  S: %s\n\n",
+      [s(now), s(step_string(N)), i(Id), s(sentence_to_string(S))])
   ;
     % Put at least one key in IdsIn.
-    Ids1 = 0-set(map.init, -1, map.init)),
+    Ids1 = N-set(map.init, -1, map.init)),
   Solutions = [step_and_id_map(InitTuple, 1-snd(Ids1), "")].
 
 initial_derivation_tuple(
@@ -232,6 +234,7 @@ derivation(SolutionsIn, ResultsIn, S, MaxResults) = Results :-
       next_step_all_branches_int(StepAllBranches),
       format("*** Step %i (all branches)\n", [i(StepAllBranches - 1)]), % Debug
       (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
+        % Solution result.
         format("*** Step %i (all branches), %0.0f%% extra\n", [i(StepAllBranches - 1), f(100.0 * float((StepAllBranches - 1) - (InN - 1)) / float(InN - 1))]),
         Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
         ((option(show_solution, "true"), \+ verbose) -> PreviousN = InN - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
@@ -250,7 +253,7 @@ derivation(SolutionsIn, ResultsIn, S, MaxResults) = Results :-
           (verbose ->
             print_step(InN, T1),
             open(decompiled_path, "a", Fd),
-            format(Fd, "; ^^^ Step %d\n\n", [i(InN)]),
+            format(Fd, "; ^^^ %s\n\n", [s(step_string(InN))]),
             close(Fd)
           ; true),
           % Replace the head of the solutions and continue processing.
@@ -346,8 +349,8 @@ step_runtime_out(D, C, CS, IdsIn) = RuntimeOut :-
   (verbose ->
     puts("\n"),
     RuntimeOut = format(
-      "%s Step %i start\n  D: %s\n  C: %s\n%s",
-      [s(now), i(fst(IdsIn)), s(sentence_set_to_string(D)), s(sentence_set_to_string(fst(C))), s(to_string(CS))])
+      "%s %s start\n  D: %s\n  C: %s\n%s",
+      [s(now), s(step_string(fst(IdsIn))), s(sentence_set_to_string(D)), s(sentence_set_to_string(fst(C))), s(to_string(CS))])
   ;
     RuntimeOut = "").
 
@@ -364,7 +367,7 @@ prepend_runtime_out(Solutions1, RuntimeOut) = map(func(step_and_id_map(T, Ids, R
 proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att, CS, IdsIn,
               step_and_id_map(step_tuple(PropUnMrkMinus-PropMrk1-PropGr, OppUnMrk1-OppMrk, D, C, Att1, CS), IdsOut, RuntimeOut)) :-
   (verbose ->
-    RuntimeOut1 = format("%s Step %i: Case 1.(i) start A: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(A))])
+    RuntimeOut1 = format("%s %s: Case 1.(i) start A: %s\n", [s(now), s(step_string(fst(IdsIn))), s(sentence_to_string(A))])
   ;
     RuntimeOut1 = ""),
   contrary(A, Contrary),
@@ -393,8 +396,8 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att, CS,
     (solutions((pred(X::out) is nondet :- rule(Contrary, X)), []) -> % Debug: We only need to check for one solution.
       HasBody = "N" ; HasBody = "Y"),
     RuntimeOut = RuntimeOut1 ++ format(
-      "%s Step %i: Case 1.(i): A: %i, Contrary %i has body? %s, NewGId %i\n  A: %s\n  Contrary: %s\n",
-      [s(now), i(fst(IdsIn)), i(Id), i(ContraryId), s(HasBody), i(NewGId),
+      "%s %s: Case 1.(i): A: %i, Contrary %i has body? %s, NewGId %i\n  A: %s\n  Contrary: %s\n",
+      [s(now), s(step_string(fst(IdsIn))), i(Id), i(ContraryId), s(HasBody), i(NewGId),
        s(sentence_to_string(A)), s(sentence_to_string(Contrary))])
   ;
     IdsOut = IdsIn,
@@ -403,7 +406,7 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att, CS,
 proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
                  step_and_id_map(step_tuple(PropUnMrk1-PropMrk1-PropGr1, O, D1, C, Att, CSOut), IdsOut, RuntimeOut)) :-
   (verbose ->
-    RuntimeOut1 = format("%s Step %i: Case 1.(ii) start S: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(S))])
+    RuntimeOut1 = format("%s %s: Case 1.(ii) start S: %s\n", [s(now), s(step_string(fst(IdsIn))), s(sentence_to_string(S))])
   ;
     RuntimeOut1 = ""),
   rule_choice(S, Body1, prop_info(D, PropGr), IdsIn, Ids1, RuntimeOutrule_choice),
@@ -419,7 +422,7 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
              Debug1Out = Debug1In ++ "  " ++ b_constraint_to_string(not(MemberXC)) ++ "\n")),
         Body, CS1-"", CS2-Debug1),
   (verbose ->
-    (Debug1 = "" -> true ; format_append(runtime_out_path, "%s Step %i: not(MemberXC):\n%s", [s(now), i(fst(IdsIn)), s(Debug1)]))
+    (Debug1 = "" -> true ; format_append(runtime_out_path, "%s %s: not(MemberXC):\n%s", [s(now), s(step_string(fst(IdsIn))), s(Debug1)]))
   ; true),
   update_argument_graph(S, Body, PropMrk-PropGr, CS2, CSOut, BodyUnMrk, BodyUnMrkAs, PropMrk1-PropGr1, Descs2),
   Descs = append_nodups(Descs1, Descs2),
@@ -444,12 +447,12 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
     write_sentence_set(NewUnMarkedNonAs, 0, Fd, NewUnMarkedNonAsIds, Ids3, Ids4),
     write_sentence_set(ExistingBody, 0, Fd, ExistingBodyIds, Ids4, IdsOut),
     close(Fd),
-    ConstraintsRuntimeOut = foldl(func(Desc, In) = In ++ format("%s Step %i: Case 1.(iii): %s\n  S: %s\n", 
-                                    [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
+    ConstraintsRuntimeOut = foldl(func(Desc, In) = In ++ format("%s %s: Case 1.(iii): %s\n  S: %s\n", 
+                                    [s(now), s(step_string(fst(IdsIn))), s(Desc), s(sentence_to_string(S))]),
                                   Descs, ""),
     RuntimeOut = RuntimeOut2 ++ format(
-      "%s Step %i: Case 1.(ii): S: %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  S: %s\n  NewUnMarkedAs: %s\n  NewUnMarkedNonAs: %s\n  ExistingBody: %s\n",
-      [s(now), i(fst(IdsIn)), i(Id),
+      "%s %s: Case 1.(ii): S: %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  S: %s\n  NewUnMarkedAs: %s\n  NewUnMarkedNonAs: %s\n  ExistingBody: %s\n",
+      [s(now), s(step_string(fst(IdsIn))), i(Id),
        s(join_list(" ", map(int_to_string, NewUnMarkedAsIds))),
        s(join_list(" ", map(int_to_string, NewUnMarkedNonAsIds))),
        s(join_list(" ", map(int_to_string, ExistingBodyIds))), 
@@ -466,18 +469,18 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, IdsIn,
 
 opponent_i(A, Claim-GId-(UnMrkMinus-Marked-Graph), OMinus, opponent_step_tuple(P, D, C, Att, CS), IdsIn, step_and_id_map(T, IdsOut, RuntimeOut)) :-
   (verbose ->
-    RuntimeOut1 = format("%s Step %i: Case 2 start A: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(A))])
+    RuntimeOut1 = format("%s %s: Case 2 start A: %s\n", [s(now), s(step_string(fst(IdsIn))), s(sentence_to_string(A))])
   ;
     RuntimeOut1 = ""),
   MemberAD = membership(A, D),
   (verbose ->
-    RuntimeOut2 = RuntimeOut1 ++ format("%s Step %i: MemberAD: %s\n", [s(now), i(fst(IdsIn)), s(b_constraint_to_string(MemberAD))])
+    RuntimeOut2 = RuntimeOut1 ++ format("%s %s: MemberAD: %s\n", [s(now), s(step_string(fst(IdsIn))), s(b_constraint_to_string(MemberAD))])
   ;
     RuntimeOut2 = RuntimeOut1),
   ( b_unify(not(MemberAD), CS, CS1, _),
     MemberAC = membership(A, fst(C)),
     (verbose ->
-      RuntimeOut3 = RuntimeOut2 ++ format("%s Step %i: MemberAC: %s\n", [s(now), i(fst(IdsIn)), s(b_constraint_to_string(MemberAC))])
+      RuntimeOut3 = RuntimeOut2 ++ format("%s %s: MemberAC: %s\n", [s(now), s(step_string(fst(IdsIn))), s(b_constraint_to_string(MemberAC))])
     ;
       RuntimeOut3 = RuntimeOut2),
     ( b_unify(MemberAC, CS1, CS2, _),
@@ -518,8 +521,8 @@ opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
     open(decompiled_path, "a", Fd),
     write_sentence(A, GId, Fd, Id, IdsIn, IdsOut),
     close(Fd),
-    RuntimeOut = RuntimeOut2 ++ format("%s Step %i: Case 2.(ia): A: %i, GId %i\n  A: %s\n",
-      [s(now), i(fst(IdsIn)), i(Id), i(GId), s(sentence_to_string(A))])
+    RuntimeOut = RuntimeOut2 ++ format("%s %s: Case 2.(ia): A: %i, GId %i\n  A: %s\n",
+      [s(now), s(step_string(fst(IdsIn))), i(Id), i(GId), s(sentence_to_string(A))])
   ; 
     IdsOut = IdsIn,
     RuntimeOut = RuntimeOut2).
@@ -542,8 +545,8 @@ opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
     close(Fd),
     % Get the ID of the original culprit. (This is why we pass around C as a pair with the Ids.)
     (FoundId = search(snd(C), A) -> CulpritId = FoundId ; CulpritId = 0),
-    RuntimeOut = RuntimeOut1 ++ format("%s Step %i: Case 2.(ib): A: %i, GId %i, Culprit %i\n  A: %s\n",
-      [s(now), i(fst(IdsIn)), i(Id), i(GId), i(CulpritId), s(sentence_to_string(A))])
+    RuntimeOut = RuntimeOut1 ++ format("%s %s: Case 2.(ib): A: %i, GId %i, Culprit %i\n  A: %s\n",
+      [s(now), s(step_string(fst(IdsIn))), i(Id), i(GId), i(CulpritId), s(sentence_to_string(A))])
   ; 
     IdsOut = IdsIn,
     RuntimeOut = RuntimeOut1).
@@ -553,7 +556,7 @@ opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
             opponent_step_tuple(PropUnMrk-PropMrk-PropGr, D, C, Att, CS), IdsIn, 
             step_and_id_map(step_tuple(PropUnMrk1-PropMrk-PropGr1, OppUnMrkMinus-OppMrk1, D1, C1, Att1, CS), IdsOut, RuntimeOut)) :-
   (verbose ->
-    RuntimeOut1 = format("%s Step %i: Case 2.(ic) start\n", [s(now), i(fst(IdsIn))])
+    RuntimeOut1 = format("%s %s: Case 2.(ic) start\n", [s(now), s(step_string(fst(IdsIn)))])
   ;
     RuntimeOut1 = ""),
   contrary(A, Contrary),
@@ -571,8 +574,8 @@ opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
     write_sentence(Contrary, 0, Fd, ContraryId, Ids1, IdsOut),
     close(Fd),
     RuntimeOut = RuntimeOut1 ++ format(
-      "%s Step %i: Case 2.(ic): A: %i, GId %i, Contrary %i new? %s\n  A: %s\n  Contrary: %s\n",
-      [s(now), i(fst(IdsIn)), i(Id), i(GId), i(ContraryId), s(IsNewContrary),
+      "%s %s: Case 2.(ic): A: %i, GId %i, Contrary %i new? %s\n  A: %s\n  Contrary: %s\n",
+      [s(now), s(step_string(fst(IdsIn))), i(Id), i(GId), i(ContraryId), s(IsNewContrary),
        s(sentence_to_string(A)), s(sentence_to_string(Contrary))])
   ; 
     Id = 0,
@@ -591,7 +594,7 @@ opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
 opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, opponent_step_tuple(P, D, C, Att, CS), IdsIn,
             step_and_id_map(step_tuple(P, OppUnMrkMinus1-OppMrk1, D, C, Att, CSOut), IdsOut, RuntimeOut)) :-
   (verbose ->
-    RuntimeOut1 = format("%s Step %i: Case 2.(ii) start S: %s\n", [s(now), i(fst(IdsIn)), s(sentence_to_string(S))])
+    RuntimeOut1 = format("%s %s: Case 2.(ii) start S: %s\n", [s(now), s(step_string(fst(IdsIn))), s(sentence_to_string(S))])
   ;
     RuntimeOut1 = ""),
   solutions((pred(Body::out) is nondet :- rule(S, Body), \+ (member(A, Body), excluded(A, D))), Bodies1),
@@ -602,8 +605,8 @@ opponent_ii(S, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk, oppone
         Bodies2 = append(BodiesIn1, [Body2]),
         CS2 = LocalCS2,
         (verbose ->
-          RunOut2 = RunOut1 ++ foldl(func(Desc, R) = R ++ format("%s Step %i: Case 2.(iii): %s\n  S: %s\n", 
-                                       [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
+          RunOut2 = RunOut1 ++ foldl(func(Desc, R) = R ++ format("%s %s: Case 2.(iii): %s\n  S: %s\n", 
+                                       [s(now), s(step_string(fst(IdsIn))), s(Desc), s(sentence_to_string(S))]),
                                      Descs, "")
         ;
           RunOut2 = RunOut1)
@@ -622,8 +625,8 @@ iterate_bodies([], _, _, OppUnMrkMinus-OppMrk, _, CS, CS, OppUnMrkMinus-OppMrk, 
 iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), InOppUnMrkMinus-InOppMrk, C, CS, CSOut,
                OppUnMrkMinus1-OppMrk1, IdsIn, RuntimeOut1, IdsOut, RuntimeOut) :-
   (verbose ->
-    RuntimeOut2 = RuntimeOut1 ++ format("%s Step %i: Case 2.(ii) Rest: %i Body: %s\n", 
-                  [s(now), i(fst(IdsIn)), i(length(RestBodies)), s(sentence_list_to_string(Body))])
+    RuntimeOut2 = RuntimeOut1 ++ format("%s %s: Case 2.(ii) Rest: %i Body: %s\n", 
+                  [s(now), s(step_string(fst(IdsIn))), i(length(RestBodies)), s(sentence_list_to_string(Body))])
   ;
     RuntimeOut2 = RuntimeOut1),
   update_argument_graph(S, Body, Marked-Graph, CS, CS1, UnMarked, UnMarkedAs, Marked1-Graph1, Descs),
@@ -673,16 +676,16 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
     write_sentence_set(ExistingBody, NewGId, Fd, ExistingBodyIds, Ids4, Ids5),
     close(Fd),
     (MarkS = yes ->
-      RuntimeOut3 = RuntimeOut2 ++ format("%s Step %i: Case 2.(ii): S: %i, GId %i, mark graph? %s\n  S: %s\n",
-        [s(now), i(fst(IdsIn)), i(Id), i(SGId), s(MarkGraph), s(sentence_to_string(S))])
+      RuntimeOut3 = RuntimeOut2 ++ format("%s %s: Case 2.(ii): S: %i, GId %i, mark graph? %s\n  S: %s\n",
+        [s(now), s(step_string(fst(IdsIn))), i(Id), i(SGId), s(MarkGraph), s(sentence_to_string(S))])
     ;
       RuntimeOut3 = RuntimeOut2),
-    ConstraintsRuntimeOut = foldl(func(Desc, In) = In ++ format("%s Step %i: Case 2.(iii): %s\n  S: %s\n", 
-                                    [s(now), i(fst(IdsIn)), s(Desc), s(sentence_to_string(S))]),
+    ConstraintsRuntimeOut = foldl(func(Desc, In) = In ++ format("%s %s: Case 2.(iii): %s\n  S: %s\n", 
+                                    [s(now), s(step_string(fst(IdsIn))), s(Desc), s(sentence_to_string(S))]),
                                   Descs, ""),
     RuntimeOut4 = RuntimeOut3 ++ format(
-      "%s Step %i: Case 2.(ii): S: %i, NewGId %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  S: %s\n  NewUnMarkedAs: %s\n  NewUnMarkedNonAs: %s\n  ExistingBody: %s\n",
-      [s(now), i(fst(IdsIn)), i(Id), i(NewGId),
+      "%s %s: Case 2.(ii): S: %i, NewGId %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  S: %s\n  NewUnMarkedAs: %s\n  NewUnMarkedNonAs: %s\n  ExistingBody: %s\n",
+      [s(now), s(step_string(fst(IdsIn))), i(Id), i(NewGId),
        s(join_list(" ", map(int_to_string, NewUnMarkedAsIds))),
        s(join_list(" ", map(int_to_string, NewUnMarkedNonAsIds))),
        s(join_list(" ", map(int_to_string, ExistingBodyIds))), 
@@ -852,8 +855,8 @@ rule_choice(Head, Body, prop_info(D, PropGr), IdsIn, IdsOut, RuntimeOut) :-
         Text = format(" [%s]", [s(join_list(" ", map(int_to_string, IdsList)))])),
       SortedRuleBodies, IdsIn-""),
     close(Fd),
-    RuntimeOut = format("%s Step %i: Head %s Potential bodies: [%s]\n", 
-      [s(now), i(fst(IdsIn)), s(sentence_to_string(Head)), s(BodiesText)])
+    RuntimeOut = format("%s %s: Head %s Potential bodies: [%s]\n", 
+      [s(now), s(step_string(fst(IdsIn))), s(sentence_to_string(Head)), s(BodiesText)])
   ;
     IdsOut = IdsIn,
     RuntimeOut = ""),
@@ -1077,6 +1080,8 @@ filter_constraints(Body, CS, BodyOut, CSOut, Descs) :-
 unify(f(C), CS, CSOut, Descs) :- var_f_unify(C, CS, CSOut, Descs).
 unify(i(C), CS, CSOut, Descs) :- var_i_unify(C, CS, CSOut, Descs).
 unify(s(C), CS, CSOut, Descs) :- var_s_unify(C, CS, CSOut, Descs).
+
+step_string(N) = format("Step %i", [i(N)]).
 
 :- pragma no_inline(next_step_all_branches_int/1).
 :- pragma foreign_proc("C",
