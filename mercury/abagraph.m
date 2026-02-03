@@ -198,7 +198,7 @@ initial_solutions(S) = Solutions :-
   ;
     % Put at least one key in IdsIn.
     Ids1 = set(map.init, -1, map.init)),
-  Solutions = [step_and_id_map(InitTuple, 1, Ids1, "")].
+  Solutions = [step_and_id_map(InitTuple, 0, Ids1, "")].
 
 initial_derivation_tuple(
     PropUnMrk,
@@ -226,7 +226,7 @@ initial_derivation_tuple(
 % derivation(SolutionsIn, ResultsIn, S, MaxResults) = Results.
 % S is the claim sentence (only for printing).
 derivation(SolutionsIn, ResultsIn, S, MaxResults) = Results :-
-  (SolutionsIn = [step_and_id_map(T, InN, IdsIn, RuntimeOut)|RestIn] ->
+  (SolutionsIn = [step_and_id_map(T, NIn, IdsIn, RuntimeOut)|RestIn] ->
     (length(ResultsIn) >= MaxResults ->
       Results = ResultsIn
     ;
@@ -234,9 +234,9 @@ derivation(SolutionsIn, ResultsIn, S, MaxResults) = Results :-
       format("*** Step %i (all branches)\n", [i(StepAllBranches - 1)]), % Debug
       (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
         % Solution result.
-        format("*** Step %i (all branches), %0.0f%% extra\n", [i(StepAllBranches - 1), f(100.0 * float((StepAllBranches - 1) - (InN - 1)) / float(InN - 1))]),
+        format("*** Step %i (all branches), %0.0f%% extra\n", [i(StepAllBranches - 1), f(100.0 * float((StepAllBranches - 1) - (NIn - 1)) / float(NIn - 1))]),
         Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
-        ((option(show_solution, "true"), \+ verbose) -> PreviousN = InN - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
+        ((option(show_solution, "true"), \+ verbose) -> PreviousN = NIn - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
         format_append(runtime_out_path, RuntimeOut, []),
         format_append(runtime_out_path, "%s ABA solution found\n", [s(now)]),
         % Add to the results and process remaining solutions (if any).
@@ -244,26 +244,25 @@ derivation(SolutionsIn, ResultsIn, S, MaxResults) = Results :-
         Results = derivation(RestIn, [Result|ResultsIn], S, MaxResults)
       ;
         format_append(runtime_out_path, RuntimeOut, []),
-        Solutions1 = derivation_step(step_and_id_map(T, InN, IdsIn, "")),
-        % Set the next step number for all solutions.
-        OutN = InN + 1,
-        Solutions = map(func(step_and_id_map(T2, _, Ids2, R2)) = step_and_id_map(T2, OutN, Ids2, R2), Solutions1),
-        ([step_and_id_map(T1, N1, Ids1, RuntimeOut1)|Rest] = Solutions ->
+        Solutions =  derivation_step(step_and_id_map(T, NIn, IdsIn, "")),
+        ([Solution1|Rest] = Solutions ->
           (verbose ->
-            print_step(InN, T1),
+            step_and_id_map(T1, _, _, _) = Solution1,
+            print_step(NIn, T1),
             open(decompiled_path, "a", Fd),
-            format(Fd, "; ^^^ %s\n\n", [s(step_string(InN))]),
+            format(Fd, "; ^^^ %s\n\n", [s(step_string(NIn))]),
             close(Fd)
           ; true),
           % Replace the head of the solutions and continue processing.
           % If Rest is not [], it means that derivation_step added solutions.
-          Results = derivation(append([step_and_id_map(T1, N1, Ids1, RuntimeOut1)|Rest], RestIn), ResultsIn, S, MaxResults)
+          Results = derivation(append([Solution1|Rest], RestIn), ResultsIn, S, MaxResults)
         ;
           % derivation_step returned no solutions for the head. Try remaining solutions.
           Results = derivation(RestIn, ResultsIn, S, MaxResults))))
   ;
     Results = ResultsIn).
 
+% Output Solutions and messages have the incremented step number.
 derivation_step(StepAndIdMap) = Solutions :-
   step_and_id_map(step_tuple(P, O, _, _, _, _), _, _, _) = StepAndIdMap,
   choose_turn(P, O, Turn),
@@ -283,8 +282,9 @@ derivation_step(StepAndIdMap) = Solutions :-
     S = det_last(SentenceChoicesR),
     Solutions = opponent_step(OppArg, S, StepAndIdMap)).
 
-% S should be a sentence in PropUnMrk.
-proponent_step(S, step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), N, IdsIn, _)) = Solutions :-
+% Output Solutions and messages have the incremented step number.
+proponent_step(S, step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), NIn, IdsIn, _)) = Solutions :-
+  N = NIn + 1,
   (delete_first(PropUnMrk, S, PropUnMrkMinus) ->
     RuntimeOut1 = step_runtime_out(D, C, CS, N),
     (assumption(S) ->
@@ -307,7 +307,9 @@ proponent_step(S, step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, 
     Solutions = [step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), N, IdsIn,
                                  "warning: proponent_step: PropUnMrk doesn't have S " ++ sentence_to_string(S) ++ "\n")]).
 
-opponent_step(OppArg, S, step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), N, IdsIn, _)) = Solutions :-
+% Output Solutions and messages have the incremented step number.
+opponent_step(OppArg, S, step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), NIn, IdsIn, _)) = Solutions :-
+  N = NIn + 1,
   (delete_first(OppUnMrk, OppArg, OppUnMrkMinus) ->
     RuntimeOut1 = step_runtime_out(D, C, CS, N),
     promise_equivalent_solutions[SolutionsR] (
