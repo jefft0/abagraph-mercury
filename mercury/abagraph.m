@@ -234,9 +234,9 @@ derivation(SolutionsIn, ResultsIn, S, MaxResults) = Results :-
       format("*** Step %i (all branches)\n", [i(StepAllBranches - 1)]), % Debug
       (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
         % Solution result.
-        format("*** Step %i (all branches), %0.0f%% extra\n", [i(StepAllBranches - 1), f(100.0 * float((StepAllBranches - 1) - (NIn - 1)) / float(NIn - 1))]),
+        format("*** Step %i (all branches), %0.0f%% extra\n", [i(StepAllBranches - 1), f(100.0 * float((StepAllBranches - 1) - NIn) / float(NIn))]),
         Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
-        ((option(show_solution, "true"), \+ verbose) -> PreviousN = NIn - 1, format("*** Step %i\n", [i(PreviousN)]) ; true),
+        ((option(show_solution, "true"), \+ verbose) -> format("*** Step %i\n", [i(NIn)]) ; true),
         format_append(runtime_out_path, RuntimeOut, []),
         format_append(runtime_out_path, "%s ABA solution found\n", [s(now)]),
         % Add to the results and process remaining solutions (if any).
@@ -247,8 +247,8 @@ derivation(SolutionsIn, ResultsIn, S, MaxResults) = Results :-
         Solutions =  derivation_step(step_and_id_map(T, NIn, IdsIn, "")),
         ([Solution1|Rest] = Solutions ->
           (verbose ->
-            step_and_id_map(T1, _, _, _) = Solution1,
-            print_step(NIn, T1),
+            step_and_id_map(T1, N, _, _) = Solution1,
+            print_step(N, T1),
             open(decompiled_path, "a", Fd),
             format(Fd, "; ^^^ %s\n\n", [s(step_string(NIn))]),
             close(Fd)
