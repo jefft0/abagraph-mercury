@@ -488,7 +488,7 @@ format_append(Path, S, PolyTypes) :-
     close(Fd)
   ; true).
 
-write_sentence(S, GId, Fd, Id, N-IdsIn, N-IdsOut) :-
+write_sentence(S, GId, Fd, Id, IdsIn, N-IdsOut) :-
   (Fd = det_from_int(0) ->
     Id = 0,
     IdsOut = IdsIn
