@@ -97,7 +97,7 @@
    ---> prop_info(set(sentence), digraph(sentence)).
 
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
-:- func derivation(list(step_and_id_map), list(derivation_result), sentence, int) = list(derivation_result) is det.
+:- func derivation(list(step_and_id_map), list(derivation_result), sentence, int, int) = list(derivation_result) is det.
 :- func derivation_step(step_and_id_map) = list(step_and_id_map) is det.
 :- func step_runtime_out(set(sentence), pair(set(sentence), map(sentence, int)), constraint_store, int) = string is det.
 :- func prepend_runtime_out(list(step_and_id_map), string) = list(step_and_id_map) is det.
@@ -163,7 +163,6 @@
 :- pred excluded(sentence::in, set(sentence)::in) is semidet.
 :- pred filter_constraints(list(sentence)::in, constraint_store::in, list(sentence)::out, constraint_store::out, list(string)::out) is semidet.
 :- func step_string(int) = string is det.
-:- pred next_step_all_branches_int(int::out) is det.
 
 % ("set some options" moved to options.m.)
 
@@ -182,7 +181,7 @@ derive(S, MaxResults) = Results :-
     print_step(0, InitTuple)
   ;
     true),
-  Results = derivation(Solutions, [], S, MaxResults).
+  Results = derivation(Solutions, [], S, MaxResults, 0).
   %incr_sols.
 
 initial_solutions(S) = Solutions :-
@@ -223,28 +222,28 @@ initial_derivation_tuple(
 %
 % DERIVATION CONTROL: basic control structure
 
-% derivation(SolutionsIn, ResultsIn, S, MaxResults) = Results.
+% derivation(SolutionsIn, ResultsIn, S, MaxResults, NStepsAllBranches) = Results.
 % S is the claim sentence (only for printing).
-derivation(SolutionsIn, ResultsIn, S, MaxResults) = Results :-
+% NStepsAllBranches is only for displaying metrics.
+derivation(SolutionsIn, ResultsIn, S, MaxResults, NStepsAllBranches) = Results :-
   (SolutionsIn = [step_and_id_map(T, NIn, IdsIn, RuntimeOut)|RestIn] ->
     (length(ResultsIn) >= MaxResults ->
       Results = ResultsIn
     ;
-      next_step_all_branches_int(StepAllBranches),
-      format("*** Step %i (all branches)\n", [i(StepAllBranches - 1)]), % Debug
+      format("*** Step %i (all branches)\n", [i(NStepsAllBranches)]), % Debug
       (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
         % Solution result.
-        format("*** Step %i (all branches), %0.0f%% extra\n", [i(StepAllBranches - 1), f(100.0 * float((StepAllBranches - 1) - NIn) / float(NIn))]),
+        format("*** Step %i (all branches), %0.0f%% extra\n", [i(NStepsAllBranches), f(100.0 * float((NStepsAllBranches) - NIn) / float(NIn))]),
         Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
         ((option(show_solution, "true"), \+ verbose) -> format("*** Step %i\n", [i(NIn)]) ; true),
         format_append(runtime_out_path, RuntimeOut, []),
         format_append(runtime_out_path, "%s ABA solution found\n", [s(now)]),
         % Add to the results and process remaining solutions (if any).
         print_result(S, Result),
-        Results = derivation(RestIn, [Result|ResultsIn], S, MaxResults)
+        Results = derivation(RestIn, [Result|ResultsIn], S, MaxResults, NStepsAllBranches+1)
       ;
         format_append(runtime_out_path, RuntimeOut, []),
-        Solutions =  derivation_step(step_and_id_map(T, NIn, IdsIn, "")),
+        Solutions = derivation_step(step_and_id_map(T, NIn, IdsIn, "")),
         ([Solution1|Rest] = Solutions ->
           (verbose ->
             step_and_id_map(T1, N, _, _) = Solution1,
@@ -255,10 +254,10 @@ derivation(SolutionsIn, ResultsIn, S, MaxResults) = Results :-
           ; true),
           % Replace the head of the solutions and continue processing.
           % If Rest is not [], it means that derivation_step added solutions.
-          Results = derivation(append([Solution1|Rest], RestIn), ResultsIn, S, MaxResults)
+          Results = derivation(append([Solution1|Rest], RestIn), ResultsIn, S, MaxResults, NStepsAllBranches+1)
         ;
           % derivation_step returned no solutions for the head. Try remaining solutions.
-          Results = derivation(RestIn, ResultsIn, S, MaxResults))))
+          Results = derivation(RestIn, ResultsIn, S, MaxResults, NStepsAllBranches+1))))
   ;
     Results = ResultsIn).
 
@@ -1083,12 +1082,3 @@ unify(i(C), CS, CSOut, Descs) :- var_i_unify(C, CS, CSOut, Descs).
 unify(s(C), CS, CSOut, Descs) :- var_s_unify(C, CS, CSOut, Descs).
 
 step_string(N) = format("Step %i", [i(N)]).
-
-:- pragma no_inline(next_step_all_branches_int/1).
-:- pragma foreign_proc("C",
-next_step_all_branches_int(Int::out),
-[promise_pure],
-"
-static long long int integer = 0;
-Int = ++integer;
-").
