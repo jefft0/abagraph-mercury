@@ -237,7 +237,7 @@ derivation(SolutionsIn, ResultsIn, S, MaxResults, NStepsAllBranches) = Results :
         Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
         ((option(show_solution, "true"), \+ verbose) -> format("*** Step %i\n", [i(NIn)]) ; true),
         format_append(runtime_out_path, RuntimeOut, []),
-        format_append(runtime_out_path, "%s ABA solution found\n", [s(now)]),
+        format_append(runtime_out_path, "%s %s: Solution found\n", [s(now), s(step_string(NIn))]),
         % Add to the results and process remaining solutions (if any).
         print_result(S, Result),
         Results = derivation(RestIn, [Result|ResultsIn], S, MaxResults, NStepsAllBranches+1)
