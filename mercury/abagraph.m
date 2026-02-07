@@ -66,7 +66,7 @@
 :- func derive(sentence, int) = list(derivation_result) is det.
 
 % Get the initial list of solutions for the sentence.
-:- func initial_solutions(sentence) = list(step_and_id_map) is det.
+:- func initial_solutions(sentence) = list(pair(int, step_and_id_map)) is det.
 
 % proponent_step(S, StepAndIdMap) = Solutions.
 % S should be a sentence in PropUnMrk in StepAndIdMap.
@@ -97,7 +97,7 @@
    ---> prop_info(set(sentence), digraph(sentence)).
 
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
-:- func derivation(list(step_and_id_map), list(derivation_result), sentence, int, int) = list(derivation_result) is det.
+:- func derivation(list(pair(int, step_and_id_map)), int, list(derivation_result), sentence, int, int) = list(derivation_result) is det.
 :- func derivation_step(step_and_id_map) = list(step_and_id_map) is det.
 :- func step_runtime_out(set(sentence), pair(set(sentence), map(sentence, int)), constraint_store, int) = string is det.
 :- func prepend_runtime_out(list(step_and_id_map), string) = list(step_and_id_map) is det.
@@ -177,11 +177,11 @@ derive(S, MaxResults) = Results :-
   %retractall(sols(_)),
   %assert(sols(1)),
   Solutions = initial_solutions(S),
-  (verbose, Solutions = [step_and_id_map(InitTuple, _, _, _)] ->
+  (verbose, Solutions = [_-step_and_id_map(InitTuple, _, _, _)] ->
     print_step(0, InitTuple)
   ;
     true),
-  Results = derivation(Solutions, [], S, MaxResults, 0).
+  Results = derivation(Solutions, 1, [], S, MaxResults, 0).
   %incr_sols.
 
 initial_solutions(S) = Solutions :-
@@ -197,7 +197,7 @@ initial_solutions(S) = Solutions :-
   ;
     % Put at least one key in IdsIn.
     Ids1 = set(map.init, -1, map.init)),
-  Solutions = [step_and_id_map(InitTuple, 0, Ids1, "")].
+  Solutions = [1-step_and_id_map(InitTuple, 0, Ids1, "")].
 
 initial_derivation_tuple(
     PropUnMrk,
@@ -225,8 +225,8 @@ initial_derivation_tuple(
 % derivation(SolutionsIn, ResultsIn, S, MaxResults, NStepsAllBranches) = Results.
 % S is the claim sentence (only for printing).
 % NStepsAllBranches is only for displaying metrics.
-derivation(SolutionsIn, ResultsIn, S, MaxResults, NStepsAllBranches) = Results :-
-  (SolutionsIn = [step_and_id_map(T, NIn, IdsIn, RuntimeOut)|RestIn] ->
+derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranches) = Results :-
+  (SolutionsIn = [SolutionId-step_and_id_map(T, NIn, IdsIn, RuntimeOut)|RestIn] ->
     (length(ResultsIn) >= MaxResults ->
       Results = ResultsIn
     ;
@@ -240,7 +240,7 @@ derivation(SolutionsIn, ResultsIn, S, MaxResults, NStepsAllBranches) = Results :
         format_append(runtime_out_path, "%s %s: Solution found\n", [s(now), s(step_string(NIn))]),
         % Add to the results and process remaining solutions (if any).
         print_result(S, Result),
-        Results = derivation(RestIn, [Result|ResultsIn], S, MaxResults, NStepsAllBranches+1)
+        Results = derivation(RestIn, MaxSolutionId, [Result|ResultsIn], S, MaxResults, NStepsAllBranches+1)
       ;
         format_append(runtime_out_path, RuntimeOut, []),
         Solutions = derivation_step(step_and_id_map(T, NIn, IdsIn, "")),
@@ -254,10 +254,19 @@ derivation(SolutionsIn, ResultsIn, S, MaxResults, NStepsAllBranches) = Results :
           ; true),
           % Replace the head of the solutions and continue processing.
           % If Rest is not [], it means that derivation_step added solutions.
-          Results = derivation(append([Solution1|Rest], RestIn), ResultsIn, S, MaxResults, NStepsAllBranches+1)
+          % Add to the solutions by incrementing the maximum solution ID for each one.
+          SolutionsOut-MaxSolutionIdOut = foldl((func(step_and_id_map(LocalT, LocalN, LocalIds, LocalRuntimeOut), SolsIn-MaxIdIn) = SolsOut-NextSolutionId :-
+                                                  NextSolutionId = MaxIdIn + 1,
+                                                  % We will print the runtime out later when we process the branch, but prepend where it comes from.
+                                                  RuntimeOut2 = format("%s Start solution %i from solution %i step %i\n", [s(now), i(NextSolutionId), i(SolutionId), i(NIn)])
+                                                    ++ LocalRuntimeOut,
+                                                  SolsOut = append(SolsIn, [NextSolutionId-step_and_id_map(LocalT, LocalN, LocalIds, RuntimeOut2)])),
+                                                Rest,
+                                                [SolutionId-Solution1]-MaxSolutionId),
+          Results = derivation(append(SolutionsOut, RestIn), MaxSolutionIdOut, ResultsIn, S, MaxResults, NStepsAllBranches+1)
         ;
           % derivation_step returned no solutions for the head. Try remaining solutions.
-          Results = derivation(RestIn, ResultsIn, S, MaxResults, NStepsAllBranches+1))))
+          Results = derivation(RestIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranches+1))))
   ;
     Results = ResultsIn).
 
