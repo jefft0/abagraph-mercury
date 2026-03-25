@@ -431,8 +431,11 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, N, IdsIn,
              Debug1Out = Debug1In ++ "  " ++ b_constraint_to_string(not(MemberXC)) ++ "\n")),
         Body, CS1-"", CS2-Debug1),
   (verbose ->
-    (Debug1 = "" -> true ; format_append(runtime_out_path, "%s %s: not(MemberXC):\n%s", [s(now), s(step_string(N)), s(Debug1)]))
-  ; true),
+    (Debug1 = "" ->
+      RuntimeOut3 = RuntimeOut2
+    ;
+      RuntimeOut3 = RuntimeOut2 ++ format("%s %s: not(MemberXC):\n%s", [s(now), s(step_string(N)), s(Debug1)]))
+  ; RuntimeOut3 = RuntimeOut2),
   update_argument_graph(S, Body, PropMrk-PropGr, CS2, CSOut, BodyUnMrk, BodyUnMrkAs, PropMrk1-PropGr1, Descs2),
   Descs = append_nodups(Descs1, Descs2),
   append_elements_nodup(BodyUnMrk, PropUnMrkMinus, PropUnMrk1),
@@ -459,7 +462,7 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, N, IdsIn,
     ConstraintsRuntimeOut = foldl(func(Desc, In) = In ++ format("%s %s: Case 1.(iii): %s\n  S: %s\n", 
                                     [s(now), s(step_string(N)), s(Desc), s(sentence_to_string(S))]),
                                   Descs, ""),
-    RuntimeOut = RuntimeOut2 ++ format(
+    RuntimeOut = RuntimeOut3 ++ format(
       "%s %s: Case 1.(ii): S: %i, NewUnMarkedAs: [%s], NewUnMarkedNonAs: [%s], ExistingBody: [%s]\n  S: %s\n  NewUnMarkedAs: %s\n  NewUnMarkedNonAs: %s\n  ExistingBody: %s\n",
       [s(now), s(step_string(N)), i(Id),
        s(join_list(" ", map(int_to_string, NewUnMarkedAsIds))),
@@ -472,7 +475,7 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, N, IdsIn,
       ++ ConstraintsRuntimeOut
   ;
     IdsOut = Ids1,
-    RuntimeOut = RuntimeOut2).
+    RuntimeOut = RuntimeOut3).
 
 %%%%%%%%%% opponent
 
