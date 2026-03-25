@@ -191,13 +191,13 @@ initial_solutions(S) = Solutions :-
     open(decompiled_path, "a", Fd),
     write_sentence(S, 0, Fd, Id, IdsIn, Ids1),
     close(Fd),
-    format_append(runtime_out_path, 
-      "%s %s: Case init: S: %i\n  S: %s\n\n",
+    RuntimeOut = format("%s %s: Case init: S: %i\n  S: %s\n",
       [s(now), s(step_string(0)), i(Id), s(sentence_to_string(S))])
   ;
     % Put at least one key in IdsIn.
-    Ids1 = set(map.init, -1, map.init)),
-  Solutions = [1-step_and_id_map(InitTuple, 0, Ids1, "")].
+    Ids1 = set(map.init, -1, map.init),
+    RuntimeOut = ""),
+  Solutions = [1-step_and_id_map(InitTuple, 0, Ids1, RuntimeOut)].
 
 initial_derivation_tuple(
     PropUnMrk,
