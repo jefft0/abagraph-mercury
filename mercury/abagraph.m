@@ -231,18 +231,17 @@ derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranch
       Results = ResultsIn
     ;
       format("*** Step %i (all branches)\n", [i(NStepsAllBranches)]), % Debug
+      format_append(runtime_out_path, RuntimeOut, []),
       (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
         % Solution result.
         format("*** Step %i (all branches), %0.0f%% extra\n", [i(NStepsAllBranches), f(100.0 * float((NStepsAllBranches) - NIn) / float(NIn))]),
         Result = derivation_result(PropMrk-PropG, OppM, D, C, Att, CS),
         ((option(show_solution, "true"), \+ verbose) -> format("*** Step %i\n", [i(NIn)]) ; true),
-        format_append(runtime_out_path, RuntimeOut, []),
         format_append(runtime_out_path, "%s %s: Solution found\n", [s(now), s(step_string(NIn))]),
         % Add to the results and process remaining solutions (if any).
         print_result(S, Result),
         Results = derivation(RestIn, MaxSolutionId, [Result|ResultsIn], S, MaxResults, NStepsAllBranches+1)
       ;
-        format_append(runtime_out_path, RuntimeOut, []),
         Solutions = derivation_step(step_and_id_map(T, NIn, IdsIn, "")),
         ([Solution1|Rest] = Solutions ->
           (verbose ->
