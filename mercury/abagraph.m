@@ -54,8 +54,8 @@
                           set(attack),                            % Att
                           constraint_store).                      % CS
 
-% GId -> (Map of Sentence -> SentenceId) for write_sentence/5.
-:- type id_map == map(int, map(sentence, int)).
+% Sentence -> SentenceId for write_sentence/5.
+:- type id_map == map(sentence, int).
 
 % step_and_id_map(StepTuple, N, MaxGId, Ids, RuntimeOut).
 % N is the step number (for runtime_out).
@@ -188,15 +188,14 @@ derive(S, MaxResults) = Results :-
 initial_solutions(S) = Solutions :-
   initial_derivation_tuple(make_singleton_set(S), InitTuple),
   (verbose ->
-    IdsIn = map.init,
+    Ids = map.init,
     open(decompiled_path, "a", Fd),
-    write_sentence(S, 0, Fd, Id, IdsIn, Ids1),
+    write_sentence(S, Fd, Id, Ids, Ids1),
     close(Fd),
     RuntimeOut = format("%s %s: Case init: S: %i\n  S: %s\n",
       [s(now), s(step_string(0)), i(Id), s(sentence_to_string(S))])
   ;
-    % Put at least one key in IdsIn.
-    Ids1 = set(map.init, -1, map.init),
+    Ids1 = map.init,
     RuntimeOut = ""),
   Solutions = [1-step_and_id_map(InitTuple, 0, 0, Ids1, RuntimeOut)].
 
@@ -395,9 +394,9 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att, CS,
   % TODO: Support GB. gb_acyclicity_check(G, A, [Contrary], G1),
   (verbose ->
     open(decompiled_path, "a", Fd),
-    write_sentence(A, 0, Fd, Id, IdsIn, Ids1),
+    write_sentence(A, Fd, Id, IdsIn, Ids1),
     (NewGId > 0 ->
-      write_sentence(Contrary, NewGId, Fd, ContraryId, Ids1, IdsOut)
+      write_sentence(Contrary, Fd, ContraryId, Ids1, IdsOut)
     ;
       % TODO: Get the Contrary graph ID from OppUnMrk or OppMrk.
       ContraryId = 0,
@@ -455,10 +454,10 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, N, MaxGId,
     ExistingBody = union(union(MarkedBody, ExistingUnMarkedAs), ExistingUnMarkedNonAs),
 
     open(decompiled_path, "a", Fd),
-    write_sentence(S, 0, Fd, Id, Ids1, Ids2),
-    write_sentence_set(NewUnMarkedAs, 0, Fd, NewUnMarkedAsIds, Ids2, Ids3),
-    write_sentence_set(NewUnMarkedNonAs, 0, Fd, NewUnMarkedNonAsIds, Ids3, Ids4),
-    write_sentence_set(ExistingBody, 0, Fd, ExistingBodyIds, Ids4, IdsOut),
+    write_sentence(S, Fd, Id, Ids1, Ids2),
+    write_sentence_set(NewUnMarkedAs, Fd, NewUnMarkedAsIds, Ids2, Ids3),
+    write_sentence_set(NewUnMarkedNonAs, Fd, NewUnMarkedNonAsIds, Ids3, Ids4),
+    write_sentence_set(ExistingBody, Fd, ExistingBodyIds, Ids4, IdsOut),
     close(Fd),
     ConstraintsRuntimeOut = foldl(func(Desc, In) = In ++ format("%s %s: Case 1.(iii): %s\n  S: %s\n", 
                                     [s(now), s(step_string(N)), s(Desc), s(sentence_to_string(S))]),
@@ -532,7 +531,7 @@ opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
   append_element_nodup(OppUnMrkMinus, Claim-GId-(UnMrkMinus-Marked1-Graph), OppUnMrkMinus1),
   (verbose ->
     open(decompiled_path, "a", Fd),
-    write_sentence(A, GId, Fd, Id, IdsIn, IdsOut),
+    write_sentence(A, Fd, Id, IdsIn, IdsOut),
     close(Fd),
     RuntimeOut = RuntimeOut2 ++ format("%s %s: Case 2.(ia): A: %i, GId %i\n  A: %s\n",
       [s(now), s(step_string(N)), i(Id), i(GId), s(sentence_to_string(A))])
@@ -554,7 +553,7 @@ opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
   insert(Claim-GId-(UnMrkMinus-Marked1-Graph), OppMrk, OppMrk1),
   (verbose ->
     open(decompiled_path, "a", Fd),
-    write_sentence(A, GId, Fd, Id, IdsIn, IdsOut),
+    write_sentence(A, Fd, Id, IdsIn, IdsOut),
     close(Fd),
     % Get the ID of the original culprit. (This is why we pass around C as a pair with the Ids.)
     (FoundId = search(snd(C), A) -> CulpritId = FoundId ; CulpritId = 0),
@@ -583,8 +582,8 @@ opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
     IsNewContrary = "Y",
   (verbose ->
     open(decompiled_path, "a", Fd),
-    write_sentence(A, GId, Fd, Id, IdsIn, Ids1),
-    write_sentence(Contrary, 0, Fd, ContraryId, Ids1, IdsOut),
+    write_sentence(A, Fd, Id, IdsIn, Ids1),
+    write_sentence(Contrary, Fd, ContraryId, Ids1, IdsOut),
     close(Fd),
     RuntimeOut = RuntimeOut1 ++ format(
       "%s %s: Case 2.(ic): A: %i, GId %i, Contrary %i new? %s\n  A: %s\n  Contrary: %s\n",
@@ -647,18 +646,11 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
   (GId = 0 ->
     % We are on iteration >= 2 and need a new GId.
     NewGId = MaxGId + 1,
-    MaxGId1 = NewGId,
-    % Copy the Ids from the graph for S to the new graph.
-    (SMap = search(IdsIn, SGId) ->
-      Ids1 = set(IdsIn, NewGId, SMap)
-    ;
-      % This shouldn't happen since there should be entries in IdsIn for GId.
-      Ids1 = IdsIn)
+    MaxGId1 = NewGId
   ;
     % The first iteration re-uses the GId from the graph extracted by opponent_abagraph_choice.
     NewGId = GId,
-    MaxGId1 = MaxGId,
-    Ids1 = IdsIn),
+    MaxGId1 = MaxGId),
   % TODO: Use membership
   ((\+ gb_derivation, member(A, Body), member(A, fst(C))) ->
     (NewGId = GId ->
@@ -685,10 +677,10 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
     ExistingBody = union(union(MarkedBody, ExistingUnMarkedAs), ExistingUnMarkedNonAs),
 
     open(decompiled_path, "a", Fd),
-    write_sentence(S, NewGId, Fd, Id, Ids1, Ids2),
-    write_sentence_set(NewUnMarkedAs, NewGId, Fd, NewUnMarkedAsIds, Ids2, Ids3),
-    write_sentence_set(NewUnMarkedNonAs, NewGId, Fd, NewUnMarkedNonAsIds, Ids3, Ids4),
-    write_sentence_set(ExistingBody, NewGId, Fd, ExistingBodyIds, Ids4, Ids5),
+    write_sentence(S, Fd, Id, IdsIn, Ids1),
+    write_sentence_set(NewUnMarkedAs, Fd, NewUnMarkedAsIds, Ids1, Ids2),
+    write_sentence_set(NewUnMarkedNonAs, Fd, NewUnMarkedNonAsIds, Ids2, Ids3),
+    write_sentence_set(ExistingBody, Fd, ExistingBodyIds, Ids3, Ids4),
     close(Fd),
     (MarkS = yes ->
       RuntimeOut3 = RuntimeOut2 ++ format("%s %s: Case 2.(ii): S: %i, GId %i, mark graph? %s\n  S: %s\n",
@@ -710,12 +702,12 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
        s(sentence_set_to_string(ExistingBody))])
       ++ ConstraintsRuntimeOut
   ;
-    Ids5 = Ids1,
+    Ids4 = IdsIn,
     RuntimeOut4 = RuntimeOut2),
 
   % For further iterations, set GId to 0 so that we mint new IDs for added graphs.
   iterate_bodies(RestBodies, S-SGId, Claim-0-(UnMrkMinus-Marked-Graph), OutOppUnMrkMinus-OutOppMrk, C, CS1, CSOut,
-                 OppUnMrkMinus1-OppMrk1, N, MaxGId1, Ids5, RuntimeOut4, MaxGIdOut, IdsOut, RuntimeOut).
+                 OppUnMrkMinus1-OppMrk1, N, MaxGId1, Ids4, RuntimeOut4, MaxGIdOut, IdsOut, RuntimeOut).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -866,7 +858,7 @@ rule_choice(Head, Body, prop_info(D, PropGr), N, IdsIn, IdsOut, RuntimeOut) :-
     open(decompiled_path, "a", Fd),
     IdsOut-BodiesText = foldl((
       func(B, IdsIn1-TextIn) = IdsOut1-(TextIn ++ Text) :-
-        write_sentence_list(B, 0, Fd, IdsList, IdsIn1, IdsOut1),
+        write_sentence_list(B, Fd, IdsList, IdsIn1, IdsOut1),
         Text = format(" [%s]", [s(join_list(" ", map(int_to_string, IdsList)))])),
       SortedRuleBodies, IdsIn-""),
     close(Fd),

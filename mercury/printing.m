@@ -36,17 +36,16 @@
 :- pred format(uint64::in, string::in, list(poly_type)::in) is det.
 % format_append(Path, S, PolyTypes). Open the Path for append and write string.format(S, PolyTypes) to the file. If Path is empty, do nothing.
 :- pred format_append(string::in, string::in, list(poly_type)::in) is det.
-% write_sentence(S, GId, Fd, Id, IdsIn, IdsOut). If sentence S is in the IdsIn
-% map for the graph ID GId, then return the sentence Id. (GId 0 is for the
-% proponent graph.) Otherwise create a new sentence Id, write the sentence to
-% the file at Fd and IdsOut is IdsIn with the new S->Id mapping for the graph ID
-% GId. If Fd = 0, do nothing.
-:- pred write_sentence(sentence::in, int::in, uint64::in, int::out, id_map::in, id_map::out) is det.
-% write_sentence_list(List, GId, Fd, IdsList, IdsIn, IdsOut).
+% write_sentence(S, Fd, Id, IdsIn, IdsOut). If sentence S is in the IdsIn
+% map, then return the sentence Id. Otherwise create a new sentence Id, write the sentence to
+% the file at Fd and IdsOut is IdsIn with the new S->Id mapping.
+% If Fd = 0, do nothing.
+:- pred write_sentence(sentence::in, uint64::in, int::out, id_map::in, id_map::out) is det.
+% write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut).
 % Use write_sentence to write the List. Return the list of Ids.
 % If Fd = 0, do nothing.
-:- pred write_sentence_list(list(sentence)::in, int::in, uint64::in, list(int)::out, id_map::in, id_map::out) is det.
-:- pred write_sentence_set(set(sentence)::in, int::in, uint64::in, list(int)::out, id_map::in, id_map::out) is det.
+:- pred write_sentence_list(list(sentence)::in, uint64::in, list(int)::out, id_map::in, id_map::out) is det.
+:- pred write_sentence_set(set(sentence)::in, uint64::in, list(int)::out, id_map::in, id_map::out) is det.
 
 :- implementation.
 
@@ -488,34 +487,29 @@ format_append(Path, S, PolyTypes) :-
     close(Fd)
   ; true).
 
-write_sentence(S, GId, Fd, Id, IdsIn, IdsOut) :-
+write_sentence(S, Fd, Id, IdsIn, IdsOut) :-
   (Fd = det_from_int(0) ->
     Id = 0,
     IdsOut = IdsIn
   ;
-    (SMap = search(IdsIn, GId) ->
-      (FoundId = search(SMap, S) ->
-        % Already written and in the map, already had the GId.
-        Id = FoundId,
-        IdsOut = IdsIn
-      ;
-        % Make a new Id, write to Fd, add to SMap.
-        write_sentence(S, Fd, Id),
-        (Id = 0 -> IdsOut = IdsIn ; IdsOut = set(IdsIn, GId, set(SMap, S, Id))))
+    (FoundId = search(IdsIn, S) ->
+      % Already written and in the map.
+      Id = FoundId,
+      IdsOut = IdsIn
     ;
-      % No entry for the GId.
+      % Make a new Id, write to Fd, add to Ids.
       write_sentence(S, Fd, Id),
-      (Id = 0 -> IdsOut = IdsIn ; IdsOut = set(IdsIn, GId, set(map.init, S, Id))))).
+      (Id = 0 -> IdsOut = IdsIn ; IdsOut = set(IdsIn, S, Id)))).
 
-write_sentence_list(List, GId, Fd, IdsList, IdsIn, IdsOut) :-
+write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut) :-
   IdsList-IdsOut = foldl((
     func(S, IdsListIn-IdsIn1) = IdsListOut-IdsOut1 :-
-      write_sentence(S, GId, Fd, Id, IdsIn1, IdsOut1),
+      write_sentence(S, Fd, Id, IdsIn1, IdsOut1),
       (Id = 0 -> IdsListOut = IdsListIn ; IdsListOut = append(IdsListIn, [Id]))),
     List, []-IdsIn).
 
-write_sentence_set(Set, GId, Fd, IdsList, IdsIn, IdsOut) :-
-  write_sentence_list(to_sorted_list(Set), GId, Fd, IdsList, IdsIn, IdsOut).
+write_sentence_set(Set, Fd, IdsList, IdsIn, IdsOut) :-
+  write_sentence_list(to_sorted_list(Set), Fd, IdsList, IdsIn, IdsOut).
 
 :- pragma foreign_proc("C",
 puts(S::in),
