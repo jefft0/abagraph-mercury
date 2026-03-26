@@ -8,8 +8,6 @@
 :- import_module digraph.
 :- import_module list.
 :- import_module loading.
-:- import_module map.
-:- import_module pair.
 :- import_module set.
 :- import_module string.
 
@@ -53,6 +51,8 @@
 :- implementation.
 
 :- import_module int.
+:- import_module map.
+:- import_module pair.
 :- import_module uint64.
 
 :- type node_info ---> node_info(sentence, int, int).
@@ -93,7 +93,7 @@ poss_print_case(Case, S) :-
  ;
    true).
 
-print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C, _Att)) :-
+print_step(N, step_tuple(PropUnMrk-PropMrk-PropGr, OppUnMrk-_OMrk, D, C, _Att, _Bs)) :-
   format("*** Step %d\n", [i(N)]),
   format("P:    %s-%s-%s\n", [s(sentence_list_to_string(PropUnMrk)),
                               s(sentence_set_to_string(PropMrk)),
@@ -130,7 +130,7 @@ print_opponent_step_list([H|T]) :-
 %
 % PRINTING: RESULTS
 
-show_result(derivation_result(_-PGraph, OppMrk, D, C, _Att)) :-
+show_result(derivation_result(_-PGraph, OppMrk, D, C, _Att, _Bs)) :-
   format("\nPGRAPH:              %s\n", [s(digraph_to_string(PGraph))]),
   format("DEFENCE:             %s\n", [s(sentence_set_to_string(D))]),
   format("OGRAPHS:             [", []),
@@ -237,7 +237,7 @@ print_to_file(Proving, Result) :-
 % where P has the form:             NodesP-EdgesP
 % where Oset members have the form: Claim-Unmarked-Marked-Edges
 
-dot_file(Proving, derivation_result(_PNodes-PGraph, Oset, D, C, Att), Fd) :-
+dot_file(Proving, derivation_result(_PNodes-PGraph, Oset, D, C, Att, _Bs), Fd) :-
   dot_preliminaries(Fd),
   proponent_cluster(Proving, PGraph, Fd, PropNodeInfo),
   opponent_clusters(to_sorted_list(Oset), D, C, PropNodeInfo, to_sorted_list(Att), Fd, 1),
@@ -488,7 +488,7 @@ format_append(Path, S, PolyTypes) :-
     close(Fd)
   ; true).
 
-write_sentence(S, GId, Fd, Id, IdsIn, N-IdsOut) :-
+write_sentence(S, GId, Fd, Id, IdsIn, IdsOut) :-
   (Fd = det_from_int(0) ->
     Id = 0,
     IdsOut = IdsIn
