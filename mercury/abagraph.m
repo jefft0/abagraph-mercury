@@ -246,10 +246,7 @@ derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranch
         ([Solution1|Rest] = Solutions ->
           (verbose ->
             step_and_id_map(T1, N, _, _, _) = Solution1,
-            print_step(N, T1),
-            open(decompiled_path, "a", Fd),
-            format(Fd, "; ^^^ %s\n\n", [s(step_string(NIn))]),
-            close(Fd)
+            print_step(N, T1)
           ; true),
           % Replace the head of the solutions and continue processing.
           % If Rest is not [], it means that derivation_step added solutions.
