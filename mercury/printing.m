@@ -39,11 +39,9 @@
 % write_sentence(S, Fd, Id, IdsIn, IdsOut). If sentence S is in the IdsIn
 % map, then return the sentence Id. Otherwise create a new sentence Id, write the sentence to
 % the file at Fd and IdsOut is IdsIn with the new S->Id mapping.
-% If Fd = 0, do nothing.
 :- pred write_sentence(sentence::in, uint64::in, int::out, id_map::in, id_map::out) is det.
 % write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut).
 % Use write_sentence to write the List. Return the list of Ids.
-% If Fd = 0, do nothing.
 :- pred write_sentence_list(list(sentence)::in, uint64::in, list(int)::out, id_map::in, id_map::out) is det.
 :- pred write_sentence_set(set(sentence)::in, uint64::in, list(int)::out, id_map::in, id_map::out) is det.
 
@@ -488,18 +486,14 @@ format_append(Path, S, PolyTypes) :-
   ; true).
 
 write_sentence(S, Fd, Id, IdsIn, IdsOut) :-
-  (Fd = det_from_int(0) ->
-    Id = 0,
+  (FoundId = search(IdsIn, S) ->
+    % Already written and in the map.
+    Id = FoundId,
     IdsOut = IdsIn
   ;
-    (FoundId = search(IdsIn, S) ->
-      % Already written and in the map.
-      Id = FoundId,
-      IdsOut = IdsIn
-    ;
-      % Make a new Id, write to Fd, add to Ids.
-      write_sentence(S, Fd, Id),
-      (Id = 0 -> IdsOut = IdsIn ; IdsOut = set(IdsIn, S, Id)))).
+    % Make a new Id, write to Fd, add to Ids.
+     write_sentence(S, Fd, Id),
+    (Id = 0 -> IdsOut = IdsIn ; IdsOut = set(IdsIn, S, Id))).
 
 write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut) :-
   IdsList-IdsOut = foldl((
