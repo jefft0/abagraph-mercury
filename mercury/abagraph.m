@@ -54,8 +54,8 @@
                           set(attack),                            % Att
                           constraint_store).                      % CS
 
-% Sentence -> SentenceId for write_sentence/5.
-:- type id_map == map(sentence, int).
+% map(Sentence -> SentenceId)-map(SentenceId -> DecompiledString) for write_sentence/5.
+:- type id_map == pair(map(sentence, int), map(int, string)).
 
 % step_and_id_map(StepTuple, N, MaxGId, Ids, RuntimeOut).
 % N is the step number (for runtime_out).
@@ -98,7 +98,8 @@
    ---> prop_info(set(sentence), digraph(sentence)).
 
 :- pred initial_derivation_tuple(set(sentence)::in, step_tuple::out) is det.
-:- func derivation(list(pair(int, step_and_id_map)), int, list(derivation_result), sentence, int, int) = list(derivation_result) is det.
+:- func derivation(list(pair(int, step_and_id_map)), int, list(derivation_result), sentence, int, int, map(int, string)) = list(derivation_result) is det.
+:- pred write_decomp(map(int, string)::in) is det.
 :- func derivation_step(step_and_id_map) = list(step_and_id_map) is det.
 :- func step_runtime_out(set(sentence), pair(set(sentence), map(sentence, int)), constraint_store, int) = string is det.
 :- func prepend_runtime_out(list(step_and_id_map), string) = list(step_and_id_map) is det.
@@ -182,20 +183,18 @@ derive(S, MaxResults) = Results :-
     print_step(0, InitTuple)
   ;
     true),
-  Results = derivation(Solutions, 1, [], S, MaxResults, 0).
+  Results = derivation(Solutions, 1, [], S, MaxResults, 0, map.init).
   %incr_sols.
 
 initial_solutions(S) = Solutions :-
   initial_derivation_tuple(make_singleton_set(S), InitTuple),
   (verbose ->
-    Ids = map.init,
-    open(decompiled_path, "a", Fd),
-    write_sentence(S, Fd, Id, Ids, Ids1),
-    close(Fd),
+    Ids = map.init-map.init,
+    write_sentence(S, Id, Ids, Ids1),
     RuntimeOut = format("%s %s: Case init: S: %i\n  S: %s\n",
       [s(now), s(step_string(0)), i(Id), s(sentence_to_string(S))])
   ;
-    Ids1 = map.init,
+    Ids1 = map.init-map.init,
     RuntimeOut = ""),
   Solutions = [1-step_and_id_map(InitTuple, 0, 0, Ids1, RuntimeOut)].
 
@@ -222,12 +221,15 @@ initial_derivation_tuple(
 %
 % DERIVATION CONTROL: basic control structure
 
-% derivation(SolutionsIn, ResultsIn, S, MaxResults, NStepsAllBranches) = Results.
+% derivation(SolutionsIn, ResultsIn, S, MaxResults, NStepsAllBranches, AllDecomp) = Results.
 % S is the claim sentence (only for printing).
 % NStepsAllBranches is only for displaying metrics.
-derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranches) = Results :-
+% AllDecomp accumulates the Decomp for all results.
+derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranches, AllDecomp) = Results :-
   (SolutionsIn = [SolutionId-step_and_id_map(T, NIn, MaxGId, IdsIn, RuntimeOut)|RestIn] ->
+    AllDecompOut = set_from_assoc_list(AllDecomp, to_assoc_list(snd(IdsIn))),
     (length(ResultsIn) >= MaxResults ->
+      write_decomp(AllDecompOut),
       Results = ResultsIn
     ;
       format("*** Step %i (all branches)\n", [i(NStepsAllBranches)]), % Debug
@@ -240,7 +242,7 @@ derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranch
         format_append(runtime_out_path, "%s %s: Solution found\n", [s(now), s(step_string(NIn))]),
         % Add to the results and process remaining solutions (if any).
         print_result(S, Result),
-        Results = derivation(RestIn, MaxSolutionId, [Result|ResultsIn], S, MaxResults, NStepsAllBranches+1)
+        Results = derivation(RestIn, MaxSolutionId, [Result|ResultsIn], S, MaxResults, NStepsAllBranches+1, AllDecompOut)
       ;
         Solutions = derivation_step(step_and_id_map(T, NIn, MaxGId, IdsIn, "")),
         ([Solution1|Rest] = Solutions ->
@@ -259,12 +261,24 @@ derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranch
                                                   SolsOut = append(SolsIn, [NextSolutionId-step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, RuntimeOut2)])),
                                                 Rest,
                                                 [SolutionId-Solution1]-MaxSolutionId),
-          Results = derivation(append(SolutionsOut, RestIn), MaxSolutionIdOut, ResultsIn, S, MaxResults, NStepsAllBranches+1)
+          Results = derivation(append(SolutionsOut, RestIn), MaxSolutionIdOut, ResultsIn, S, MaxResults, NStepsAllBranches+1, AllDecompOut)
         ;
           % derivation_step returned no solutions for the head. Try remaining solutions.
-          Results = derivation(RestIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranches+1))))
+          Results = derivation(RestIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranches+1, AllDecompOut))))
   ;
+    write_decomp(AllDecomp),
     Results = ResultsIn).
+
+% Write all the decompiled sentences in ascending ID.
+write_decomp(AllDecomp) :-
+  (verbose ->
+    open(decompiled_path, "a", Fd),
+    foldl((pred(_::in, D::in, _::in, 0::out) is det :-
+            fputs(D, Fd),
+            fputs("\n", Fd)),
+          AllDecomp, 0, _),
+    close(Fd)
+  ; true).
 
 % Output Solutions and messages have the incremented step number.
 derivation_step(StepAndIdMap) = Solutions :-
@@ -390,15 +404,13 @@ proponent_asm(A, PropUnMrkMinus, PropMrk-PropGr, OppUnMrk-OppMrk, D, C, Att, CS,
   insert(Contrary-A, Att, Att1),
   % TODO: Support GB. gb_acyclicity_check(G, A, [Contrary], G1),
   (verbose ->
-    open(decompiled_path, "a", Fd),
-    write_sentence(A, Fd, Id, IdsIn, Ids1),
+    write_sentence(A, Id, IdsIn, Ids1),
     (NewGId > 0 ->
-      write_sentence(Contrary, Fd, ContraryId, Ids1, IdsOut)
+      write_sentence(Contrary, ContraryId, Ids1, IdsOut)
     ;
       % TODO: Get the Contrary graph ID from OppUnMrk or OppMrk.
       ContraryId = 0,
       IdsOut = Ids1),
-    close(Fd),
     (solutions((pred(X::out) is nondet :- rule(Contrary, X)), []) -> % Debug: We only need to check for one solution.
       HasBody = "N" ; HasBody = "Y"),
     RuntimeOut = RuntimeOut1 ++ format(
@@ -450,12 +462,10 @@ proponent_nonasm(S, PropUnMrkMinus, PropMrk-PropGr, O, D, C, Att, CS, N, MaxGId,
     divide_by_set(list_to_set(PropUnMrkMinus), UnMarkedBodyNonAs, ExistingUnMarkedNonAs, NewUnMarkedNonAs),
     ExistingBody = union(union(MarkedBody, ExistingUnMarkedAs), ExistingUnMarkedNonAs),
 
-    open(decompiled_path, "a", Fd),
-    write_sentence(S, Fd, Id, Ids1, Ids2),
-    write_sentence_set(NewUnMarkedAs, Fd, NewUnMarkedAsIds, Ids2, Ids3),
-    write_sentence_set(NewUnMarkedNonAs, Fd, NewUnMarkedNonAsIds, Ids3, Ids4),
-    write_sentence_set(ExistingBody, Fd, ExistingBodyIds, Ids4, IdsOut),
-    close(Fd),
+    write_sentence(S, Id, Ids1, Ids2),
+    write_sentence_set(NewUnMarkedAs, NewUnMarkedAsIds, Ids2, Ids3),
+    write_sentence_set(NewUnMarkedNonAs, NewUnMarkedNonAsIds, Ids3, Ids4),
+    write_sentence_set(ExistingBody, ExistingBodyIds, Ids4, IdsOut),
     ConstraintsRuntimeOut = foldl(func(Desc, In) = In ++ format("%s %s: Case 1.(iii): %s\n  S: %s\n", 
                                     [s(now), s(step_string(N)), s(Desc), s(sentence_to_string(S))]),
                                   Descs, ""),
@@ -527,9 +537,7 @@ opponent_ia(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
   insert(A, Marked, Marked1),
   append_element_nodup(OppUnMrkMinus, Claim-GId-(UnMrkMinus-Marked1-Graph), OppUnMrkMinus1),
   (verbose ->
-    open(decompiled_path, "a", Fd),
-    write_sentence(A, Fd, Id, IdsIn, IdsOut),
-    close(Fd),
+    write_sentence(A, Id, IdsIn, IdsOut),
     RuntimeOut = RuntimeOut2 ++ format("%s %s: Case 2.(ia): A: %i, GId %i\n  A: %s\n",
       [s(now), s(step_string(N)), i(Id), i(GId), s(sentence_to_string(A))])
   ; 
@@ -549,9 +557,7 @@ opponent_ib(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
   insert(A, Marked, Marked1),
   insert(Claim-GId-(UnMrkMinus-Marked1-Graph), OppMrk, OppMrk1),
   (verbose ->
-    open(decompiled_path, "a", Fd),
-    write_sentence(A, Fd, Id, IdsIn, IdsOut),
-    close(Fd),
+    write_sentence(A, Id, IdsIn, IdsOut),
     % Get the ID of the original culprit. (This is why we pass around C as a pair with the Ids.)
     (FoundId = search(snd(C), A) -> CulpritId = FoundId ; CulpritId = 0),
     RuntimeOut = RuntimeOut1 ++ format("%s %s: Case 2.(ib): A: %i, GId %i, Culprit %i\n  A: %s\n",
@@ -578,10 +584,8 @@ opponent_ic(A, Claim-GId-(UnMrkMinus-Marked-Graph), OppUnMrkMinus-OppMrk,
     PropGr = PropGr1, %add_vertex(Contrary, _, PropGr, PropGr1),
     IsNewContrary = "Y",
   (verbose ->
-    open(decompiled_path, "a", Fd),
-    write_sentence(A, Fd, Id, IdsIn, Ids1),
-    write_sentence(Contrary, Fd, ContraryId, Ids1, IdsOut),
-    close(Fd),
+    write_sentence(A, Id, IdsIn, Ids1),
+    write_sentence(Contrary, ContraryId, Ids1, IdsOut),
     RuntimeOut = RuntimeOut1 ++ format(
       "%s %s: Case 2.(ic): A: %i, GId %i, Contrary %i new? %s\n  A: %s\n  Contrary: %s\n",
       [s(now), s(step_string(N)), i(Id), i(GId), i(ContraryId), s(IsNewContrary),
@@ -673,12 +677,10 @@ iterate_bodies([Body|RestBodies], S-SGId, Claim-GId-(UnMrkMinus-Marked-Graph), I
     divide_by_set(list_to_set(UnMrkMinus), UnMarkedBodyNonAs, ExistingUnMarkedNonAs, NewUnMarkedNonAs),
     ExistingBody = union(union(MarkedBody, ExistingUnMarkedAs), ExistingUnMarkedNonAs),
 
-    open(decompiled_path, "a", Fd),
-    write_sentence(S, Fd, Id, IdsIn, Ids1),
-    write_sentence_set(NewUnMarkedAs, Fd, NewUnMarkedAsIds, Ids1, Ids2),
-    write_sentence_set(NewUnMarkedNonAs, Fd, NewUnMarkedNonAsIds, Ids2, Ids3),
-    write_sentence_set(ExistingBody, Fd, ExistingBodyIds, Ids3, Ids4),
-    close(Fd),
+    write_sentence(S, Id, IdsIn, Ids1),
+    write_sentence_set(NewUnMarkedAs, NewUnMarkedAsIds, Ids1, Ids2),
+    write_sentence_set(NewUnMarkedNonAs, NewUnMarkedNonAsIds, Ids2, Ids3),
+    write_sentence_set(ExistingBody, ExistingBodyIds, Ids3, Ids4),
     (MarkS = yes ->
       RuntimeOut3 = RuntimeOut2 ++ format("%s %s: Case 2.(ii): S: %i, GId %i, mark graph? %s\n  S: %s\n",
         [s(now), s(step_string(N)), i(Id), i(SGId), s(MarkGraph), s(sentence_to_string(S))])
@@ -852,13 +854,11 @@ rule_choice(Head, Body, prop_info(D, PropGr), N, IdsIn, IdsOut, RuntimeOut) :-
   % Note: The cut is not needed since the above predicates are det.
   % !,
   (verbose ->
-    open(decompiled_path, "a", Fd),
     IdsOut-BodiesText = foldl((
       func(B, IdsIn1-TextIn) = IdsOut1-(TextIn ++ Text) :-
-        write_sentence_list(B, Fd, IdsList, IdsIn1, IdsOut1),
+        write_sentence_list(B, IdsList, IdsIn1, IdsOut1),
         Text = format(" [%s]", [s(join_list(" ", map(int_to_string, IdsList)))])),
       SortedRuleBodies, IdsIn-""),
-    close(Fd),
     RuntimeOut = format("%s %s: Head %s Potential bodies: [%s]\n", 
       [s(now), s(step_string(N)), s(sentence_to_string(Head)), s(BodiesText)])
   ;

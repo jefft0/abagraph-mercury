@@ -36,19 +36,20 @@
 :- pred format(uint64::in, string::in, list(poly_type)::in) is det.
 % format_append(Path, S, PolyTypes). Open the Path for append and write string.format(S, PolyTypes) to the file. If Path is empty, do nothing.
 :- pred format_append(string::in, string::in, list(poly_type)::in) is det.
-% write_sentence(S, Fd, Id, IdsIn, IdsOut). If sentence S is in the IdsIn
-% map, then return the sentence Id. Otherwise create a new sentence Id, write the sentence to
-% the file at Fd and IdsOut is IdsIn with the new S->Id mapping.
-:- pred write_sentence(sentence::in, uint64::in, int::out, id_map::in, id_map::out) is det.
-% write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut).
+% write_sentence(S, Id, Ids, IdsOut). If sentence S is in the Ids
+% map, then return the sentence Id. Otherwise create a new sentence Id, decompile the sentence to IdsOut
+% and IdsOut is Ids with the new S->Id mapping.
+:- pred write_sentence(sentence::in, int::out, id_map::in, id_map::out) is det.
+% write_sentence_list(List, IdsList, Ids, IdsOut).
 % Use write_sentence to write the List. Return the list of Ids.
-:- pred write_sentence_list(list(sentence)::in, uint64::in, list(int)::out, id_map::in, id_map::out) is det.
-:- pred write_sentence_set(set(sentence)::in, uint64::in, list(int)::out, id_map::in, id_map::out) is det.
+:- pred write_sentence_list(list(sentence)::in, list(int)::out, id_map::in, id_map::out) is det.
+:- pred write_sentence_set(set(sentence)::in, list(int)::out, id_map::in, id_map::out) is det.
 
 :- implementation.
 
 :- import_module int.
 :- import_module map.
+:- import_module options.
 :- import_module pair.
 :- import_module uint64.
 
@@ -76,8 +77,6 @@
 :- pred body_edges(list(sentence)::in, sentence::in, int::in, list(node_info)::in, uint64::in) is semidet.
 :- pred attacks(list(attack)::in, list(node_info)::in, list(node_info)::in, uint64::in) is det.
 :- pred format_lines(list(string)::in, uint64::in).
-
-:- import_module options.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -485,25 +484,26 @@ format_append(Path, S, PolyTypes) :-
     close(Fd)
   ; true).
 
-write_sentence(S, Fd, Id, IdsIn, IdsOut) :-
-  (FoundId = search(IdsIn, S) ->
+write_sentence(S, Id, Ids-Decomp, IdsOut-DecompOut) :-
+  (FoundId = search(Ids, S) ->
     % Already written and in the map.
     Id = FoundId,
-    IdsOut = IdsIn
+    IdsOut = Ids,
+    DecompOut = Decomp
   ;
-    % Make a new Id, write to Fd, add to Ids.
-     write_sentence(S, Fd, Id),
-    (Id = 0 -> IdsOut = IdsIn ; IdsOut = set(IdsIn, S, Id))).
+    % Make a new Id, write to DecompOut, add to Ids.
+    decompile_sentence(S, Decomp, Id, DecompOut),
+    (Id = 0 -> IdsOut = Ids ; IdsOut = set(Ids, S, Id))).
 
-write_sentence_list(List, Fd, IdsList, IdsIn, IdsOut) :-
+write_sentence_list(List, IdsList, Ids, IdsOut) :-
   IdsList-IdsOut = foldl((
     func(S, IdsListIn-IdsIn1) = IdsListOut-IdsOut1 :-
-      write_sentence(S, Fd, Id, IdsIn1, IdsOut1),
+      write_sentence(S, Id, IdsIn1, IdsOut1),
       (Id = 0 -> IdsListOut = IdsListIn ; IdsListOut = append(IdsListIn, [Id]))),
-    List, []-IdsIn).
+    List, []-Ids).
 
-write_sentence_set(Set, Fd, IdsList, IdsIn, IdsOut) :-
-  write_sentence_list(to_sorted_list(Set), Fd, IdsList, IdsIn, IdsOut).
+write_sentence_set(Set, IdsList, Ids, IdsOut) :-
+  write_sentence_list(to_sorted_list(Set), IdsList, Ids, IdsOut).
 
 :- pragma foreign_proc("C",
 puts(S::in),
