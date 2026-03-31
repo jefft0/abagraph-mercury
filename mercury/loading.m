@@ -6,6 +6,7 @@
 
 :- import_module io.
 :- import_module list.
+:- import_module map.
 :- import_module string.
 :- import_module constraints.
 
@@ -19,7 +20,7 @@
 :- pred main(io::di, io::uo) is det.
 
 :- pred assumption(sentence::in) is semidet.
-:- pred constraint(sentence::in) is failure. % Normally semidet
+:- pred constraint(sentence::in) is semidet.
 :- pred rule(sentence::in, list(sentence)::out) is semidet.
 :- pred contrary(sentence::in, sentence::out) is semidet.
 :- pred exclusive(sentence::in, sentence::in) is failure. % Normally semidet
@@ -32,8 +33,8 @@
 % Fail if no match is possible.
 :- func matches(sentence, sentence) = b_constraint is semidet.
 :- func sentence_to_string(sentence) = string is det.
-% write_sentence(S, Fd, Id). Write sentence S to the file at Fd. Set Id to its ID.
-:- pred write_sentence(sentence::in, uint64::in, int::out) is det.
+% decompile_sentence(S, Decomp, Id, DecompOut). Decompile sentence S to Decomp. Set Id to its ID.
+:- pred decompile_sentence(sentence::in, map(int, string)::in, int::out, map(int, string)::out) is det.
 
 :- implementation.
 
@@ -71,5 +72,4 @@ sentence_to_string(f(C)) = var_f_constraint_to_string(C).
 sentence_to_string(i(C)) = var_i_constraint_to_string(C).
 sentence_to_string(s(C)) = var_s_constraint_to_string(C).
 
-write_sentence(S, Fd, 0) :-
-  format(Fd, "%s\n", [s(sentence_to_string(S))]).
+decompile_sentence(S, Decomp, 0, Decomp).
