@@ -227,7 +227,8 @@ initial_derivation_tuple(
 % AllDecomp accumulates the Decomp for all results.
 derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranches, AllDecomp) = Results :-
   (SolutionsIn = [SolutionId-step_and_id_map(T, NIn, MaxGId, IdsIn, RuntimeOut)|RestIn] ->
-    AllDecompOut = set_from_assoc_list(AllDecomp, to_assoc_list(snd(IdsIn))),
+    % There shouldn't be common keys in AllDecomp and snd(IdsIn), so arbitrarily pick one.
+    AllDecompOut = det_union(func(X, _) = X is semidet, AllDecomp, snd(IdsIn)),
     (length(ResultsIn) >= MaxResults ->
       write_decomp(AllDecompOut),
       Results = ResultsIn
