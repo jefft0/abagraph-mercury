@@ -85,7 +85,7 @@
 
 poss_print_case(Case, S) :-
  (verbose ->
-   format("\nCase %s: S: %s\n", [s(Case), s(sentence_to_string(S))])
+   format("Case %s: S: %s\n", [s(Case), s(sentence_to_string(S))])
  ;
    true).
 
