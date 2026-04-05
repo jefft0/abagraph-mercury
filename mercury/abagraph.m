@@ -63,11 +63,19 @@
 % Print RuntimeOut to runtime_out_path before calling derivation_step again with the StepTuple.
 :- type step_and_id_map ---> step_and_id_map(step_tuple, int, int, id_map, string).
 
+:- type turn ---> proponent ; opponent.
+
 % derive(S, MaxResults) = Results.
 :- func derive(sentence, int) = list(derivation_result) is det.
 
 % Get the initial list of solutions for the sentence.
 :- func initial_solutions(sentence) = list(pair(int, step_and_id_map)) is det.
+
+:- pred choose_turn(pot_arg_graph::in, opponent_arg_graph_set::in, turn::out) is det.
+:- pred proponent_sentence_choice(list(sentence)::in, sentence::out, list(sentence)::out) is det.
+:- pred opponent_abagraph_choice(list(focussed_pot_arg_graph)::in, focussed_pot_arg_graph::out,
+          list(focussed_pot_arg_graph)::out) is det.
+:- func opponent_sentence_choice(focussed_pot_arg_graph) = sentence is det.
 
 % proponent_step(S, StepAndIdMap) = Solutions.
 % S should be a sentence in PropUnMrk in StepAndIdMap.
@@ -89,10 +97,6 @@
 :- import_module require.
 :- import_module solutions.
 :- import_module string.
-
-:- type turn
-        ---> proponent
-        ;    opponent.
 
 :- type prop_info
    ---> prop_info(set(sentence), digraph(sentence)).
@@ -129,10 +133,6 @@
 :- pred graph_union(digraph(sentence)::in, digraph(sentence)::in, digraph(sentence)::out) is det.
 :- pred append_element_nodup(list(T)::in, T::in, list(T)::out) is det.
 :- pred append_elements_nodup(list(T)::in, list(T)::in, list(T)::out) is det.
-:- pred choose_turn(pot_arg_graph::in, opponent_arg_graph_set::in, turn::out) is det.
-:- pred proponent_sentence_choice(list(sentence)::in, sentence::out, list(sentence)::out) is det.
-:- pred opponent_abagraph_choice(list(focussed_pot_arg_graph)::in, focussed_pot_arg_graph::out,
-          list(focussed_pot_arg_graph)::out) is det.
 :- pred opponent_sentence_choice(focussed_pot_arg_graph, bool, sentence, focussed_pot_arg_graph).
 :- mode opponent_sentence_choice(in, in, out, out) is nondet.
 :- mode opponent_sentence_choice(in, in, in, out) is nondet.
@@ -245,6 +245,7 @@ derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranch
         print_result(S, Result),
         Results = derivation(RestIn, MaxSolutionId, [Result|ResultsIn], S, MaxResults, NStepsAllBranches+1, AllDecompOut)
       ;
+        puts("\n"),
         Solutions = derivation_step(step_and_id_map(T, NIn, MaxGId, IdsIn, "")),
         ([Solution1|Rest] = Solutions ->
           (verbose ->
@@ -294,12 +295,7 @@ derivation_step(StepAndIdMap) = Solutions :-
     OppUnMrk-_ = O,
     % Ignore OppUnMrkMinus. opponent_step will make it.
     opponent_abagraph_choice(OppUnMrk, OppArg, _),
-    promise_equivalent_solutions[SentenceChoicesR] (
-      % Ignore OppArgMinus. opponent_step will make it.
-      unsorted_solutions(pred(S1::out) is nondet :- opponent_sentence_choice(OppArg, no, S1, _),
-                         SentenceChoicesR)),
-    S = det_last(SentenceChoicesR),
-    Solutions = opponent_step(OppArg, S, StepAndIdMap)).
+    Solutions = opponent_step(OppArg, opponent_sentence_choice(OppArg), StepAndIdMap)).
 
 % Output Solutions and messages have the incremented step number.
 proponent_step(S, step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), NIn, MaxGId, IdsIn, _)) = Solutions :-
@@ -367,7 +363,6 @@ opponent_step(OppArg, S, step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, At
 % This is a helper for proponent_step and opponent_step.
 step_runtime_out(D, C, CS, N) = RuntimeOut :-
   (verbose ->
-    puts("\n"),
     RuntimeOut = format(
       "%s %s start\n  D: %s\n  C: %s\n%s",
       [s(now), s(step_string(N)), s(sentence_set_to_string(D)), s(sentence_set_to_string(fst(C))), s(to_string(CS))])
@@ -840,6 +835,13 @@ opponent_abagraph_choice(O, JC, Ominus) :-
 opponent_sentence_choice(Claim-(Ss-Marked-OGraph), AssumptionsOnly, Se, Claim-(Ssminus-Marked-OGraph)) :-
   get_opponent_sentence_choice(OppSentenceStrategy),
   sentence_choice_backtrack(OppSentenceStrategy, Ss, AssumptionsOnly, Se, Ssminus).
+
+opponent_sentence_choice(OppArg) = S :-
+  promise_equivalent_solutions[SentenceChoicesR] (
+    % Ignore OppArgMinus. opponent_step will make it.
+    unsorted_solutions(pred(S1::out) is nondet :- opponent_sentence_choice(OppArg, no, S1, _),
+                       SentenceChoicesR)),
+  S = det_last(SentenceChoicesR).
 
 find_first_constraint(SList, SOut, SListMinus) :-
   find_first((pred(S::in) is semidet :- constraint(S)), SList, SOut, SListMinus).
