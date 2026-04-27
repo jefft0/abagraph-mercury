@@ -79,11 +79,13 @@
 
 % proponent_step(S, StepAndIdMap) = Solutions.
 % S should be a sentence in PropUnMrk in StepAndIdMap.
+% Output Solutions and messages have the incremented step number.
 :- func proponent_step(sentence, step_and_id_map) = list(step_and_id_map) is det.
 
 % opponent_step(OppArg, S StepAndIdMap) = Solutions.
 % OppArg should be a graph in OppUnMrk in StepAndIdMap.
 % S should be an unmarked sentence in OppArg. If S is an assumption, then there is a solution for each assumption in OppArg.
+% Output Solutions and messages have the incremented step number.
 :- func opponent_step(focussed_pot_arg_graph, sentence, step_and_id_map) = list(step_and_id_map) is det.
 
 :- implementation.
@@ -234,7 +236,7 @@ derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranch
       Results = ResultsIn
     ;
       format("*** Step %i (all branches)\n", [i(NStepsAllBranches)]), % Debug
-      format_append(runtime_out_path, RuntimeOut, []),
+      format_append(runtime_out_path, "%s", [s(RuntimeOut)]),
       (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
         % Solution result.
         format("*** Step %i (all branches), %0.0f%% extra\n", [i(NStepsAllBranches), f(100.0 * float((NStepsAllBranches) - NIn) / float(NIn))]),
@@ -297,7 +299,6 @@ derivation_step(StepAndIdMap) = Solutions :-
     opponent_abagraph_choice(OppUnMrk, OppArg, _),
     Solutions = opponent_step(OppArg, opponent_sentence_choice(OppArg), StepAndIdMap)).
 
-% Output Solutions and messages have the incremented step number.
 proponent_step(S, step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), NIn, MaxGId, IdsIn, _)) = Solutions :-
   N = NIn + 1,
   (delete_first(PropUnMrk, S, PropUnMrkMinus) ->
@@ -322,7 +323,6 @@ proponent_step(S, step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, 
     Solutions = [step_and_id_map(step_tuple(PropUnMrk-PropMrk-PropGr, O, D, C, Att, CS), N, MaxGId, IdsIn,
                                  "warning: proponent_step: PropUnMrk doesn't have S " ++ sentence_to_string(S) ++ "\n")]).
 
-% Output Solutions and messages have the incremented step number.
 opponent_step(OppArg, S, step_and_id_map(step_tuple(P, OppUnMrk-OppMrk, D, C, Att, CS), NIn, MaxGId, IdsIn, _)) = Solutions :-
   N = NIn + 1,
   (delete_first(OppUnMrk, OppArg, OppUnMrkMinus) ->
