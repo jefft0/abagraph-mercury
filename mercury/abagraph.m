@@ -60,7 +60,6 @@
 % step_and_id_map(StepTuple, N, MaxGId, Ids, RuntimeOut).
 % N is the step number (for runtime_out).
 % MaxGId is the maximum group ID.
-% Print RuntimeOut to runtime_out_path before calling derivation_step again with the StepTuple.
 :- type step_and_id_map ---> step_and_id_map(step_tuple, int, int, id_map, string).
 
 :- type turn ---> proponent ; opponent.
@@ -181,8 +180,9 @@ derive(S, MaxResults) = Results :-
   %retractall(sols(_)),
   %assert(sols(1)),
   Solutions = initial_solutions(S),
-  (verbose, Solutions = [_-step_and_id_map(InitTuple, _, _, _, _)] ->
-    print_step(0, InitTuple)
+  (verbose, Solutions = [_-step_and_id_map(InitTuple, _, _, _, RuntimeOut)] ->
+    print_step(0, InitTuple),
+    format_append(runtime_out_path, "%s", [s(RuntimeOut)])
   ;
     true),
   Results = derivation(Solutions, 1, [], S, MaxResults, 0, map.init).
