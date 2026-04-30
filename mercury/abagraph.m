@@ -228,7 +228,7 @@ initial_derivation_tuple(
 % NStepsAllBranches is only for displaying metrics.
 % AllDecomp accumulates the Decomp for all results.
 derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranches, AllDecomp) = Results :-
-  (SolutionsIn = [SolutionId-step_and_id_map(T, NIn, MaxGId, IdsIn, RuntimeOut)|RestIn] ->
+  (SolutionsIn = [SolutionId-step_and_id_map(T, NIn, MaxGId, IdsIn, _)|RestIn] ->
     % There shouldn't be common keys in AllDecomp and snd(IdsIn), so arbitrarily pick one.
     AllDecompOut = det_union(func(X, _) = X is semidet, AllDecomp, snd(IdsIn)),
     (length(ResultsIn) >= MaxResults ->
@@ -236,7 +236,6 @@ derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranch
       Results = ResultsIn
     ;
       format("*** Step %i (all branches)\n", [i(NStepsAllBranches)]), % Debug
-      format_append(runtime_out_path, "%s", [s(RuntimeOut)]),
       (T = step_tuple([]-PropMrk-PropG, []-OppM, D, C-_, Att, CS) ->
         % Solution result.
         format("*** Step %i (all branches), %0.0f%% extra\n", [i(NStepsAllBranches), f(100.0 * float((NStepsAllBranches) - NIn) / float(NIn))]),
@@ -250,19 +249,21 @@ derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranch
         puts("\n"),
         Solutions = derivation_step(step_and_id_map(T, NIn, MaxGId, IdsIn, "")),
         ([Solution1|Rest] = Solutions ->
+          step_and_id_map(T1, N, _, _, RuntimeOut) = Solution1,
           (verbose ->
-            step_and_id_map(T1, N, _, _, _) = Solution1,
             print_step(N, T1)
           ; true),
+          format_append(runtime_out_path, "%s Solution %i\n", [s(now), i(SolutionId)]),
+          format_append(runtime_out_path, "%s", [s(RuntimeOut)]),
           % Replace the head of the solutions and continue processing.
           % If Rest is not [], it means that derivation_step added solutions.
           % Add to the solutions by incrementing the maximum solution ID for each one.
           SolutionsOut-MaxSolutionIdOut = foldl((func(step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, LocalRuntimeOut), SolsIn-MaxIdIn) = SolsOut-NextSolutionId :-
                                                   NextSolutionId = MaxIdIn + 1,
-                                                  % We will print the runtime out later when we process the branch, but prepend where it comes from.
-                                                  RuntimeOut2 = format("%s Start solution %i from solution %i step %i\n", [s(now), i(NextSolutionId), i(SolutionId), i(NIn)])
-                                                    ++ LocalRuntimeOut,
-                                                  SolsOut = append(SolsIn, [NextSolutionId-step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, RuntimeOut2)])),
+                                                  format_append(runtime_out_path, "%s Start solution %i from solution %i step %i\n", [s(now), i(NextSolutionId), i(SolutionId), i(NIn)]),
+                                                  format_append(runtime_out_path, "%s Solution %i\n", [s(now), i(NextSolutionId)]),
+                                                  format_append(runtime_out_path, "%s", [s(LocalRuntimeOut)]),
+                                                  SolsOut = append(SolsIn, [NextSolutionId-step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, "")])),
                                                 Rest,
                                                 [SolutionId-Solution1]-MaxSolutionId),
           Results = derivation(append(SolutionsOut, RestIn), MaxSolutionIdOut, ResultsIn, S, MaxResults, NStepsAllBranches+1, AllDecompOut)
