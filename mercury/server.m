@@ -73,16 +73,17 @@ do_step(SolutionsIn, MaxSolutionId, AllDecomp, SolutionsOut, MaxSolutionIdOut, A
         % Replace the head of the solutions and continue processing.
         % If Rest is not [], it means that derivation_step added solutions.
         % Add to the solutions by incrementing the maximum solution ID for each one.
-        HeadSolutions-MaxSolutionIdOut-R = foldl((func(step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, LocalRuntimeOut), SolsIn-MaxIdIn-RIn) = SolsOut-NextSolutionId-ROut :-
-                                                   NextSolutionId = MaxIdIn + 1,
-                                                   ROut = RIn ++
-                                                     format("%s Start solution %i from solution %i step %i\n", [s(Now), i(NextSolutionId), i(SolutionId), i(NIn)]) ++
-                                                     format("%s Solution %i\n", [s(Now), i(NextSolutionId)]) ++
-                                                     LocalRuntimeOut,
-                                                   SolsOut = append(SolsIn, [NextSolutionId-step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, "")])),
-                                                 Rest,
-                                                 [SolutionId-Solution1]-MaxSolutionId-""),
-        io.write_string(R, !IO),
+        HeadSolutions-MaxSolutionIdOut-RuntimeOutRest = foldl(
+          (func(step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, LocalRuntimeOut), SolsIn-MaxIdIn-RIn) = SolsOut-NextSolutionId-ROut :-
+            NextSolutionId = MaxIdIn + 1,
+            ROut = RIn ++
+            format("%s Start solution %i from solution %i step %i\n", [s(Now), i(NextSolutionId), i(SolutionId), i(NIn)]) ++
+            format("%s Solution %i\n", [s(Now), i(NextSolutionId)]) ++
+            LocalRuntimeOut,
+            SolsOut = append(SolsIn, [NextSolutionId-step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, "")])),
+          Rest,
+          [SolutionId-Solution1]-MaxSolutionId-""),
+        io.write_string(RuntimeOutRest, !IO),
         SolutionsOut = append(HeadSolutions, RestIn),
         AllDecompOut = AllDecomp
       ;

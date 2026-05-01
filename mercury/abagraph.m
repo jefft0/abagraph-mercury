@@ -258,14 +258,15 @@ derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranch
           % Replace the head of the solutions and continue processing.
           % If Rest is not [], it means that derivation_step added solutions.
           % Add to the solutions by incrementing the maximum solution ID for each one.
-          SolutionsOut-MaxSolutionIdOut = foldl((func(step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, LocalRuntimeOut), SolsIn-MaxIdIn) = SolsOut-NextSolutionId :-
-                                                  NextSolutionId = MaxIdIn + 1,
-                                                  format_append(runtime_out_path, "%s Start solution %i from solution %i step %i\n", [s(now), i(NextSolutionId), i(SolutionId), i(NIn)]),
-                                                  format_append(runtime_out_path, "%s Solution %i\n", [s(now), i(NextSolutionId)]),
-                                                  format_append(runtime_out_path, "%s", [s(LocalRuntimeOut)]),
-                                                  SolsOut = append(SolsIn, [NextSolutionId-step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, "")])),
-                                                Rest,
-                                                [SolutionId-Solution1]-MaxSolutionId),
+          SolutionsOut-MaxSolutionIdOut = foldl(
+            (func(step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, LocalRuntimeOut), SolsIn-MaxIdIn) = SolsOut-NextSolutionId :-
+              NextSolutionId = MaxIdIn + 1,
+              format_append(runtime_out_path, "%s Start solution %i from solution %i step %i\n", [s(now), i(NextSolutionId), i(SolutionId), i(NIn)]),
+              format_append(runtime_out_path, "%s Solution %i\n", [s(now), i(NextSolutionId)]),
+              format_append(runtime_out_path, "%s", [s(LocalRuntimeOut)]),
+              SolsOut = append(SolsIn, [NextSolutionId-step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, "")])),
+            Rest,
+            [SolutionId-Solution1]-MaxSolutionId),
           Results = derivation(append(SolutionsOut, RestIn), MaxSolutionIdOut, ResultsIn, S, MaxResults, NStepsAllBranches+1, AllDecompOut)
         ;
           % derivation_step returned no solutions for the head. Try remaining solutions.
