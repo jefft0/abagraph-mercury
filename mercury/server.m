@@ -38,7 +38,7 @@ server_loop(SolutionsIn, MaxSolutionId, AllDecomp, !IO) :-
       % TODO: Get the initial sentence from the command.
       S = fact(mkval0("s", "position", 15.0), 800, 900),
       SolutionsOut-RuntimeOut = initial_solutions(S),
-      _-step_and_id_map(_, _, _, Ids, _) = det_head(SolutionsOut),
+      _-step_and_id_map(_, _, _, Ids) = det_head(SolutionsOut),
       io.write_string(RuntimeOut, !IO),
       MaxSolutionIdOut = 1,
       AllDecompOut = snd(Ids)
@@ -58,15 +58,15 @@ server_loop(SolutionsIn, MaxSolutionId, AllDecomp, !IO) :-
   ).
 
 do_step(SolutionsIn, MaxSolutionId, AllDecomp, SolutionsOut, MaxSolutionIdOut, AllDecompOut, !IO) :-
-  (SolutionsIn = [SolutionId-step_and_id_map(T, NIn, MaxGId, IdsIn, _)|RestIn] ->
+  (SolutionsIn = [SolutionId-step_and_id_map(T, NIn, MaxGId, IdsIn)|RestIn] ->
     (T = step_tuple([]-_-_, []-_, _, _-_, _, _) ->
       io.write_string("SolutionsIn head is complete.\n", !IO),
       SolutionsOut = SolutionsIn,
       MaxSolutionIdOut = MaxSolutionId,
       AllDecompOut = AllDecomp
     ;
-      StepAndIdMap = step_and_id_map(T, NIn, MaxGId, IdsIn, ""),
-      step_and_id_map(step_tuple(P, O, _, _, _, _), _, _, _, _) = StepAndIdMap,
+      StepAndIdMap = step_and_id_map(T, NIn, MaxGId, IdsIn),
+      step_and_id_map(step_tuple(P, O, _, _, _, _), _, _, _) = StepAndIdMap,
       choose_turn(P, O, Turn),
       (Turn = proponent ->
         PropUnMrk-_-_ = P,
@@ -79,8 +79,7 @@ do_step(SolutionsIn, MaxSolutionId, AllDecomp, SolutionsOut, MaxSolutionIdOut, A
         opponent_abagraph_choice(OppUnMrk, OppArg, _),
         Solutions = opponent_step(OppArg, opponent_sentence_choice(OppArg), StepAndIdMap)),
 
-      ([Solution1|Rest] = Solutions ->
-        step_and_id_map(_, _, _, _, RuntimeOut) = Solution1,
+      ([(Solution1-RuntimeOut)|Rest] = Solutions ->
         Now = "0s:310ms:0us",  % TODO: fix
         io.write_string(format("%s Solution %i\n", [s(Now), i(SolutionId)]), !IO),
         io.write_string(RuntimeOut, !IO),
@@ -88,20 +87,20 @@ do_step(SolutionsIn, MaxSolutionId, AllDecomp, SolutionsOut, MaxSolutionIdOut, A
         % If Rest is not [], it means that derivation_step added solutions.
         % Add to the solutions by incrementing the maximum solution ID for each one.
         HeadSolutions-MaxSolutionIdOut-RuntimeOutRest = foldl(
-          (func(step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, LocalRuntimeOut), SolsIn-MaxIdIn-RIn) = SolsOut-NextSolutionId-ROut :-
+          (func(step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds)-LocalRuntimeOut, SolsIn-MaxIdIn-RIn) = SolsOut-NextSolutionId-ROut :-
             NextSolutionId = MaxIdIn + 1,
             ROut = RIn ++
-            format("%s Start solution %i from solution %i step %i\n", [s(Now), i(NextSolutionId), i(SolutionId), i(NIn)]) ++
-            format("%s Solution %i\n", [s(Now), i(NextSolutionId)]) ++
-            LocalRuntimeOut,
-            SolsOut = append(SolsIn, [NextSolutionId-step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, "")])),
+              format("%s Start solution %i from solution %i step %i\n", [s(Now), i(NextSolutionId), i(SolutionId), i(NIn)]) ++
+              format("%s Solution %i\n", [s(Now), i(NextSolutionId)]) ++
+              LocalRuntimeOut,
+            SolsOut = append(SolsIn, [NextSolutionId-step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds)])),
           Rest,
           [SolutionId-Solution1]-MaxSolutionId-""),
         io.write_string(RuntimeOutRest, !IO),
         SolutionsOut = append(HeadSolutions, RestIn),
         % Update AllDecomp from the new Ids.
         AllDecompOut = foldl(
-          (func(step_and_id_map(_, _, _, LocalIds, _), AllDecompIn) = AllDecomp1 :-
+          (func(step_and_id_map(_, _, _, LocalIds)-_, AllDecompIn) = AllDecomp1 :-
             % There shouldn't be common keys in AllDecomp and snd(IdsIn), so arbitrarily pick one.
             AllDecomp1 = det_union(func(X, _) = X is semidet, AllDecompIn, snd(LocalIds))),
           Solutions,
