@@ -4,21 +4,27 @@
 :- import_module abagraph.
 :- import_module io.
 :- import_module list.
+% Import sentence from loading.
+:- import_module loading.
 :- import_module map.
 :- import_module pair.
 
-:- pred server(list(pair(int, step_and_id_map))::in, int::in, map(int, string)::in, io::di, io::uo) is det.
+:- pred server(sentence::in, io::di, io::uo) is det.
 
 :- implementation.
 
 :- import_module int.
 :- import_module string.
 
+:- pred server_loop(list(pair(int, step_and_id_map))::in, int::in, map(int, string)::in, io::di, io::uo) is det.
 :- pred do_step(list(pair(int, step_and_id_map))::in, int::in, map(int, string)::in,
                 list(pair(int, step_and_id_map))::out, int::out, map(int, string)::out, io::di, io::uo) is det.
 
-server(SolutionsIn, MaxSolutionId, AllDecomp, !IO) :-
+server(S, !IO) :-
   % TODO: Print initial RuntimeOut.
+  server_loop(initial_solutions(S), 1, map.init, !IO).
+
+server_loop(SolutionsIn, MaxSolutionId, AllDecomp, !IO) :-
   io.read_line_as_string(Res, !IO),
   (
     Res = error(_),
@@ -40,7 +46,7 @@ server(SolutionsIn, MaxSolutionId, AllDecomp, !IO) :-
     % Finish the response and loop.
     io.write_string("\n", !IO),
     io.flush_output(!IO),
-    server(SolutionsOut, MaxSolutionIdOut, AllDecompOut, !IO)
+    server_loop(SolutionsOut, MaxSolutionIdOut, AllDecompOut, !IO)
   ).
 
 do_step(SolutionsIn, MaxSolutionId, AllDecomp, SolutionsOut, MaxSolutionIdOut, AllDecompOut, !IO) :-
