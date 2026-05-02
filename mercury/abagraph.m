@@ -180,12 +180,13 @@ derive(S, MaxResults) = Results :-
   %retractall(sols(_)),
   %assert(sols(1)),
   Solutions = initial_solutions(S),
-  (verbose, Solutions = [_-step_and_id_map(InitTuple, _, _, _, RuntimeOut)] ->
+  _-step_and_id_map(InitTuple, _, _, Ids, RuntimeOut) = det_head(Solutions),
+  (verbose ->
     print_step(0, InitTuple),
     format_append(runtime_out_path, "%s", [s(RuntimeOut)])
   ;
     true),
-  Results = derivation(Solutions, 1, [], S, MaxResults, 0, map.init).
+  Results = derivation(Solutions, 1, [], S, MaxResults, 0, snd(Ids)).
   %incr_sols.
 
 initial_solutions(S) = Solutions :-
