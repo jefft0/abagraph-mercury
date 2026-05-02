@@ -229,10 +229,8 @@ initial_derivation_tuple(
 % AllDecomp accumulates the Decomp for all results.
 derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranches, AllDecomp) = Results :-
   (SolutionsIn = [SolutionId-step_and_id_map(T, NIn, MaxGId, IdsIn, _)|RestIn] ->
-    % There shouldn't be common keys in AllDecomp and snd(IdsIn), so arbitrarily pick one.
-    AllDecompOut = det_union(func(X, _) = X is semidet, AllDecomp, snd(IdsIn)),
     (length(ResultsIn) >= MaxResults ->
-      write_decomp(AllDecompOut),
+      write_decomp(AllDecomp),
       Results = ResultsIn
     ;
       format("*** Step %i (all branches)\n", [i(NStepsAllBranches)]), % Debug
@@ -244,7 +242,7 @@ derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranch
         format_append(runtime_out_path, "%s %s: Solution found\n", [s(now), s(step_string(NIn))]),
         % Add to the results and process remaining solutions (if any).
         print_result(S, Result),
-        Results = derivation(RestIn, MaxSolutionId, [Result|ResultsIn], S, MaxResults, NStepsAllBranches+1, AllDecompOut)
+        Results = derivation(RestIn, MaxSolutionId, [Result|ResultsIn], S, MaxResults, NStepsAllBranches+1, AllDecomp)
       ;
         puts("\n"),
         Solutions = derivation_step(step_and_id_map(T, NIn, MaxGId, IdsIn, "")),
@@ -267,10 +265,17 @@ derivation(SolutionsIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranch
               SolsOut = append(SolsIn, [NextSolutionId-step_and_id_map(LocalT, LocalN, LocalMaxGId, LocalIds, "")])),
             Rest,
             [SolutionId-Solution1]-MaxSolutionId),
+          % Update AllDecomp from the new Ids.
+          AllDecompOut = foldl(
+            (func(step_and_id_map(_, _, _, LocalIds, _), AllDecompIn) = AllDecomp1 :-
+              % There shouldn't be common keys in AllDecomp and snd(IdsIn), so arbitrarily pick one.
+              AllDecomp1 = det_union(func(X, _) = X is semidet, AllDecompIn, snd(LocalIds))),
+            Solutions,
+            AllDecomp),
           Results = derivation(append(SolutionsOut, RestIn), MaxSolutionIdOut, ResultsIn, S, MaxResults, NStepsAllBranches+1, AllDecompOut)
         ;
           % derivation_step returned no solutions for the head. Try remaining solutions.
-          Results = derivation(RestIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranches+1, AllDecompOut))))
+          Results = derivation(RestIn, MaxSolutionId, ResultsIn, S, MaxResults, NStepsAllBranches+1, AllDecomp))))
   ;
     write_decomp(AllDecomp),
     Results = ResultsIn).
