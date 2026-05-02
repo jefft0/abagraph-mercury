@@ -46,10 +46,20 @@ server_loop(SolutionsIn, MaxSolutionId, AllDecomp, !IO) :-
     (Line = "step" ->
       do_step(SolutionsIn, MaxSolutionId, AllDecomp, SolutionsOut, MaxSolutionIdOut, AllDecompOut, !IO)
     ;
+    (prefix(Line, "decomp "), split(Line, length("decomp "), _, SId), to_int(SId, Id) ->
+      (search(AllDecomp, Id, Decomp) ->
+        io.write_string(Decomp ++ "\n", !IO)
+      ;
+        io.write_string(format("error: ID not found: %i\n", [i(Id)]), !IO)),
+
+      SolutionsOut = SolutionsIn,
+      MaxSolutionIdOut = MaxSolutionId,
+      AllDecompOut = AllDecomp
+    ;
       io.write_string("error: unknown command: " ++ Line ++ "\n", !IO),
       SolutionsOut = SolutionsIn,
       MaxSolutionIdOut = MaxSolutionId,
-      AllDecompOut = AllDecomp)),
+      AllDecompOut = AllDecomp))),
 
     % Finish the response and loop.
     io.write_string("\n", !IO),
