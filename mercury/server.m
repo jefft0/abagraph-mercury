@@ -1,28 +1,27 @@
 :- module server.
 :- interface.
 
-:- import_module abagraph.
 :- import_module io.
+
+:- pred server(io::di, io::uo) is det.
+
+:- implementation.
+
+:- import_module abagraph.
+:- import_module int.
 :- import_module list.
 % Import sentence from loading.
 :- import_module loading.
 :- import_module map.
 :- import_module pair.
-
-:- pred server(sentence::in, io::di, io::uo) is det.
-
-:- implementation.
-
-:- import_module int.
 :- import_module string.
 
 :- pred server_loop(list(pair(int, step_and_id_map))::in, int::in, map(int, string)::in, io::di, io::uo) is det.
 :- pred do_step(list(pair(int, step_and_id_map))::in, int::in, map(int, string)::in,
                 list(pair(int, step_and_id_map))::out, int::out, map(int, string)::out, io::di, io::uo) is det.
 
-server(S, !IO) :-
-  % TODO: Print initial RuntimeOut.
-  server_loop(initial_solutions(S), 1, map.init, !IO).
+server(!IO) :-
+  server_loop([], 1, map.init, !IO).
 
 server_loop(SolutionsIn, MaxSolutionId, AllDecomp, !IO) :-
   io.read_line_as_string(Res, !IO),
@@ -35,13 +34,22 @@ server_loop(SolutionsIn, MaxSolutionId, AllDecomp, !IO) :-
   ;
     Res = ok(Line0),
     Line = strip(Line0),
+    (Line = "init" ->
+      % TODO: Get the initial sentence from the command.
+      S = fact(mkval0("s", "position", 15.0), 800, 900),
+      SolutionsOut = initial_solutions(S),
+      _-step_and_id_map(_, _, _, Ids, RuntimeOut) = det_head(SolutionsOut),
+      io.write_string(RuntimeOut, !IO),
+      MaxSolutionIdOut = 1,
+      AllDecompOut = snd(Ids)
+    ;
     (Line = "step" ->
       do_step(SolutionsIn, MaxSolutionId, AllDecomp, SolutionsOut, MaxSolutionIdOut, AllDecompOut, !IO)
     ;
       io.write_string("error: unknown command: " ++ Line ++ "\n", !IO),
       SolutionsOut = SolutionsIn,
       MaxSolutionIdOut = MaxSolutionId,
-      AllDecompOut = AllDecomp),
+      AllDecompOut = AllDecomp)),
 
     % Finish the response and loop.
     io.write_string("\n", !IO),
@@ -105,7 +113,7 @@ do_step(SolutionsIn, MaxSolutionId, AllDecomp, SolutionsOut, MaxSolutionIdOut, A
         MaxSolutionIdOut = MaxSolutionId,
         AllDecompOut = AllDecomp))
     ;
-      io.write_string("SolutionsIn is empty.\n", !IO),
+      io.write_string("SolutionsIn is empty. Do init.\n", !IO),
       SolutionsOut = SolutionsIn,
       MaxSolutionIdOut = MaxSolutionId,
       AllDecompOut = AllDecomp).
