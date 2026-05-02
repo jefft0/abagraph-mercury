@@ -67,8 +67,9 @@
 % derive(S, MaxResults) = Results.
 :- func derive(sentence, int) = list(derivation_result) is det.
 
-% Get the initial list of solutions for the sentence.
-:- func initial_solutions(sentence) = list(pair(int, step_and_id_map)) is det.
+% initial_solutions(S) = Solutions-RuntimeOut
+% Get the initial list of solutions for the sentence S.
+:- func initial_solutions(sentence) = pair(list(pair(int, step_and_id_map)), string) is det.
 
 :- pred choose_turn(pot_arg_graph::in, opponent_arg_graph_set::in, turn::out) is det.
 :- pred proponent_sentence_choice(list(sentence)::in, sentence::out, list(sentence)::out) is det.
@@ -179,8 +180,8 @@ derive(S, MaxResults) = Results :-
   %assert(proving(S)),
   %retractall(sols(_)),
   %assert(sols(1)),
-  Solutions = initial_solutions(S),
-  _-step_and_id_map(InitTuple, _, _, Ids, RuntimeOut) = det_head(Solutions),
+  Solutions-RuntimeOut = initial_solutions(S),
+  _-step_and_id_map(InitTuple, _, _, Ids, _) = det_head(Solutions),
   (verbose ->
     print_step(0, InitTuple),
     format_append(runtime_out_path, "%s", [s(RuntimeOut)])
@@ -189,7 +190,7 @@ derive(S, MaxResults) = Results :-
   Results = derivation(Solutions, 1, [], S, MaxResults, 0, snd(Ids)).
   %incr_sols.
 
-initial_solutions(S) = Solutions :-
+initial_solutions(S) = Solutions-RuntimeOut :-
   initial_derivation_tuple(make_singleton_set(S), InitTuple),
   (verbose ->
     Ids = map.init-map.init,
@@ -199,7 +200,7 @@ initial_solutions(S) = Solutions :-
   ;
     Ids1 = map.init-map.init,
     RuntimeOut = ""),
-  Solutions = [1-step_and_id_map(InitTuple, 0, 0, Ids1, RuntimeOut)].
+  Solutions = [1-step_and_id_map(InitTuple, 0, 0, Ids1, "")].
 
 initial_derivation_tuple(
     PropUnMrk,
