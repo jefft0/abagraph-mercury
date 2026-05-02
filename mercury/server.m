@@ -85,7 +85,13 @@ do_step(SolutionsIn, MaxSolutionId, AllDecomp, SolutionsOut, MaxSolutionIdOut, A
           [SolutionId-Solution1]-MaxSolutionId-""),
         io.write_string(RuntimeOutRest, !IO),
         SolutionsOut = append(HeadSolutions, RestIn),
-        AllDecompOut = AllDecomp
+        % Update AllDecomp from the new Ids.
+        AllDecompOut = foldl(
+          (func(step_and_id_map(_, _, _, LocalIds, _), AllDecompIn) = AllDecomp1 :-
+            % There shouldn't be common keys in AllDecomp and snd(IdsIn), so arbitrarily pick one.
+            AllDecomp1 = det_union(func(X, _) = X is semidet, AllDecompIn, snd(LocalIds))),
+          Solutions,
+          AllDecomp)
       ;
         % derivation_step returned no solutions for the head. Try remaining solutions.
         io.write_string("Try again.\n", !IO),
