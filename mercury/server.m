@@ -46,6 +46,17 @@ server_loop(SolutionsIn, MaxSolutionId, AllDecomp, !IO) :-
     (Line = "step" ->
       do_step(SolutionsIn, MaxSolutionId, AllDecomp, SolutionsOut, MaxSolutionIdOut, AllDecompOut, !IO)
     ;
+    (Line = "delhead" ->
+      ([_|Rest] = SolutionsIn ->
+        io.write_string("info: Deleted head\n", !IO),
+        SolutionsOut = Rest
+      ;
+        io.write_string("info: No more solutions.\n", !IO),
+        SolutionsOut = SolutionsIn
+      ),
+      MaxSolutionIdOut = MaxSolutionId,
+      AllDecompOut = AllDecomp
+    ;
     (prefix(Line, "decomp "), split(Line, length("decomp "), _, SId), to_int(SId, Id) ->
       (search(AllDecomp, Id, Decomp) ->
         io.write_string(Decomp ++ "\n", !IO)
@@ -56,10 +67,10 @@ server_loop(SolutionsIn, MaxSolutionId, AllDecomp, !IO) :-
       MaxSolutionIdOut = MaxSolutionId,
       AllDecompOut = AllDecomp
     ;
-      io.write_string("error: unknown command: " ++ Line ++ "\n", !IO),
+      io.write_string("error:Unknown command: " ++ Line ++ "\n", !IO),
       SolutionsOut = SolutionsIn,
       MaxSolutionIdOut = MaxSolutionId,
-      AllDecompOut = AllDecomp))),
+      AllDecompOut = AllDecomp)))),
 
     % Finish the response and loop.
     io.write_string("\n", !IO),
@@ -70,7 +81,7 @@ server_loop(SolutionsIn, MaxSolutionId, AllDecomp, !IO) :-
 do_step(SolutionsIn, MaxSolutionId, AllDecomp, SolutionsOut, MaxSolutionIdOut, AllDecompOut, !IO) :-
   (SolutionsIn = [SolutionId-step_and_id_map(T, NIn, MaxGId, IdsIn)|RestIn] ->
     (T = step_tuple([]-_-_, []-_, _, _-_, _, _) ->
-      io.write_string("SolutionsIn head is complete.\n", !IO),
+      io.write_string(format("info: SolutionsIn head is complete. %i remain.\n", [i(length(RestIn))]), !IO),
       SolutionsOut = SolutionsIn,
       MaxSolutionIdOut = MaxSolutionId,
       AllDecompOut = AllDecomp
@@ -117,12 +128,12 @@ do_step(SolutionsIn, MaxSolutionId, AllDecomp, SolutionsOut, MaxSolutionIdOut, A
           AllDecomp)
       ;
         % derivation_step returned no solutions for the head. Try remaining solutions.
-        io.write_string("Try again.\n", !IO),
+        io.write_string(format("info: Try again. %i remain.\n", [i(length(RestIn))]), !IO),
         SolutionsOut = RestIn,
         MaxSolutionIdOut = MaxSolutionId,
         AllDecompOut = AllDecomp))
     ;
-      io.write_string("SolutionsIn is empty. Do init.\n", !IO),
+      io.write_string("info: SolutionsIn is empty. Do init.\n", !IO),
       SolutionsOut = SolutionsIn,
       MaxSolutionIdOut = MaxSolutionId,
       AllDecompOut = AllDecomp).
