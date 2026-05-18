@@ -90,6 +90,8 @@
 % Output Solutions and messages have the incremented step number.
 :- func opponent_step(focussed_pot_arg_graph, sentence, step_and_id_map) = list(pair(step_and_id_map, string)) is det.
 
+:- pred is_actual(step_tuple::in) is semidet.
+
 :- implementation.
 
 :- import_module assoc_list.
@@ -221,6 +223,8 @@ initial_derivation_tuple(
   D0 = filter((pred(X::in) is semidet :- assumption(X)), PropUnMrk),
   PropGr = fold(func(V, GIn) = GOut :- add_vertex(V, _, GIn, GOut),
                 PropUnMrk, digraph.init).
+
+is_actual(step_tuple([]-_-_, []-_, _, _-_, _, _)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
