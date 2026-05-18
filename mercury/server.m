@@ -81,11 +81,12 @@ server_loop(SolutionsIn, MaxSolutionId, AllDecomp, !IO) :-
 do_step(SolutionsIn, MaxSolutionId, AllDecomp, SolutionsOut, MaxSolutionIdOut, AllDecompOut, !IO) :-
   Now = "0s:310ms:0us",  % TODO: fix
   (SolutionsIn = [SolutionId-step_and_id_map(T, NIn, MaxGId, IdsIn)|RestIn] ->
-    (T = step_tuple([]-_-_, []-_, _, _-_, _, _) ->
+    (is_actual(T) ->
       io.write_string(format("%s Solution %i\n", [s(Now), i(SolutionId)]), !IO),
       io.write_string(format("%s Step %i: Solution found\n", [s(Now), i(NIn)]), !IO),
-      io.write_string(format("info: SolutionsIn head is complete. %i remain.\n", [i(length(RestIn))]), !IO),
-      SolutionsOut = SolutionsIn,
+      io.write_string(format("info: SolutionsIn head is actual. %i remain.\n", [i(length(RestIn))]), !IO),
+      % Move the actual graph to the end.
+      SolutionsOut = append(RestIn, [det_head(SolutionsIn)]),
       MaxSolutionIdOut = MaxSolutionId,
       AllDecompOut = AllDecomp
     ;
